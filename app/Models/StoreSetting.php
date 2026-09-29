@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class StoreSetting extends Model
+{
+    protected $table = 'store_settings';
+
+    protected $fillable = [
+        'key',
+        'value',
+    ];
+
+    protected static array $cache = [];
+
+    public static function getValue(string $key, $default = null)
+    {
+        if (!array_key_exists($key, static::$cache)) {
+            $setting = static::where('key', $key)->first();
+            static::$cache[$key] = $setting ? $setting->value : null;
+        }
+
+        return (static::$cache[$key] !== null && static::$cache[$key] !== '') 
+            ? static::$cache[$key] 
+            : $default;
+    }
+
+    public static function setValue(string $key, $value): void
+    {
+        static::updateOrCreate(
+            ['key' => $key],
+            ['value' => $value]
+        );
+        static::$cache[$key] = $value;
+    }
+
+    public static function getStoreName(): string
+    {
+        $name = static::getValue('store_name');
+        if (!empty($name)) {
+            return $name;
+        }
+        return config('app.name', 'Store');
+    }
+
+    public static function defaultSocialPlatforms(): array
+    {
+        return [
+            'facebook' => [
+                'platform' => 'facebook',
+                'name'     => 'Facebook',
+                'url'      => '',
+                'icon'     => 'fab fa-facebook-f',
+                'color'    => '#1877f2',
+                'active'   => true,
+            ],
+            'instagram' => [
+                'platform' => 'instagram',
+                'name'     => 'Instagram',
+                'url'      => '',
+                'icon'     => 'fab fa-instagram',
+                'color'    => '#e4405f',
+                'active'   => true,
+            ],
+            'twitter' => [
+                'platform' => 'twitter',
+                'name'     => 'X (Twitter)',
+                'url'      => '',
+                'icon'     => 'fab fa-x-twitter',
+                'color'    => '#111111',
+                'active'   => true,
+            ],
+            'youtube' => [
+                'platform' => 'youtube',
+                'name'     => 'YouTube',
+                'url'      => '',
+                'icon'     => 'fab fa-youtube',
+                'color'    => '#ff0000',
+                'active'   => true,
+            ],
+            'whatsapp' => [
+                'platform' => 'whatsapp',
+                'name'     => 'WhatsApp',
+                'url'      => '',
+                'icon'     => 'fab fa-whatsapp',
+                'color'    => '#25d366',
+                'active'   => true,
+            ],
+            'linkedin' => [
+                'platform' => 'linkedin',
+                'name'     => 'LinkedIn',
+                'url'      => '',
+                'icon'     => 'fab fa-linkedin-in',
+                'color'    => '#0a66c2',
+                'active'   => false,
+            ],
+            'pinterest' => [
+                'platform' => 'pinterest',
+                'name'     => 'Pinterest',
+                'url'      => '',
+                'icon'     => 'fab fa-pinterest-p',
+                'color'    => '#bd081c',
+                'active'   => false,
+            ],
+            'telegram' => [
+                'platform' => 'telegram',
+                'name'     => 'Telegram',
+                'url'      => '',
+                'icon'     => 'fab fa-telegram-plane',
+                'color'    => '#229ed9',
+                'active'   => false,
+            ],
+        ];
+    }
+
+    public static function getSocialLinks(): array
+    {
+        $raw = static::getValue('social_links');
+        if (!empty($raw)) {
+            $decoded = is_array($raw) ? $raw : json_decode($raw, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return static::defaultSocialPlatforms();
+    }
+
+    public static function isMapEnabled(): bool
+    {
+        return static::getValue('show_map', '1') === '1';
+    }
+
+    public static function getMapEmbedUrl(): string
+    {
+        $customIframe = trim(static::getValue('map_iframe', ''));
+        if (!empty($customIframe)) {
+            // If user pasted a full <iframe src="..."> code, extract the src URL
+            if (preg_match('/src=[\"\']([^\"\']+)[\"\']/i', $customIframe, $match)) {
+                return $match[1];
+            }
+            if (filter_var($customIframe, FILTER_VALIDATE_URL) || str_starts_with($customIframe, 'http')) {
+                return $customIframe;
+            }
+        }
+
+        // Fall back to query by map_location or address
+        $location = trim(static::getValue('map_location', ''));
+        if (empty($location)) {
+            $location = trim(static::getValue('address', 'Tamil Nadu, India'));
+        }
+
+        $zoom = (int) static::getValue('map_zoom', '14');
+        if ($zoom < 1 || $zoom > 21) {
+            $zoom = 14;
+        }
+
+        return 'https://maps.google.com/maps?q=' . urlencode($location) . '&t=&z=' . $zoom . '&ie=UTF8&iwloc=&output=embed';
+    }
+
+    public static function getLogoUrl(): ?string
+    {
+        $logo = static::getValue('logo') ?: static::getValue('store_logo');
+        if (!$logo) return null;
+        if (str_starts_with($logo, 'http://') || str_starts_with($logo, 'https://')) return $logo;
+        if (str_starts_with($logo, 'storage/')) return asset($logo);
+        return asset('storage/' . ltrim($logo, '/'));
+    }
+
+    public static function getFaviconUrl(): string
+    {
+        $favicon = static::getValue('favicon') ?: static::getValue('store_favicon');
+        if ($favicon) {
+            if (str_starts_with($favicon, 'http://') || str_starts_with($favicon, 'https://')) return $favicon;
+            if (str_starts_with($favicon, 'storage/')) return asset($favicon);
+            return asset('storage/' . ltrim($favicon, '/'));
+        }
+        return asset('favicon.ico');
+    }
+
+    public static function getPrimaryColor(): string
+    {
+        return static::getValue('primary_color') ?: (static::getValue('theme_primary_color', '#131921') ?: '#131921');
+    }
+
+    public static function getSecondaryColor(): string
+    {
+        return static::getValue('secondary_color') ?: (static::getValue('theme_secondary_color', '#febd69') ?: '#febd69');
+    }
+
+    public static function getCurrencySymbol(): string
+    {
+        return static::getValue('currency_symbol', '₹') ?: '₹';
+    }
+
+    public static function getCurrencyCode(): string
+    {
+        return static::getValue('currency_code', 'INR') ?: 'INR';
+    }
+
+    public static function isStoreOpen(): bool
+    {
+        return static::getValue('store_status', 'open') === 'open';
+    }
+}
