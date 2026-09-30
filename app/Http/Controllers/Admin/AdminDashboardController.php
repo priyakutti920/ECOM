@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\Password;
 
 class AdminDashboardController extends Controller
 {
@@ -303,6 +304,82 @@ class AdminDashboardController extends Controller
         return response()->json(['success' => true, 'message' => 'Charge deleted.']);
     }
 
+    // Feature Settings (Trust strip on home page — 4 icons)
+    public function settingsFeatures()
+    {
+        $features = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $features[] = [
+                'title'   => StoreSetting::getValue("feature_{$i}_title", ''),
+                'desc'    => StoreSetting::getValue("feature_{$i}_desc", ''),
+                'icon'    => StoreSetting::getValue("feature_{$i}_icon", 'las la-check-circle'),
+                'enabled' => StoreSetting::getValue("feature_{$i}_enabled", '1') === '1',
+            ];
+        }
+        return view('admin.settings.features', compact('features'));
+    }
+
+    public function settingsFeaturesData()
+    {
+        $features = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $features[] = [
+                'title' => StoreSetting::getValue("feature_{$i}_title", ''),
+                'desc'  => StoreSetting::getValue("feature_{$i}_desc", ''),
+                'icon'  => StoreSetting::getValue("feature_{$i}_icon", 'las la-check-circle'),
+                'enabled' => StoreSetting::getValue("feature_{$i}_enabled", '1') === '1',
+            ];
+        }
+        return response()->json(['success' => true, 'data' => $features]);
+    }
+
+    public function settingsFeaturesSave(Request $request)
+    {
+        $titles = $request->input('titles', []);
+        $descs  = $request->input('descs', []);
+        $icons  = $request->input('icons', []);
+        $enabled = $request->input('enabled', []);
+
+        for ($i = 1; $i <= 4; $i++) {
+            $idx = $i - 1;
+            if ($request->has('enabled')) {
+                $val = $enabled[$idx] ?? null;
+                $isEnabled = ($val === '1' || $val === 1 || $val === true || $val === 'true' || $val === 'on');
+                StoreSetting::setValue("feature_{$i}_enabled", $isEnabled ? '1' : '0');
+            }
+
+            if (isset($titles[$idx])) {
+                StoreSetting::setValue("feature_{$i}_title", trim($titles[$idx]));
+            }
+            if (isset($descs[$idx])) {
+                StoreSetting::setValue("feature_{$i}_desc",  trim($descs[$idx]));
+            }
+            if (isset($icons[$idx])) {
+                $icon = trim($icons[$idx]);
+                StoreSetting::setValue("feature_{$i}_icon", $icon !== '' ? $icon : 'las la-check-circle');
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Features saved successfully.']);
+    }
+
+    public function settingsFeaturesToggle(Request $request)
+    {
+        $idx = (int) $request->input('index', 0);
+        if ($idx < 1 || $idx > 4) {
+            return response()->json(['success' => false, 'message' => 'Invalid feature index.']);
+        }
+        $current = StoreSetting::getValue("feature_{$idx}_enabled", '1') === '1';
+        $new = !$current;
+        StoreSetting::setValue("feature_{$idx}_enabled", $new ? '1' : '0');
+
+        return response()->json([
+            'success' => true,
+            'enabled' => $new,
+            'message' => $new ? 'Feature enabled.' : 'Feature disabled.',
+        ]);
+    }
+
     public function settingsStoreData()
     {
         $data = [
@@ -365,6 +442,17 @@ class AdminDashboardController extends Controller
             $this->deleteSettingImage('logo');
             $path = $request->file('logo')->store('settings', 'public');
             StoreSetting::setValue('logo', $path);
+            try {
+                \App\Models\MediaFile::create([
+                    'name' => 'Store Logo ' . date('Y-m-d'),
+                    'filename' => basename($path),
+                    'path' => $path,
+                    'disk' => 'public',
+                    'mime_type' => $request->file('logo')->getClientMimeType() ?: 'image/png',
+                    'size' => $request->file('logo')->getSize() ?: 0,
+                    'folder' => 'settings',
+                ]);
+            } catch (\Throwable $e) {}
         }
 
         // Favicon
@@ -374,7 +462,20 @@ class AdminDashboardController extends Controller
             $this->deleteSettingImage('favicon');
             $path = $request->file('favicon')->store('settings', 'public');
             StoreSetting::setValue('favicon', $path);
+            try {
+                \App\Models\MediaFile::create([
+                    'name' => 'Store Favicon ' . date('Y-m-d'),
+                    'filename' => basename($path),
+                    'path' => $path,
+                    'disk' => 'public',
+                    'mime_type' => $request->file('favicon')->getClientMimeType() ?: 'image/png',
+                    'size' => $request->file('favicon')->getSize() ?: 0,
+                    'folder' => 'settings',
+                ]);
+            } catch (\Throwable $e) {}
         }
+
+        \Illuminate\Support\Facades\Cache::forget('store_settings_all');
 
         return response()->json(['success' => true, 'message' => 'Settings saved successfully.']);
     }
@@ -383,7 +484,7 @@ class AdminDashboardController extends Controller
     {
         $path = StoreSetting::getValue($key);
         if (!$path) return null;
-        return \App\Traits\HasCustomAsset::getCustomAssetUrl('storage/' . $path);
+        return StoreSetting::resolveMediaUrl($path);
     }
 
     private function deleteSettingImage(string $key): void
@@ -392,6 +493,7 @@ class AdminDashboardController extends Controller
         if ($path) {
             Storage::disk('public')->delete($path);
             StoreSetting::setValue($key, null);
+            \Illuminate\Support\Facades\Cache::forget('store_settings_all');
         }
     }
 
@@ -514,10 +616,10 @@ class AdminDashboardController extends Controller
     {
         $admin = Auth::user();
         $request->validate([
-            'name'  => 'required|string|max:120',
-            'email' => 'required|email|max:120|unique:users,email,' . $admin->id,
+            'name'             => 'required|string|max:120',
+            'email'            => 'required|email|max:120|unique:users,email,' . $admin->id,
             'current_password' => 'nullable|required_with:new_password',
-            'new_password'     => 'nullable|min:6|confirmed',
+            'new_password'     => ['nullable', Password::min(8)->letters()->numbers(), 'confirmed'],
         ]);
 
         $admin->name = $request->name;

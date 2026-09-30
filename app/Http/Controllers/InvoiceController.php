@@ -97,7 +97,10 @@ class InvoiceController extends Controller
 
         // Check if invoice already exists for this order
         if (!$request->has('force_new')) {
-            $existing = Invoice::where('invoice_json', 'like', '%"order_code":"' . $order->order_code . '"%')->latest()->first();
+            $existing = Invoice::where('order_id', $order->id)
+                ->orWhere('invoice_json', 'like', '%"order_code":"' . $order->order_code . '"%')
+                ->latest()
+                ->first();
             if ($existing) {
                 return redirect()->route('admin.invoices.show', $existing->id)
                     ->with('info', "An invoice for Order #{$order->order_code} already exists (#{$existing->invoice_number}). You can switch templates or print below.");
@@ -115,7 +118,10 @@ class InvoiceController extends Controller
      */
     public static function createFromOrder(Order $order, ?int $templateId = null): Invoice
     {
-        $existing = Invoice::where('invoice_json', 'like', '%"order_code":"' . $order->order_code . '"%')->latest()->first();
+        $existing = Invoice::where('order_id', $order->id)
+            ->orWhere('invoice_json', 'like', '%"order_code":"' . $order->order_code . '"%')
+            ->latest()
+            ->first();
         if ($existing) {
             return $existing;
         }
@@ -123,12 +129,8 @@ class InvoiceController extends Controller
         $defaultTemplateId = StoreSetting::getValue('default_invoice_template', 1);
         $tplId = $templateId ?: $defaultTemplateId;
 
-        // Check interstate (Tamil Nadu code 33 is store home state)
-        $customerState = strtolower((string)$order->addr_state);
-        $isInterstate = !empty($customerState) && !str_contains($customerState, 'tamil') && !str_contains($customerState, 'tn');
-
-        $subtotal = (float)$order->subtotal;
-        $taxAmount = round($subtotal * 0.05, 2);
+        // Authoritative financial calculation
+        $calc = \App\Services\Order\OrderFinancialCalculator::calculateForOrder($order);
 
         $itemsList = $order->items->map(function ($it) {
             $desc = $it->product_name;
@@ -140,10 +142,13 @@ class InvoiceController extends Controller
             }
             return [
                 'name'        => $desc,
+                'sku'         => $it->sku ?: ($it->product?->sku ?: ($it->product?->code ?: 'N/A')),
+                'variation'   => $it->variation_name,
+                'color'       => $it->color,
                 'hsn'         => '61091000',
                 'quantity'    => $it->quantity,
                 'price'       => (float) $it->unit_price,
-                'tax_percent' => 5,
+                'tax_percent' => $calc['gst_percentage'],
                 'total'       => (float) $it->line_total,
             ];
         })->toArray();
@@ -151,6 +156,7 @@ class InvoiceController extends Controller
         $invoiceNumber = 'INV-' . date('Y') . '-' . strtoupper(substr(uniqid(), 8));
 
         return Invoice::create([
+            'order_id'         => $order->id,
             'user_id'          => $order->customer_id ?: (auth()->id() ?: 1),
             'template_id'      => $tplId,
             'customer_name'    => $order->contact_name ?: $order->addr_full_name,
@@ -159,17 +165,23 @@ class InvoiceController extends Controller
             'customer_address' => trim($order->addr_line_1 . ($order->addr_line_2 ? ', ' . $order->addr_line_2 : '') . ', ' . $order->addr_city . ', ' . $order->addr_state . ' - ' . $order->addr_pincode, ' ,'),
             'customer_gst'     => null,
             'invoice_number'   => $invoiceNumber,
+            'invoice_date'     => $order->created_at ? $order->created_at->toDateString() : date('Y-m-d'),
             'invoice_json'     => json_encode([
                 'order_code'     => $order->order_code,
                 'order_date'     => $order->created_at->format('Y-m-d H:i:s'),
                 'payment_method' => $order->payment_method,
-                'is_interstate'  => $isInterstate,
+                'payment_status' => $order->payment_status,
+                'is_interstate'  => $calc['is_interstate'],
+                'cgst'           => $calc['cgst'],
+                'sgst'           => $calc['sgst'],
+                'igst'           => $calc['igst'],
                 'items'          => $itemsList,
             ]),
-            'subtotal'         => $subtotal,
-            'tax_amount'       => $taxAmount,
-            'other_charges'    => (float) ($order->shipping ?? 0),
-            'total_amount'     => (float) $order->total,
+            'subtotal'         => $calc['subtotal'],
+            'discount_amount'  => $calc['discount'],
+            'tax_amount'       => $calc['tax_amount'],
+            'other_charges'    => $calc['shipping'],
+            'total_amount'     => $calc['total'],
             'status'           => $order->payment_status === 'paid' ? 1 : 0,
         ]);
     }

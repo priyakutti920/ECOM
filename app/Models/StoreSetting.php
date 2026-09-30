@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class StoreSetting extends Model
 {
+    use \App\Traits\HasCustomAsset;
+
     protected $table = 'store_settings';
 
     protected $fillable = [
@@ -29,13 +31,18 @@ class StoreSetting extends Model
         return ($val !== null && $val !== '') ? $val : $default;
     }
 
+    public static function clearCache(): void
+    {
+        \Illuminate\Support\Facades\Cache::forget('store_settings_all');
+    }
+
     public static function setValue(string $key, $value): void
     {
         static::updateOrCreate(
             ['key' => $key],
             ['value' => $value]
         );
-        \Illuminate\Support\Facades\Cache::forget('store_settings_all');
+        static::clearCache();
     }
 
     public static function getStoreName(): string
@@ -166,18 +173,15 @@ class StoreSetting extends Model
     {
         $logo = static::getValue('logo') ?: static::getValue('store_logo');
         if (!$logo) return null;
-        if (str_starts_with($logo, 'http://') || str_starts_with($logo, 'https://')) return $logo;
-        if (str_starts_with($logo, 'storage/')) return asset($logo);
-        return asset('storage/' . ltrim($logo, '/'));
+        return self::resolveMediaUrl($logo);
     }
 
     public static function getFaviconUrl(): string
     {
         $favicon = static::getValue('favicon') ?: static::getValue('store_favicon');
         if ($favicon) {
-            if (str_starts_with($favicon, 'http://') || str_starts_with($favicon, 'https://')) return $favicon;
-            if (str_starts_with($favicon, 'storage/')) return asset($favicon);
-            return asset('storage/' . ltrim($favicon, '/'));
+            $url = self::resolveMediaUrl($favicon);
+            if ($url) return $url;
         }
         return asset('favicon.ico');
     }
@@ -205,5 +209,22 @@ class StoreSetting extends Model
     public static function isStoreOpen(): bool
     {
         return static::getValue('store_status', 'open') === 'open';
+    }
+
+    public static function getFeatures(): array
+    {
+        $features = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $title = static::getValue("feature_{$i}_title");
+            if (empty($title)) continue;
+            // Skip disabled features
+            if (static::getValue("feature_{$i}_enabled", '1') !== '1') continue;
+            $features[] = [
+                'title' => $title,
+                'desc'  => static::getValue("feature_{$i}_desc", ''),
+                'icon'  => static::getValue("feature_{$i}_icon", 'las la-check-circle'),
+            ];
+        }
+        return $features;
     }
 }

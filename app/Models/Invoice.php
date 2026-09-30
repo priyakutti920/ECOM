@@ -7,22 +7,30 @@ use Illuminate\Database\Eloquent\Model;
 class Invoice extends Model
 {
     protected $fillable = [
-        'user_id', 'template_id', 'customer_name', 'invoice_number',
-        'customer_email', 'customer_phone', 'customer_address', 'customer_gst',
-        'invoice_json', 'subtotal', 'tax_amount', 'other_charges', 'total_amount', 'status',
+        'order_id', 'user_id', 'template_id', 'customer_name', 'invoice_number',
+        'invoice_date', 'customer_email', 'customer_phone', 'customer_address', 'customer_gst',
+        'invoice_json', 'subtotal', 'discount_amount', 'tax_amount', 'other_charges', 'total_amount', 'status',
     ];
 
     protected function casts(): array
     {
         return [
-            'subtotal' => 'decimal:2',
-            'tax_amount' => 'decimal:2',
-            'other_charges' => 'decimal:2',
-            'total_amount' => 'decimal:2',
-            'status' => 'integer',
-            'user_id' => 'integer',
-            'template_id' => 'integer',
+            'subtotal'        => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'tax_amount'      => 'decimal:2',
+            'other_charges'   => 'decimal:2',
+            'total_amount'    => 'decimal:2',
+            'status'          => 'integer',
+            'user_id'         => 'integer',
+            'template_id'     => 'integer',
+            'order_id'        => 'integer',
+            'invoice_date'    => 'date',
         ];
+    }
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'order_id');
     }
 
     public function template()

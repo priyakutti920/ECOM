@@ -238,11 +238,17 @@
                         <li class="{{ $seg === 'products' ? 'active' : '' }}">
                             <a href="{{ url('admin/products') }}"><i class="fas fa-box-open"></i> All Products</a>
                         </li>
+                        <li class="{{ $seg === 'inventory' ? 'active' : '' }}">
+                            <a href="{{ route('admin.inventory.index') }}"><i class="fas fa-warehouse"></i> Inventory & Stock</a>
+                        </li>
                         <li class="{{ $seg === 'providers' ? 'active' : '' }}">
                             <a href="{{ url('admin/providers') }}"><i class="fas fa-truck"></i> Providers</a>
                         </li>
                         <li class="{{ $seg === 'categories' ? 'active' : '' }}">
                             <a href="{{ url('admin/categories') }}"><i class="fas fa-folder"></i> Categories</a>
+                        </li>
+                        <li class="{{ $seg === 'navigation' ? 'active' : '' }}">
+                            <a href="{{ route('admin.navigation.index') }}"><i class="fas fa-compass"></i> Navigation Bar</a>
                         </li>
                         <li class="{{ $seg === 'reviews' ? 'active' : '' }}">
                             <a href="{{ route('admin.reviews.index') }}"><i class="fas fa-star"></i> Product Reviews</a>
@@ -251,6 +257,23 @@
                 </li>
 
                 
+
+                <li class="dropdown {{ in_array($seg, ['appearance', 'files', 'navigation', 'banners']) ? 'active' : '' }}">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-paint-brush"></i> Appearance <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li class="{{ request()->is('admin/appearance/files*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.appearance.files.index') }}"><i class="fas fa-photo-video text-primary"></i> Files &amp; Media</a>
+                        </li>
+                        <li class="{{ $seg === 'navigation' ? 'active' : '' }}">
+                            <a href="{{ route('admin.navigation.index') }}"><i class="fas fa-compass"></i> Navigation Bar</a>
+                        </li>
+                        <li class="{{ $seg === 'banners' ? 'active' : '' }}">
+                            <a href="{{ url('admin/banners') }}"><i class="fas fa-image"></i> Banners</a>
+                        </li>
+                    </ul>
+                </li>
 
                 <li class="{{ $seg === 'payments' ? 'active' : '' }}">
                     <a href="{{ route('admin.payments.index') }}"><i class="fas fa-credit-card"></i> Payments</a>

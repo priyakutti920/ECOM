@@ -1,125 +1,124 @@
 @php
-  $storeAddress = \App\Models\StoreSetting::getValue('address', 'Tamil Nadu, India');
+  $storeAddress = \App\Models\StoreSetting::getValue('address');
   $storeName = \App\Models\StoreSetting::getStoreName();
-  $showSocialFooter = \App\Models\StoreSetting::getValue('social_show_in_footer', '1') === '1';
-  $socialOpenNewTab = \App\Models\StoreSetting::getValue('social_open_new_tab', '1') === '1';
-  $socialLinks = \App\Models\StoreSetting::getSocialLinks();
-  $socialCustom = json_decode(\App\Models\StoreSetting::getValue('social_custom_links', '[]'), true) ?: [];
+  $storePhone = \App\Models\StoreSetting::getValue('phone');
+  $storeEmail = \App\Models\StoreSetting::getValue('email');
+  $instagramUrl = \App\Models\StoreSetting::getValue('instagram_url') ?: \App\Models\StoreSetting::getValue('social_instagram');
+  $waNumber = \App\Models\StoreSetting::getValue('whatsapp_number') ?: \App\Models\StoreSetting::getValue('wa_number');
 @endphp
 
-<footer class="footer">
-  <div class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-  Back to top
-  </div>
+<footer class="footer-wrap">
+  <div class="container">
+    <div class="footer">
+      <div class="footer-top">
+        <div class="footer-grid">
+          <!-- Col 1: Contact Us (Fully Dynamic from DB) -->
+          <div class="footer-col contact-col">
+            <h4 class="title">Contact Us</h4>
+            <ul class="contact-info">
+              @if(!empty($storePhone))
+                <li>
+                  <i class="las la-phone"></i>
+                  <a href="tel:{{ preg_replace('/[^0-9+]/', '', $storePhone) }}" class="store-phone">{{ $storePhone }}</a>
+                </li>
+              @endif
+              @if(!empty($storeEmail))
+                <li>
+                  <i class="las la-envelope"></i>
+                  <a href="mailto:{{ $storeEmail }}" class="store-email">{{ $storeEmail }}</a>
+                </li>
+              @endif
+              @if(!empty($storeAddress))
+                <li>
+                  <i class="las la-map-marker"></i>
+                  <span>{{ $storeAddress }}</span>
+                </li>
+              @endif
+            </ul>
 
-  <div class="footer-main">
-  <div class="footer-grid">
-  <div class="footer-section">
-  <h4>Quick Links</h4>
-  <ul>
-    <li><a href="{{ url('/') }}">Home</a></li>
-    <li><a href="{{ url('/products') }}">Shop</a></li>
-    <li><a href="{{ url('/cart') }}">Cart</a></li>
-    <li><a href="{{ route('shop.wishlist') }}">Wishlist</a></li>
-    @auth('customer')
-      <li><a href="{{ route('shop.orders.index') }}">Orders</a></li>
-      <li><a href="{{ route('shop.account') }}">Account</a></li>
-    @else
-      <li><a href="{{ route('shop.login.email') }}">Orders</a></li>
-      <li><a href="{{ route('shop.login.email') }}">Account</a></li>
-    @endauth
-    <li><a href="{{ route('shop.help') }}">Help &amp; Support</a></li>
-    @auth('customer')
-      <li>
-        <a href="{{ route('shop.logout') }}" onclick="event.preventDefault(); document.getElementById('footer-logout-form').submit();" style="color:var(--amazon-orange-dark); font-weight:600;">Logout</a>
-        <form id="footer-logout-form" action="{{ route('shop.logout') }}" method="POST" style="display:none;">@csrf</form>
-      </li>
-    @else
-      <li><a href="{{ route('shop.login.email') }}" style="color:var(--amazon-orange-dark); font-weight:600;">Login</a></li>
-    @endauth
-  </ul>
-  </div>
-  @if($showSocialFooter)
-  <div class="footer-section">
-  <h4>Connect with Us</h4>
-  <ul>
-    @php $renderedAny = false; @endphp
-    @foreach($socialLinks as $sPlatform => $sItem)
-      @if(!empty($sItem['url']) && (!isset($sItem['active']) || $sItem['active']))
-        @php $renderedAny = true; @endphp
-        <li>
-          <a href="{{ $sItem['url'] }}" @if($socialOpenNewTab) target="_blank" rel="noopener noreferrer" @endif>
-            @if(!empty($sItem['icon']))<i class="{{ $sItem['icon'] }}" style="width:16px; margin-right:6px;"></i>@endif{{ $sItem['name'] ?? ucfirst($sPlatform) }}
-          </a>
-        </li>
-      @endif
-    @endforeach
-    @foreach($socialCustom as $cItem)
-      @if(!empty($cItem['url']) && (!isset($cItem['active']) || $cItem['active']))
-        @php $renderedAny = true; @endphp
-        <li>
-          <a href="{{ $cItem['url'] }}" @if($socialOpenNewTab) target="_blank" rel="noopener noreferrer" @endif>
-            <i class="{{ $cItem['icon'] ?? 'fas fa-link' }}" style="width:16px; margin-right:6px;"></i>{{ $cItem['name'] }}
-          </a>
-        </li>
-      @endif
-    @endforeach
-    @if(!$renderedAny)
-      <li><a href="#"><i class="fab fa-facebook-f" style="width:16px; margin-right:6px;"></i>Facebook</a></li>
-      <li><a href="#"><i class="fab fa-x-twitter" style="width:16px; margin-right:6px;"></i>Twitter</a></li>
-      <li><a href="#"><i class="fab fa-instagram" style="width:16px; margin-right:6px;"></i>Instagram</a></li>
-      <li><a href="#"><i class="fab fa-youtube" style="width:16px; margin-right:6px;"></i>YouTube</a></li>
-    @endif
-  </ul>
-  </div>
-  @endif
-  <div class="footer-section" style="grid-column: span 2;">
-  <h4>Store Location</h4>
-  @if(!empty($storeAddress))
-  <p style="color: #ddd; font-size: 12.5px; line-height: 1.5; margin-bottom: 10px;">
-    <i class="fas fa-map-marker-alt" style="color: var(--amazon-orange); margin-right: 6px;"></i>
-    {{ $storeAddress }}
-  </p>
-  @endif
-  @if(\App\Models\StoreSetting::isMapEnabled())
-  <div style="border-radius: 4px; overflow: hidden; border: 1px solid #3a4553; height: 130px; margin-top: 10px;">
-    <iframe 
-      width="100%" 
-      height="130" 
-      style="border:0;" 
-      loading="lazy" 
-      allowfullscreen 
-      src="{{ \App\Models\StoreSetting::getMapEmbedUrl() }}">
-    </iframe>
-  </div>
-  @endif
-  </div>
-  </div>
+            @if(!empty($instagramUrl) || !empty($waNumber))
+              <div style="margin-top: 16px;">
+                <ul style="display:flex; gap:12px; list-style:none; padding:0;">
+                  @if(!empty($instagramUrl))
+                    <li>
+                      <a href="{{ $instagramUrl }}" title="Instagram" target="_blank" rel="noopener noreferrer" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#e1306c; font-size:18px; transition:all 0.2s ease;">
+                        <i class="lab la-instagram"></i>
+                      </a>
+                    </li>
+                  @endif
+                  @if(!empty($waNumber))
+                    <li>
+                      <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $waNumber) }}" title="WhatsApp" target="_blank" rel="noopener noreferrer" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#25D366; font-size:18px; transition:all 0.2s ease;">
+                        <i class="lab la-whatsapp"></i>
+                      </a>
+                    </li>
+                  @endif
+                </ul>
+              </div>
+            @endif
+          </div>
 
-  <div class="footer-divider">
-  <div class="footer-logo">{{ $storeName }}</div>
-  <div class="footer-lang">
-  <select>
-  <option>English</option>
-  <option>Tamil</option>
-  <option>हिन्दी</option>
-  </select>
-  </div>
-  </div>
-  </div>
+          <!-- Col 2: My Account -->
+          <div class="footer-col">
+            <h4 class="title">My Account</h4>
+            <ul>
+              <li><a href="{{ route('shop.account') }}"><i class="las la-angle-right"></i> Dashboard</a></li>
+              <li><a href="{{ route('shop.orders.index') }}"><i class="las la-angle-right"></i> My Orders</a></li>
+              <li><a href="{{ route('shop.wishlist') }}"><i class="las la-angle-right"></i> My Wishlist</a></li>
+              <li><a href="{{ route('shop.account') }}"><i class="las la-angle-right"></i> My Profile</a></li>
+              @auth('customer')
+                <li>
+                  <a href="{{ route('shop.logout') }}" onclick="event.preventDefault(); document.getElementById('footer-logout-form').submit();" style="color:#ef4444;">
+                    <i class="las la-sign-out-alt"></i> Logout
+                  </a>
+                  <form id="footer-logout-form" action="{{ route('shop.logout') }}" method="POST" style="display:none;">@csrf</form>
+                </li>
+              @else
+                <li><a href="{{ route('shop.login.email') }}"><i class="las la-sign-in-alt"></i> Login / Register</a></li>
+              @endauth
+            </ul>
+          </div>
 
-  <div class="footer-bottom">
-  <div class="footer-bottom-content">
-  <div class="footer-links">
-  <a href="#">Conditions of Use</a><span>&nbsp;|&nbsp;</span>
-  <a href="#">Privacy Notice</a><span>&nbsp;|&nbsp;</span>
-  <a href="#">Interest-Based Ads</a>
-  </div>
-  <div class="footer-copyright">
-  © {{ date('Y') }} {{ $storeName }}, Inc. or its affiliates
-  <span>Made with care in India</span>
-  </div>
-  </div>
+          <!-- Col 3: Information -->
+          <div class="footer-col">
+            <h4 class="title">Information</h4>
+            <ul>
+              <li><a href="{{ url('/') }}"><i class="las la-angle-right"></i> Home</a></li>
+              <li><a href="{{ url('/products') }}"><i class="las la-angle-right"></i> All Products</a></li>
+              <li><a href="{{ url('/deals') }}"><i class="las la-angle-right"></i> Flash Deals</a></li>
+              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Help & Support</a></li>
+              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Contact Us</a></li>
+            </ul>
+          </div>
+
+          <!-- Col 4: Customer Service & Policies -->
+          <div class="footer-col">
+            <h4 class="title">Customer Service</h4>
+            <ul>
+              <li><a href="{{ url('/track-order') }}"><i class="las la-angle-right"></i> Track Order</a></li>
+              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Shipping & Delivery</a></li>
+              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Easy Returns</a></li>
+              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Secure Payment</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Bottom Bar -->
+      <div class="footer-bottom">
+        <div class="footer-bottom-inner">
+          <div class="footer-text">
+            Copyright © <a href="{{ url('/') }}">{{ $storeName }}</a> {{ date('Y') }}. All rights reserved.
+          </div>
+          <div class="footer-payment-badges">
+            <span style="font-size:12px; color:var(--color-muted); margin-right:6px;">Guaranteed Safe Checkout:</span>
+            <i class="lab la-cc-visa" style="font-size:24px; color:#1a1f71;" title="Visa"></i>
+            <i class="lab la-cc-mastercard" style="font-size:24px; color:#eb001b;" title="Mastercard"></i>
+            <i class="las la-shield-alt" style="font-size:22px; color:#10b981;" title="SSL Secured"></i>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </footer>
 

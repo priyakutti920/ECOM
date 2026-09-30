@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Traits\HasCustomAsset;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
+    use HasCustomAsset;
     use SoftDeletes;
-    use \App\Traits\HasCustomAsset;
 
     protected $fillable = [
         'name', 'code', 'description', 'url',
@@ -22,22 +24,23 @@ class Product extends Model
         'video_url', 'seo_url', 'related_products',
         'sort_order', 'meta_keywords', 'og_title',
         'og_description', 'og_image',
-        'is_returnable',
+        'is_returnable', 'low_stock_threshold',
     ];
 
     protected function casts(): array
     {
         return [
             'manage_inventory' => 'boolean',
-            'is_featured'      => 'boolean',
-            'is_active'        => 'boolean',
-            'is_returnable'    => 'boolean',
-            'qty'              => 'integer',
-            'price'            => 'decimal:2',
-            'discount_price'   => 'decimal:2',
-            'special_price'    => 'decimal:2',
+            'is_featured' => 'boolean',
+            'is_active' => 'boolean',
+            'is_returnable' => 'boolean',
+            'qty' => 'integer',
+            'low_stock_threshold' => 'integer',
+            'price' => 'decimal:2',
+            'discount_price' => 'decimal:2',
+            'special_price' => 'decimal:2',
             'special_price_start' => 'datetime',
-            'special_price_end'   => 'datetime',
+            'special_price_end' => 'datetime',
         ];
     }
 
@@ -48,7 +51,7 @@ class Product extends Model
                 if (str_starts_with($img->image, 'product/') && file_exists(public_path($img->image))) {
                     @unlink(public_path($img->image));
                 } else {
-                    \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('storage/', '', $img->image));
+                    Storage::disk('public')->delete(str_replace('storage/', '', $img->image));
                 }
                 $img->delete();
             }
@@ -57,7 +60,7 @@ class Product extends Model
                     if (str_starts_with($img->image, 'product/') && file_exists(public_path($img->image))) {
                         @unlink(public_path($img->image));
                     } else {
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('storage/', '', $img->image));
+                        Storage::disk('public')->delete(str_replace('storage/', '', $img->image));
                     }
                     $img->delete();
                 }
@@ -88,6 +91,19 @@ class Product extends Model
     public function scopeOutOfStock(Builder $query): Builder
     {
         return $query->where('stock_status', 'out_of_stock');
+    }
+
+    public function scopeLowStock(Builder $query): Builder
+    {
+        return $query->where('manage_inventory', true)
+            ->where('stock_status', 'in_stock')
+            ->whereColumn('qty', '<=', 'low_stock_threshold')
+            ->where('qty', '>', 0);
+    }
+
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class)->latest();
     }
 
     // ── Aliases for legacy column names ─────────────────
@@ -121,28 +137,17 @@ class Product extends Model
     {
         $primary = $this->primaryImage;
         if ($primary && $primary->image) {
-            $path = $primary->image;
-            if (!str_starts_with($path, 'product/') && !str_starts_with($path, 'category/') && !str_starts_with($path, 'settings/')) {
-                $path = 'storage/' . $path;
-            }
-            return self::getCustomAssetUrl($path);
+            return self::resolveMediaUrl($primary->image) ?? '';
         }
         $first = $this->images->first();
-        if ($first) {
-            $path = $first->image;
-            if (!str_starts_with($path, 'product/') && !str_starts_with($path, 'category/') && !str_starts_with($path, 'settings/')) {
-                $path = 'storage/' . $path;
-            }
-            return self::getCustomAssetUrl($path);
+        if ($first && $first->image) {
+            return self::resolveMediaUrl($first->image) ?? '';
         }
         // Legacy single image column
-        if (!empty($this->attributes['image'])) {
-            $path = $this->attributes['image'];
-            if (!str_starts_with($path, 'product/') && !str_starts_with($path, 'category/') && !str_starts_with($path, 'settings/')) {
-                $path = 'storage/' . $path;
-            }
-            return self::getCustomAssetUrl($path);
+        if (! empty($this->attributes['image'])) {
+            return self::resolveMediaUrl($this->attributes['image']) ?? '';
         }
+
         return '';
     }
 
@@ -202,9 +207,11 @@ class Product extends Model
         }
         if ($this->relationLoaded('approvedReviews')) {
             $avg = $this->approvedReviews->avg('rating');
+
             return $avg ? round((float) $avg, 1) : 0.0;
         }
         $avg = $this->approvedReviews()->avg('rating');
+
         return $avg ? round((float) $avg, 1) : 0.0;
     }
 
@@ -216,26 +223,27 @@ class Product extends Model
         if ($this->relationLoaded('approvedReviews')) {
             return $this->approvedReviews->count();
         }
+
         return $this->approvedReviews()->count();
     }
 
     public function getRatingDistributionAttribute(): array
     {
-        $total = $this->approvedReviews()->count();
+        $counts = $this->approvedReviews()
+            ->selectRaw('rating, count(*) as cnt')
+            ->groupBy('rating')
+            ->pluck('cnt', 'rating')
+            ->all();
+
+        $total = array_sum($counts);
         $dist = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
         $pct = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
 
         if ($total > 0) {
-            $counts = $this->approvedReviews()
-                ->selectRaw('rating, count(*) as cnt')
-                ->groupBy('rating')
-                ->pluck('cnt', 'rating')
-                ->all();
-
             foreach ($dist as $star => $v) {
-                $count = $counts[$star] ?? 0;
+                $count = (int) ($counts[$star] ?? 0);
                 $dist[$star] = $count;
-                $pct[$star] = round(($count / $total) * 100);
+                $pct[$star] = (int) round(($count / $total) * 100);
             }
         }
 
@@ -248,12 +256,13 @@ class Product extends Model
     {
         $now = now();
         if ($this->special_price && $this->special_price > 0) {
-            $startOk = !$this->special_price_start || $this->special_price_start <= $now;
-            $endOk   = !$this->special_price_end || $this->special_price_end >= $now;
-            if ($startOk && $endOk && (float)$this->special_price < (float)$this->price) {
+            $startOk = ! $this->special_price_start || $this->special_price_start <= $now;
+            $endOk = ! $this->special_price_end || $this->special_price_end >= $now;
+            if ($startOk && $endOk && (float) $this->special_price < (float) $this->price) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -262,14 +271,16 @@ class Product extends Model
         if ($this->is_on_sale) {
             return (float) $this->special_price;
         }
+
         return (float) $this->price;
     }
 
     public function getDiscountPercentAttribute(): int
     {
         if ($this->is_on_sale && $this->price > 0) {
-            return (int) round((((float)$this->price - (float)$this->special_price) / (float)$this->price) * 100);
+            return (int) round((((float) $this->price - (float) $this->special_price) / (float) $this->price) * 100);
         }
+
         return 0;
     }
 
@@ -290,7 +301,7 @@ class Product extends Model
             $base = (float) $this->special_price;
         }
 
-        if (!empty($optionIds)) {
+        if (! empty($optionIds)) {
             $optionsExtra = (float) $this->options()->whereIn('id', $optionIds)->sum('price');
             $base += $optionsExtra;
         }
@@ -306,9 +317,13 @@ class Product extends Model
         if ($vars && $vars->isNotEmpty()) {
             $min = (float) $vars->min('price');
             $max = (float) $vars->max('price');
-            if ($min == $max) return number_format($min, 2);
-            return number_format($min, 2) . ' - ' . number_format($max, 2);
+            if ($min == $max) {
+                return number_format($min, 2);
+            }
+
+            return number_format($min, 2).' - '.number_format($max, 2);
         }
+
         return number_format($this->effective_price ?? 0, 2);
     }
 
@@ -317,6 +332,7 @@ class Product extends Model
         if ($this->is_on_sale) {
             return (float) $this->special_price;
         }
+
         return null;
     }
 
@@ -327,8 +343,13 @@ class Product extends Model
 
     public function getStatusBadgeAttribute(): string
     {
-        if (!$this->is_active) return '<span class="badge badge-secondary">Inactive</span>';
-        if ($this->stock_status === 'out_of_stock') return '<span class="badge badge-danger">Out of Stock</span>';
+        if (! $this->is_active) {
+            return '<span class="badge badge-secondary">Inactive</span>';
+        }
+        if ($this->stock_status === 'out_of_stock') {
+            return '<span class="badge badge-danger">Out of Stock</span>';
+        }
+
         return '<span class="badge badge-success">Active</span>';
     }
 }

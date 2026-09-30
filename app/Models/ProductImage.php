@@ -20,13 +20,6 @@ class ProductImage extends Model
     public function getUrlAttribute(): string
     {
         if (!$this->image) return '';
-        $path = $this->image;
-        if (file_exists(public_path($path))) {
-            return self::getCustomAssetUrl($path);
-        }
-        if (!str_starts_with($path, 'storage/')) {
-            $path = 'storage/' . $path;
-        }
-        return self::getCustomAssetUrl($path);
+        return self::resolveMediaUrl($this->image) ?? '';
     }
 }

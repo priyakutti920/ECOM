@@ -16,11 +16,14 @@ return Application::configure(basePath: dirname(__DIR__))
  'customer' => \App\Http\Middleware\EnsureCustomerAuthenticated::class,
  ]);
 
- // UPI gateway posts the webhook server-to-server — no CSRF token possible.
- $middleware->validateCsrfTokens(except: [
- 'api/upi/webhook',
- 'payment/webhook',
- ]);
+    // Payment and Courier gateways post webhooks server-to-server — no CSRF token possible.
+    $middleware->validateCsrfTokens(except: [
+        'api/upi/webhook',
+        'payment/webhook',
+        'api/payment/webhook',
+        'api/payment/webhook/*',
+        'api/courier/webhook',
+    ]);
  })
  ->withExceptions(function (Exceptions $exceptions): void {
      $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {

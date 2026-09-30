@@ -415,6 +415,22 @@
         </div>
     </div>
 
+    {{-- Configured Payment Gateways --}}
+    @if(isset($gateways) && $gateways->isNotEmpty())
+        <div style="background:#fff; border:1px solid #e7e7e7; border-radius:8px; padding:14px 18px; margin-bottom:20px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+            <div style="font-weight:700; font-size:13px; color:#374151; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-plug" style="color:#2563eb;"></i> Integrated Gateways:
+            </div>
+            @foreach($gateways as $gw)
+                <div style="display:flex; align-items:center; gap:8px; padding:4px 12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; font-size:12px;">
+                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:{{ $gw->is_active ? '#10b981' : '#9ca3af' }};"></span>
+                    <strong>{{ $gw->name }}</strong>
+                    <span style="color:#6b7280; font-size:11px;">({{ $gw->is_active ? 'Active' : 'Inactive' }})</span>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     {{-- Search & Filter Card --}}
     <div class="filter-card">
         <form class="pay-filters" method="get" action="{{ route('admin.payments.index') }}">
@@ -430,10 +446,13 @@
 
             <select name="payment_method">
                 <option value="">All Methods / Gateways</option>
-                <option value="upi"    @selected(($filters['payment_method'] ?? '') === 'upi')>UPI</option>
-                <option value="manual" @selected(($filters['payment_method'] ?? '') === 'manual')>Manual / COD</option>
-                <option value="cash"   @selected(($filters['payment_method'] ?? '') === 'cash')>Cash</option>
-                <option value="bank"   @selected(($filters['payment_method'] ?? '') === 'bank')>Bank Transfer</option>
+                <option value="razorpay" @selected(($filters['payment_method'] ?? '') === 'razorpay')>Razorpay</option>
+                <option value="cashfree" @selected(($filters['payment_method'] ?? '') === 'cashfree')>Cashfree</option>
+                <option value="upi"      @selected(($filters['payment_method'] ?? '') === 'upi')>UPI Direct</option>
+                <option value="cod"      @selected(($filters['payment_method'] ?? '') === 'cod')>Cash on Delivery</option>
+                <option value="manual"   @selected(($filters['payment_method'] ?? '') === 'manual')>Manual / Offline</option>
+                <option value="cash"     @selected(($filters['payment_method'] ?? '') === 'cash')>Cash</option>
+                <option value="bank"     @selected(($filters['payment_method'] ?? '') === 'bank')>Bank Transfer</option>
             </select>
 
             <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" title="From Date">

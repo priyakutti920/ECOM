@@ -416,6 +416,9 @@
 
                         <td>
                             <div style="font-weight: 600;">{{ $item->product_name }}</div>
+                            @if($item->sku)
+                                <div style="font-size: 9px; color: #666;">SKU: {{ $item->sku }}</div>
+                            @endif
                             @if($item->variation_name)
                                 <div style="font-size: 9.5px; color: #555;">Variation: {{ $item->variation_name }}</div>
                             @endif
@@ -496,6 +499,28 @@
                         <td>Shipping</td>
                         <td>Rs. {{ number_format($order->shipping, 2) }}</td>
                     </tr>
+
+                    @if((float) ($order->tax_amount ?? 0) > 0)
+                        @php
+                            $isTamilNadu = stripos($order->addr_state ?? '', 'Tamil') !== false;
+                            $halfTax = round(((float)$order->tax_amount) / 2, 2);
+                        @endphp
+                        @if($isTamilNadu)
+                        <tr>
+                            <td>CGST (2.5%)</td>
+                            <td>Rs. {{ number_format($halfTax, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td>SGST (2.5%)</td>
+                            <td>Rs. {{ number_format($halfTax, 2) }}</td>
+                        </tr>
+                        @else
+                        <tr>
+                            <td>IGST (5%)</td>
+                            <td>Rs. {{ number_format($order->tax_amount, 2) }}</td>
+                        </tr>
+                        @endif
+                    @endif
 
                     <tr class="paid {{ $order->payment_status === 'paid' ? '' : 'pending' }}">
                         <td>Payment Status</td>

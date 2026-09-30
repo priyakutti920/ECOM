@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Models\OtpCode;
+use App\Models\StoreSetting;
 use App\Models\User;
 use App\Models\Wishlist;
 use App\Services\OtpService;
@@ -12,15 +13,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class LoginController extends Controller
 {
-    public function __construct(private OtpService $otpService)
-    {}
+    public function __construct(private OtpService $otpService) {}
 
     /**
      * Show registration form.
@@ -31,7 +33,7 @@ class LoginController extends Controller
             return redirect()->route('shop.home');
         }
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
         $redirectTo = request('redirect', null);
 
         return view('shop.login.register', compact('storeName', 'redirectTo'));
@@ -43,32 +45,29 @@ class LoginController extends Controller
     public function register(Request $request)
     {
         $validated = $request->validate([
-            'name'                  => ['required', 'string', 'max:120'],
-            'email'                 => ['required', 'email', 'max:191', 'unique:users,email'],
-            'mobile'                => ['nullable', 'string', 'regex:/^[0-9]{10}$/', 'unique:users,mobile'],
-            'password'              => ['required', 'string', 'min:6', 'confirmed'],
+            'name' => ['required', 'string', 'max:120'],
+            'email' => ['required', 'email', 'max:191', 'unique:users,email'],
+            'mobile' => ['nullable', 'string', 'regex:/^[0-9]{10}$/', 'unique:users,mobile'],
+            'password' => ['required', 'string', Password::min(8)->letters()->numbers(), 'confirmed'],
         ], [
-            'email.unique'          => 'An account with this email already exists.',
-            'mobile.unique'         => 'An account with this mobile number already exists.',
-            'mobile.regex'          => 'Please enter a valid 10-digit mobile number.',
-            'password.min'          => 'Password must be at least 6 characters.',
-            'password.confirmed'    => 'Password confirmation does not match.',
+            'email.unique' => 'An account with this email already exists.',
+            'mobile.unique' => 'An account with this mobile number already exists.',
+            'mobile.regex' => 'Please enter a valid 10-digit mobile number.',
+            'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
         $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => strtolower($validated['email']),
-            'mobile'   => $validated['mobile'] ?? null,
+            'name' => $validated['name'],
+            'email' => strtolower($validated['email']),
+            'mobile' => $validated['mobile'] ?? null,
             'password' => Hash::make($validated['password']),
-            'is_admin' => false,
         ]);
 
         Auth::guard('customer')->login($user, true);
 
-        $redirectTo = $request->input('redirect') ? urldecode($request->input('redirect')) : null;
-        $url = $redirectTo ?: route('shop.home');
+        $url = $this->safeRedirectUrl($request->input('redirect'));
 
-        return redirect($url)->with('success', 'Account created successfully! Welcome to ' . \App\Models\StoreSetting::getStoreName());
+        return redirect($url)->with('success', 'Account created successfully! Welcome to '.StoreSetting::getStoreName());
     }
 
     /**
@@ -77,7 +76,7 @@ class LoginController extends Controller
     public function loginWithPassword(Request $request)
     {
         $credentials = $request->validate([
-            'login'    => ['required', 'string'],
+            'login' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
@@ -88,7 +87,7 @@ class LoginController extends Controller
         // Check user exists
         $user = User::where($field, $loginInput)->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return back()->withErrors([
                 'login' => 'Invalid credentials. Please check your details and try again.',
             ])->withInput($request->only('login', 'redirect'));
@@ -97,10 +96,9 @@ class LoginController extends Controller
         Auth::guard('customer')->login($user, $remember);
         $request->session()->regenerate();
 
-        $redirectTo = $request->input('redirect') ? urldecode($request->input('redirect')) : null;
-        $url = $redirectTo ?: route('shop.home');
+        $url = $this->safeRedirectUrl($request->input('redirect'));
 
-        return redirect($url)->with('success', 'Welcome back, ' . $user->name . '!');
+        return redirect($url)->with('success', 'Welcome back, '.$user->name.'!');
     }
 
     /**
@@ -112,7 +110,7 @@ class LoginController extends Controller
             return redirect()->route('shop.home');
         }
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
         $redirectTo = request('redirect', null);
 
         return view('shop.login.email', compact('storeName', 'redirectTo'));
@@ -130,17 +128,17 @@ class LoginController extends Controller
         try {
             $result = $this->otpService->generate($validated['email']);
 
-            if (!$result['success']) {
+            if (! $result['success']) {
                 return back()->withErrors(['email' => $result['message']])->withInput();
             }
 
             $request->session()->put('otp_email', strtolower($validated['email']));
             $request->session()->put('otp_sent_at', now()->toDateTimeString());
-            RateLimiter::clear('verify-otp:' . strtolower($validated['email']));
+            RateLimiter::clear('verify-otp:'.strtolower($validated['email']));
 
-            $redirectTo = $request->input('redirect') ? urldecode($request->input('redirect')) : null;
-            if ($redirectTo) {
-                $request->session()->put('otp_redirect', $redirectTo);
+            $safeRedirect = $this->safeRedirectUrl($request->input('redirect'));
+            if ($safeRedirect !== route('shop.home')) {
+                $request->session()->put('otp_redirect', $safeRedirect);
             }
 
             return redirect()
@@ -160,11 +158,11 @@ class LoginController extends Controller
     {
         $email = $request->session()->get('otp_email');
 
-        if (!$email) {
+        if (! $email) {
             return redirect()->route('shop.login.email');
         }
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
         $maskedEmail = $this->maskEmail($email);
 
         return view('shop.login.otp', compact('storeName', 'maskedEmail', 'email'));
@@ -177,14 +175,15 @@ class LoginController extends Controller
     {
         $email = $request->session()->get('otp_email');
 
-        if (!$email) {
+        if (! $email) {
             return redirect()->route('shop.login.email');
         }
 
-        $throttleKey = 'verify-otp:' . strtolower($email);
+        $throttleKey = 'verify-otp:'.strtolower($email);
 
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             OtpCode::purgeOld($email);
+
             return back()->withErrors([
                 'otp' => 'Maximum verification attempts exceeded. Your OTP has been invalidated. Please request a new one.',
             ]);
@@ -198,16 +197,18 @@ class LoginController extends Controller
 
         $result = $this->otpService->verify($email, $validated['otp']);
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             RateLimiter::hit($throttleKey, 600);
             $retriesLeft = RateLimiter::retriesLeft($throttleKey, 5);
             if ($retriesLeft <= 0) {
                 OtpCode::purgeOld($email);
+
                 return back()->withErrors([
                     'otp' => 'Maximum verification attempts exceeded. Your OTP has been invalidated. Please request a new one.',
                 ]);
             }
-            return back()->withErrors(['otp' => $result['message'] . " ({$retriesLeft} attempts remaining)"])->withInput();
+
+            return back()->withErrors(['otp' => $result['message']." ({$retriesLeft} attempts remaining)"])->withInput();
         }
 
         RateLimiter::clear($throttleKey);
@@ -215,12 +216,11 @@ class LoginController extends Controller
         // Find existing customer by email, or create one.
         $user = User::where('email', $email)->first();
 
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
-                'name'     => 'Customer ' . substr(strstr($email, '@', true) ?: $email, 0, 8),
-                'email'    => $email,
+                'name' => 'Customer '.substr(strstr($email, '@', true) ?: $email, 0, 8),
+                'email' => $email,
                 'password' => Hash::make(bin2hex(random_bytes(8))),
-                'is_admin' => false,
             ]);
         }
 
@@ -230,6 +230,7 @@ class LoginController extends Controller
         $request->session()->forget(['otp_email', 'otp_sent_at', 'otp_redirect']);
 
         $redirectUrl = $redirectTo ?: route('shop.home');
+
         return redirect($redirectUrl)->with('success', 'Welcome! You are now logged in.');
     }
 
@@ -240,16 +241,17 @@ class LoginController extends Controller
     {
         $email = $request->session()->get('otp_email');
 
-        if (!$email) {
+        if (! $email) {
             return redirect()->route('shop.login.email');
         }
 
         try {
             $result = $this->otpService->resend($email);
-            if (!$result['success']) {
+            if (! $result['success']) {
                 return back()->withErrors(['otp' => $result['message']]);
             }
-            RateLimiter::clear('verify-otp:' . strtolower($email));
+            RateLimiter::clear('verify-otp:'.strtolower($email));
+
             return back()->with('status', $result['message']);
         } catch (\Exception) {
             return back()->withErrors(['otp' => 'Failed to resend OTP. Please try again.']);
@@ -275,7 +277,7 @@ class LoginController extends Controller
     public function showAccount()
     {
         $customer = Auth::guard('customer')->user();
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
         $addresses = $customer->addresses()
             ->orderByDesc('is_default')
             ->orderByDesc('id')
@@ -285,29 +287,50 @@ class LoginController extends Controller
     }
 
     /**
-     * Save the customer's basic profile (name + mobile).
+     * Save the customer's basic profile (name, mobile, avatar).
      */
     public function updateProfile(Request $request)
     {
         $customer = Auth::guard('customer')->user();
 
         $validated = $request->validate([
-            'name'   => ['required', 'string', 'max:120'],
+            'name' => ['required', 'string', 'max:120'],
             'mobile' => [
                 'nullable',
                 'string',
                 'regex:/^[0-9]{10}$/',
                 Rule::unique('users', 'mobile')->ignore($customer->id),
             ],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+            'remove_avatar' => ['nullable', 'boolean'],
         ], [
-            'mobile.regex'  => 'Please enter a valid 10-digit mobile number.',
+            'mobile.regex' => 'Please enter a valid 10-digit mobile number.',
             'mobile.unique' => 'That mobile number is already linked to another account.',
+            'avatar.image' => 'The avatar must be a valid image file.',
+            'avatar.max' => 'Avatar image size cannot exceed 4MB.',
         ]);
 
-        $customer->update([
-            'name'   => $validated['name'],
+        $updateData = [
+            'name' => $validated['name'],
             'mobile' => $validated['mobile'] ?? null,
-        ]);
+        ];
+
+        // Handle avatar upload
+        if ($request->hasFile('avatar')) {
+            // Delete old avatar if existing
+            if ($customer->avatar && Storage::disk('public')->exists($customer->avatar)) {
+                Storage::disk('public')->delete($customer->avatar);
+            }
+            $avatarPath = $request->file('avatar')->store('avatars', 'public');
+            $updateData['avatar'] = $avatarPath;
+        } elseif ($request->boolean('remove_avatar')) {
+            if ($customer->avatar && Storage::disk('public')->exists($customer->avatar)) {
+                Storage::disk('public')->delete($customer->avatar);
+            }
+            $updateData['avatar'] = null;
+        }
+
+        $customer->update($updateData);
 
         return back()->with('success', 'Profile updated successfully.');
     }
@@ -321,13 +344,12 @@ class LoginController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'password'         => ['required', 'string', 'min:6', 'confirmed'],
+            'password' => ['required', 'string', Password::min(8)->letters()->numbers(), 'confirmed'],
         ], [
-            'password.min'       => 'New password must be at least 6 characters.',
             'password.confirmed' => 'New password confirmation does not match.',
         ]);
 
-        if (!Hash::check($validated['current_password'], $customer->password)) {
+        if (! Hash::check($validated['current_password'], $customer->password)) {
             return back()->withErrors(['current_password' => 'The current password provided is incorrect.']);
         }
 
@@ -345,7 +367,7 @@ class LoginController extends Controller
     {
         $customerId = Auth::guard('customer')->id();
 
-        if (!$customerId) {
+        if (! $customerId) {
             return response()->json([
                 'success' => false,
                 'authenticated' => false,
@@ -354,7 +376,7 @@ class LoginController extends Controller
         }
 
         $productId = (int) $request->input('product_id');
-        if (!$productId) {
+        if (! $productId) {
             return response()->json(['success' => false, 'message' => 'Invalid product.'], 400);
         }
 
@@ -369,7 +391,7 @@ class LoginController extends Controller
         } else {
             Wishlist::create([
                 'customer_id' => $customerId,
-                'product_id'  => $productId,
+                'product_id' => $productId,
             ]);
             $inWishlist = true;
             $msg = 'Added to wishlist!';
@@ -378,10 +400,10 @@ class LoginController extends Controller
         $totalCount = Wishlist::where('customer_id', $customerId)->count();
 
         return response()->json([
-            'success'     => true,
+            'success' => true,
             'in_wishlist' => $inWishlist,
-            'count'       => $totalCount,
-            'message'     => $msg,
+            'count' => $totalCount,
+            'message' => $msg,
         ]);
     }
 
@@ -391,11 +413,12 @@ class LoginController extends Controller
     public function getWishlistItems()
     {
         $customerId = Auth::guard('customer')->id();
-        if (!$customerId) {
+        if (! $customerId) {
             return response()->json(['ids' => []]);
         }
 
         $ids = Wishlist::where('customer_id', $customerId)->pluck('product_id')->all();
+
         return response()->json(['ids' => $ids]);
     }
 
@@ -411,12 +434,32 @@ class LoginController extends Controller
         }
 
         if (strlen($local) <= 2) {
-            $maskedLocal = $local[0] . '*';
+            $maskedLocal = $local[0].'*';
         } else {
-            $maskedLocal = $local[0] . str_repeat('*', max(1, strlen($local) - 2)) . substr($local, -1);
+            $maskedLocal = $local[0].str_repeat('*', max(1, strlen($local) - 2)).substr($local, -1);
         }
 
-        return $maskedLocal . '@' . $domain;
+        return $maskedLocal.'@'.$domain;
+    }
+
+    /**
+     * Validate a redirect URL to prevent open redirect attacks.
+     * Only allows relative paths (starting with /) that don't redirect to external domains.
+     */
+    private function safeRedirectUrl(?string $redirect): string
+    {
+        if (! $redirect) {
+            return route('shop.home');
+        }
+
+        $decoded = urldecode($redirect);
+
+        // Must start with a single / (not // which browsers interpret as protocol-relative URL)
+        if (str_starts_with($decoded, '/') && ! str_starts_with($decoded, '//')) {
+            return $decoded;
+        }
+
+        return route('shop.home');
     }
 
     /**
@@ -428,7 +471,8 @@ class LoginController extends Controller
             return redirect()->route('shop.home');
         }
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
+
         return view('shop.login.forgot-password', compact('storeName'));
     }
 
@@ -445,7 +489,7 @@ class LoginController extends Controller
         $user = User::where('email', $email)->first();
 
         // Always show friendly message to prevent email enumeration
-        if (!$user) {
+        if (! $user) {
             return back()->with('status', 'If an account exists for this email, you will receive a password reset link shortly.');
         }
 
@@ -454,7 +498,7 @@ class LoginController extends Controller
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $email],
             [
-                'token'      => Hash::make($plainToken),
+                'token' => Hash::make($plainToken),
                 'created_at' => now(),
             ]
         );
@@ -467,8 +511,8 @@ class LoginController extends Controller
         // Attempt sending email
         $sent = $this->sendPasswordResetEmail($email, $resetUrl);
 
-        if (!$sent) {
-            \Illuminate\Support\Facades\Log::warning('Password reset email delivery failed.');
+        if (! $sent) {
+            Log::warning('Password reset email delivery failed.');
         }
 
         return back()->with('status', 'If an account exists for this email, you will receive a password reset link shortly.');
@@ -480,17 +524,18 @@ class LoginController extends Controller
     public function showResetPassword(Request $request, string $token)
     {
         $email = $request->query('email');
-        if (!$email) {
+        if (! $email) {
             return redirect()->route('shop.password.forgot')->withErrors(['email' => 'Invalid password reset request.']);
         }
 
         $record = DB::table('password_reset_tokens')->where('email', $email)->first();
 
-        if (!$record || !Hash::check($token, $record->token) || Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {
+        if (! $record || ! Hash::check($token, $record->token) || Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {
             return redirect()->route('shop.password.forgot')->withErrors(['email' => 'This password reset link is invalid or has expired. Please request a new one.']);
         }
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
+
         return view('shop.login.reset-password', compact('storeName', 'token', 'email'));
     }
 
@@ -500,22 +545,21 @@ class LoginController extends Controller
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'token'    => ['required', 'string'],
-            'email'    => ['required', 'email'],
-            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', Password::min(8)->letters()->numbers(), 'confirmed'],
         ], [
-            'password.min'       => 'Password must be at least 6 characters.',
             'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
         $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
 
-        if (!$record || !Hash::check($request->token, $record->token) || Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {
+        if (! $record || ! Hash::check($request->token, $record->token) || Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {
             return redirect()->route('shop.password.forgot')->withErrors(['email' => 'This password reset link is invalid or has expired.']);
         }
 
         $user = User::where('email', $request->email)->first();
-        if (!$user) {
+        if (! $user) {
             return redirect()->route('shop.password.forgot')->withErrors(['email' => 'User not found.']);
         }
 
@@ -533,49 +577,44 @@ class LoginController extends Controller
      */
     private function sendPasswordResetEmail(string $email, string $resetUrl): bool
     {
-        $host       = \App\Models\StoreSetting::getValue('smtp_host');
-        $port       = \App\Models\StoreSetting::getValue('smtp_port');
-        $encryption = \App\Models\StoreSetting::getValue('smtp_encryption');
-        $username   = \App\Models\StoreSetting::getValue('smtp_username');
-        $password   = \App\Models\StoreSetting::getValue('smtp_password');
-        $fromEmail  = \App\Models\StoreSetting::getValue('smtp_from_email');
-        $fromName   = \App\Models\StoreSetting::getValue('smtp_from_name') ?: \App\Models\StoreSetting::getStoreName();
+        $host = StoreSetting::getValue('smtp_host');
+        $port = StoreSetting::getValue('smtp_port');
+        $encryption = StoreSetting::getValue('smtp_encryption');
+        $username = StoreSetting::getValue('smtp_username');
+        $password = StoreSetting::getValue('smtp_password');
+        $fromEmail = StoreSetting::getValue('smtp_from_email');
+        $fromName = StoreSetting::getValue('smtp_from_name') ?: StoreSetting::getStoreName();
 
-        if (!$host || !$username || !$fromEmail) {
+        if (! $host || ! $username || ! $fromEmail) {
             return false;
         }
 
         config([
-            'mail.default'                 => 'smtp',
-            'mail.mailers.smtp.host'       => $host,
-            'mail.mailers.smtp.port'       => $port ?: 587,
-            'mail.mailers.smtp.encryption' => $encryption ?: null,
-            'mail.mailers.smtp.username'   => $username,
-            'mail.mailers.smtp.password'   => $password,
-            'mail.from.address'            => $fromEmail,
-            'mail.from.name'               => $fromName,
+            'mail.mailers.store_smtp' => [
+                'transport' => 'smtp',
+                'host' => $host,
+                'port' => (int) ($port ?: 587),
+                'encryption' => $encryption ?: null,
+                'username' => $username,
+                'password' => $password,
+                'timeout' => 10,
+            ],
         ]);
+        Mail::purge('store_smtp');
 
         try {
-            $storeName = \App\Models\StoreSetting::getStoreName();
-            Mail::send([], [], function ($message) use ($email, $resetUrl, $fromEmail, $fromName, $storeName) {
+            $storeName = StoreSetting::getStoreName();
+            Mail::mailer('store_smtp')->send([], [], function ($message) use ($email, $resetUrl, $fromEmail, $fromName, $storeName) {
                 $message->to($email)
                     ->from($fromEmail, $fromName)
                     ->subject("Reset your password — {$storeName}")
-                    ->html("
-                        <div style='font-family:sans-serif;max-width:500px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:8px;'>
-                            <h2 style='color:#111;'>{$storeName}</h2>
-                            <p style='color:#4a5568;'>You requested a password reset. Click the button below to choose a new password:</p>
-                            <p style='margin:24px 0;'>
-                                <a href='{$resetUrl}' style='background:#f97316;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;'>Reset Password</a>
-                            </p>
-                            <p style='color:#718096;font-size:13px;'>If you did not request this, you can safely ignore this email.</p>
-                        </div>
-                    ");
+                    ->html(view('emails.password-reset', compact('resetUrl', 'storeName'))->render());
             });
+
             return true;
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Password reset email failed: ' . $e->getMessage());
+            Log::error('Password reset email failed: '.$e->getMessage());
+
             return false;
         }
     }

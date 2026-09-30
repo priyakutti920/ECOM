@@ -1,129 +1,175 @@
 @extends('layouts.shop')
 
 @section('title', 'My Wishlist — ' . $storeName)
-@section('description', 'Your saved products on ' . $storeName)
+@section('description', 'Your saved favorite items on ' . $storeName)
 
 @section('content')
 <div class="wishlist-page-wrap">
     <div class="wishlist-head">
-        <h1 class="wishlist-title">
-            <i class="fas fa-heart" style="color:#e91e63; margin-right:8px;"></i>
-            My Wishlist
-        </h1>
-        <p class="wishlist-sub" id="wishlist-count-line">Loading…</p>
+        <div>
+            <h1 class="wishlist-title">
+                <i class="fas fa-heart" style="color: #f43f5e; margin-right: 8px;"></i>
+                My Wishlist
+            </h1>
+            <p class="wishlist-sub" id="wishlist-count-line">Loading your saved items…</p>
+        </div>
+        <div class="wishlist-actions-bar">
+            <button type="button" id="wl-clear" class="wl-link-btn wl-link-danger" style="display:none;">
+                <i class="fas fa-trash-alt"></i> Clear All
+            </button>
+            <a href="{{ url('/products') }}" class="wl-link-btn">
+                <i class="fas fa-arrow-left"></i> Continue Shopping
+            </a>
+        </div>
     </div>
 
-    <div class="wishlist-toolbar">
-        <button type="button" id="wl-clear" class="wl-link-btn wl-link-danger" style="display:none;">
-            <i class="fas fa-trash"></i> Clear wishlist
-        </button>
-        <a href="{{ url('/shop') }}" class="wl-link-btn">
-            <i class="fas fa-plus"></i> Continue shopping
-        </a>
-    </div>
-
+    <!-- Loading State -->
     <div id="wl-loading" class="wl-loading">
-        <i class="fas fa-spinner fa-spin"></i> Loading your wishlist…
+        <i class="fas fa-spinner fa-spin"></i> Loading your wishlist items…
     </div>
 
+    <!-- Empty State -->
     <div id="wl-empty" class="wl-empty" style="display:none;">
-        <i class="far fa-heart"></i>
+        <div class="wl-empty-icon"><i class="far fa-heart"></i></div>
         <h3>Your wishlist is empty</h3>
-        <p>Save items you love by tapping the heart icon on any product.</p>
-        <a href="{{ url('/shop') }}" class="wl-empty-btn">
-            <i class="fas fa-shopping-bag"></i> Start shopping
+        <p>Explore thousands of products and save your favorites by tapping the heart icon!</p>
+        <a href="{{ url('/products') }}" class="wl-empty-btn">
+            <i class="fas fa-shopping-bag"></i> Discover Products
         </a>
     </div>
 
+    <!-- Wishlist Grid -->
     <div id="wl-grid" class="products-grid wishlist-grid" style="display:none;"></div>
 </div>
 @endsection
 
 @push('styles')
 <style>
-.wishlist-page-wrap { max-width: 1400px; margin: 0 auto; padding: 16px 12px 40px; }
-
-.wishlist-head { padding: 8px 4px 14px; }
-.wishlist-title { font-size: 22px; font-weight: 700; color: var(--amazon-charcoal); margin: 0; line-height: 1.2; }
-.wishlist-sub   { font-size: 13px; color: var(--medium-gray); margin: 4px 0 0; }
-
-.wishlist-toolbar {
+.wishlist-page-wrap { max-width: 1400px; margin: 20px auto 60px; padding: 0 16px; }
+.wishlist-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: #fff;
-    border: 1px solid #e7e7e7;
-    border-radius: 6px;
-    margin-bottom: 14px;
     flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
 }
+.wishlist-title {
+    font-family: var(--font-heading);
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+.wishlist-sub { font-size: 14px; color: var(--medium-gray); margin: 4px 0 0; }
+.wishlist-actions-bar { display: flex; align-items: center; gap: 10px; }
+
 .wl-link-btn {
-    background: none;
-    border: 1px solid #d5d9d9;
-    color: #333;
-    padding: 7px 14px;
-    border-radius: 100px;
+    background: #ffffff;
+    border: 1.5px solid var(--border);
+    color: #334155;
+    padding: 8px 18px;
+    border-radius: var(--radius-pill);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
-    transition: all 0.18s;
+    transition: var(--transition);
 }
-.wl-link-btn:hover { background: #f7f7f7; border-color: #007185; color: #007185; }
-.wl-link-danger { color: #c7511f; border-color: #f3c4b6; }
-.wl-link-danger:hover { background: #fff5f2; border-color: #c7511f; color: #a04416; }
+.wl-link-btn:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+.wl-link-danger { color: #ef4444; border-color: #fecaca; }
+.wl-link-danger:hover { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
 
-.wl-loading { text-align: center; padding: 50px 20px; color: var(--medium-gray); font-size: 14px; }
-.wl-loading i { font-size: 28px; color: var(--amazon-orange); margin-right: 8px; }
+.wl-loading { text-align: center; padding: 60px 20px; color: var(--medium-gray); font-size: 15px; }
+.wl-loading i { font-size: 32px; color: var(--brand-accent); margin-right: 10px; }
 
 .wl-empty {
-    background: #fff;
-    border: 1px solid #e7e7e7;
-    border-radius: 6px;
-    padding: 60px 20px;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 70px 20px;
     text-align: center;
+    box-shadow: var(--shadow-card);
 }
-.wl-empty i { font-size: 64px; color: #cbd5e1; display: block; margin-bottom: 14px; }
-.wl-empty h3 { font-size: 18px; font-weight: 700; color: var(--amazon-charcoal); margin: 0 0 6px; }
-.wl-empty p  { font-size: 14px; color: var(--medium-gray); margin: 0 0 16px; }
+.wl-empty-icon {
+    width: 80px;
+    height: 80px;
+    background: #fff1f2;
+    color: #f43f5e;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    margin-bottom: 16px;
+}
+.wl-empty h3 { font-family: var(--font-heading); font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 8px; }
+.wl-empty p  { font-size: 14px; color: var(--medium-gray); margin: 0 0 20px; }
 .wl-empty-btn {
-    display: inline-block;
-    background: var(--amazon-orange);
-    color: var(--amazon-dark);
-    padding: 9px 22px;
-    border-radius: 100px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--brand-accent-gradient);
+    color: #ffffff;
+    padding: 11px 26px;
+    border-radius: var(--radius-pill);
     font-weight: 700;
     text-decoration: none;
-    font-size: 13px;
+    font-size: 14px;
+    box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
+    transition: var(--transition);
 }
-.wl-empty-btn:hover { background: #fa8900; }
+.wl-empty-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(249, 115, 22, 0.4); }
 
 .wishlist-grid {
-    background: #fff;
-    border: 1px solid #e7e7e7;
-    border-radius: 6px;
-    padding: 14px 10px;
+    background: transparent;
+    padding: 0;
 }
 
-/* Move-to-cart callout on wishlist card */
-.wl-card-actions { margin-top: 8px; display: flex; gap: 6px; }
-.wl-card-actions button { flex: 1; padding: 7px 6px; font-size: 11px; font-weight: 700; border-radius: 100px; cursor: pointer; border: 1px solid; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s; }
-.wl-add-cart { background: #ffd814; border-color: #fcd200; color: #0F1111; }
-.wl-add-cart:hover { background: #f7ca00; }
-.wl-remove   { background: #fff; border-color: #d5d9d9; color: #c7511f; }
-.wl-remove:hover { background: #fff5f2; border-color: #c7511f; }
+/* Card Actions */
+.wl-card-actions { margin-top: 10px; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.wl-add-cart {
+    background: var(--brand-accent-gradient);
+    border: none;
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: var(--transition);
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+}
+.wl-add-cart:hover { box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35); transform: translateY(-1px); }
+.wl-remove {
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    color: #ef4444;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+.wl-remove:hover { background: #fee2e2; border-color: #ef4444; }
 
 @media (max-width: 768px) {
-    .wishlist-page-wrap { padding: 12px 8px 32px; }
-    .wishlist-title { font-size: 18px; }
-    .wishlist-grid { padding: 10px 6px; }
-    .wl-empty { padding: 40px 16px; }
-    .wl-empty i { font-size: 48px; }
+    .wishlist-page-wrap { padding: 12px 10px 40px; }
+    .wishlist-title { font-size: 20px; }
 }
 </style>
 @endpush
@@ -154,7 +200,7 @@
 
         return `
         <div class="product-card" data-id="${p.id}" onclick="window.location='${url}'">
-            ${discount >= 5 ? `<span class="quick-badge">${discount}% off</span>` : ''}
+            ${discount >= 5 ? `<span class="quick-badge"><i class="fas fa-arrow-down"></i> ${discount}% OFF</span>` : ''}
             <button class="wishlist-btn active" data-product-id="${p.id}" onclick="event.stopPropagation(); wlRemove(${p.id}, this);" title="Remove from wishlist">
                 <i class="fas fa-heart"></i>
             </button>
@@ -165,22 +211,22 @@
                 <div class="product-name">${escapeHtml(p.name)}</div>
                 <div class="product-price">
                     <span class="current-price">₹${price.toLocaleString('en-IN')}</span>
-                    ${discount >= 5 ? `<span class="original-price">₹${original.toLocaleString('en-IN')}</span><span class="discount">(${discount}% off)</span>` : ''}
+                    ${discount >= 5 ? `<span class="original-price">₹${original.toLocaleString('en-IN')}</span>` : ''}
                 </div>
                 ${inStock
-                    ? `<div class="prime-badge"><i class="fas fa-check-circle"></i> In Stock</div>
+                    ? `<div class="in-stock-tag"><i class="fas fa-check-circle"></i> In Stock</div>
                        <div class="wl-card-actions">
-                         <button class="wl-add-cart" onclick="event.stopPropagation(); wlMoveToCart(${p.id}, '${escapeHtml(p.name).replace(/'/g,"\\'")}', ${price}, '${escapeHtml(p.image || '').replace(/'/g,"\\'")}', '${escapeHtml(p.slug || p.id).replace(/'/g,"\\'")}');" title="Add to Cart">
-                            <i class="fas fa-shopping-cart"></i> Add to Cart
+                         <button type="button" class="wl-add-cart" onclick="event.stopPropagation(); wlMoveToCart(${p.id}, '${escapeHtml(p.name).replace(/'/g,"\\'")}', ${price}, '${escapeHtml(p.image || '').replace(/'/g,"\\'")}', '${escapeHtml(p.slug || p.id).replace(/'/g,"\\'")}');" title="Add to Cart">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
                          </button>
-                         <button class="wl-remove" onclick="event.stopPropagation(); wlRemove(${p.id});" title="Remove">
-                            <i class="fas fa-times"></i> Remove
+                         <button type="button" class="wl-remove" onclick="event.stopPropagation(); wlRemove(${p.id});" title="Remove">
+                            <i class="fas fa-trash-alt"></i>
                          </button>
                        </div>`
-                    : `<div class="prime-badge" style="color:#c7511f;"><i class="fas fa-times-circle"></i> Out of Stock</div>
+                    : `<div style="color:#ef4444; font-size:12px; font-weight:700;"><i class="fas fa-times-circle"></i> Out of Stock</div>
                        <div class="wl-card-actions">
-                         <button class="wl-remove" style="flex:1;" onclick="event.stopPropagation(); wlRemove(${p.id});" title="Remove">
-                            <i class="fas fa-times"></i> Remove
+                         <button type="button" class="wl-remove" style="grid-column: 1 / -1; width:100%; border-radius:100px; height:auto; padding:8px;" onclick="event.stopPropagation(); wlRemove(${p.id});" title="Remove">
+                            <i class="fas fa-trash-alt"></i> Remove from Wishlist
                          </button>
                        </div>`
                 }
@@ -205,13 +251,13 @@
                     }
                 }
             }
-        } catch (err) {
-            // fallback to local ids
-        }
+        } catch (err) {}
 
         loading.style.display = 'block';
         grid.style.display = 'none';
         empty.style.display = 'none';
+
+        if (typeof updateWishlistCount === 'function') updateWishlistCount();
 
         if (!ids || ids.length === 0) {
             loading.style.display = 'none';
@@ -237,12 +283,12 @@
             loading.style.display = 'none';
             if (items.length === 0) {
                 empty.style.display = 'block';
-                sub.textContent = 'Saved items are no longer available';
+                sub.textContent = 'Saved items are currently unavailable';
                 clearBtn.style.display = 'inline-flex';
                 return;
             }
 
-            sub.textContent = items.length + ' ' + (items.length === 1 ? 'item' : 'items') + ' saved';
+            sub.textContent = items.length + ' ' + (items.length === 1 ? 'item' : 'items') + ' saved in your wishlist';
             clearBtn.style.display = 'inline-flex';
             grid.innerHTML = items.map(renderCard).join('');
             grid.style.display = 'grid';
@@ -255,27 +301,12 @@
     }
 
     window.wlRemove = function (id, btn) {
-        if (typeof toggleWishlist === 'function') {
-            // toggleWishlist already removes the id and updates the heart icon
-            // but we don't want to show the toast here. Just call the storage logic.
-            const list = getWishlist().filter(x => x !== id);
-            if (typeof saveWishlist === 'function') {
-                saveWishlist(list);
-            } else {
-                localStorage.setItem('store_wishlist', JSON.stringify(list));
-                localStorage.setItem('nellai_wishlist', JSON.stringify(list));
-            }
-            if (btn) { btn.classList.remove('active'); btn.querySelector('i')?.classList.replace('fas','far'); }
-        } else {
-            const list = (typeof getWishlist === 'function' ? getWishlist() : JSON.parse(localStorage.getItem('store_wishlist') || localStorage.getItem('nellai_wishlist') || '[]')).filter(x => x !== id);
-            if (typeof saveWishlist === 'function') {
-                saveWishlist(list);
-            } else {
-                localStorage.setItem('store_wishlist', JSON.stringify(list));
-                localStorage.setItem('nellai_wishlist', JSON.stringify(list));
-            }
-        }
-        // Remove the card from view
+        let list = (typeof getWishlist === 'function' ? getWishlist() : []).filter(x => x !== id);
+        localStorage.setItem('store_wishlist', JSON.stringify(list));
+        localStorage.setItem('nellai_wishlist', JSON.stringify(list));
+
+        if (typeof updateWishlistCount === 'function') updateWishlistCount();
+
         const card = grid.querySelector(`.product-card[data-id="${id}"]`);
         if (card) card.remove();
         if (grid.children.length === 0) {
@@ -293,14 +324,6 @@
         if (typeof addToCart === 'function') {
             addToCart(id, 1, name, price, image, slug);
             if (typeof openCartSidebar === 'function') openCartSidebar();
-        } else {
-            // Fallback storage
-            const list = JSON.parse(localStorage.getItem('store_cart') || localStorage.getItem('nellai_cart') || '[]');
-            const existing = list.find(c => c.id === id);
-            if (existing) existing.qty = (existing.qty || 1) + 1;
-            else list.push({ id, qty: 1, name, price, image, slug });
-            localStorage.setItem('store_cart', JSON.stringify(list));
-            localStorage.setItem('nellai_cart', JSON.stringify(list));
         }
     };
 
@@ -308,6 +331,7 @@
         if (!confirm('Clear all items from your wishlist?')) return;
         localStorage.setItem('store_wishlist', '[]');
         localStorage.setItem('nellai_wishlist', '[]');
+        if (typeof updateWishlistCount === 'function') updateWishlistCount();
         load();
         if (typeof showToast === 'function') showToast('Wishlist cleared', 'info');
     });

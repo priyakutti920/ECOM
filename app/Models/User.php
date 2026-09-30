@@ -12,6 +12,8 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    use \App\Traits\HasCustomAsset;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -23,6 +25,7 @@ class User extends Authenticatable
         'password',
         'mobile',
         'is_admin',
+        'avatar',
     ];
 
     /**
@@ -44,7 +47,6 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
     }
@@ -75,7 +77,7 @@ class User extends Authenticatable
 
     public function supportTickets()
     {
-        return $this->hasMany(\App\Models\SupportTicket::class, 'customer_id');
+        return $this->hasMany(SupportTicket::class, 'customer_id');
     }
 
     public function orders()
@@ -92,4 +94,32 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Product::class, 'wishlists', 'customer_id', 'product_id')->withTimestamps();
     }
+
+    /**
+     * Get user avatar URL or fall back to an initials avatar.
+     */
+    public function getAvatarUrlAttribute(): string
+    {
+        if (!empty($this->avatar)) {
+            $url = self::resolveMediaUrl($this->avatar);
+            if ($url) return $url;
+        }
+
+        $name = trim($this->name ?: 'User');
+        return 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=0068e1&color=ffffff&size=128&bold=true';
+    }
+
+    /**
+     * Get 1-2 letters monogram initials.
+     */
+    public function getInitialsAttribute(): string
+    {
+        $name = trim($this->name ?: 'U');
+        $words = preg_split('/\s+/', $name);
+        if (count($words) >= 2) {
+            return strtoupper(mb_substr($words[0], 0, 1) . mb_substr($words[1], 0, 1));
+        }
+        return strtoupper(mb_substr($name, 0, 2));
+    }
 }
+

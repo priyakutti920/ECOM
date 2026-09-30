@@ -42,7 +42,7 @@ class OrdersController extends Controller
         abort_if($orderModel->customer_id !== Auth::guard('customer')->id(), 403);
 
         // Show Cancel button only when not yet dispatched.
-        $canCancel = in_array($orderModel->status, ['placed', 'accepted'], true);
+        $canCancel = in_array($orderModel->status, ['placed', 'confirmed', 'accepted'], true);
 
         // Show Return button for delivered orders when products are returnable and
         // a return hasn't already been requested for the entire order.
@@ -77,7 +77,7 @@ class OrdersController extends Controller
         $orderModel = Order::where('order_code', $order)->firstOrFail();
         abort_if($orderModel->customer_id !== Auth::guard('customer')->id(), 403);
 
-        if (!in_array($orderModel->status, ['placed', 'accepted'], true)) {
+        if (!in_array($orderModel->status, ['placed', 'confirmed', 'accepted'], true)) {
             return back()->withErrors(['order' => 'This order can no longer be cancelled.']);
         }
 

@@ -15,7 +15,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\Shipping\CourierServiceInterface::class, function () {
+            return new \App\Services\Shipping\ShiprocketService();
+        });
     }
 
     /**

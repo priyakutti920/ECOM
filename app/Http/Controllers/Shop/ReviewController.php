@@ -18,19 +18,19 @@ class ReviewController extends Controller
     public function store(Request $request, Product $product)
     {
         $customer = Auth::guard('customer')->user();
-        if (!$customer) {
+        if (! $customer) {
             return back()->withErrors(['review' => 'You must be logged in to submit a review.']);
         }
 
         $validated = $request->validate([
-            'rating'  => ['required', 'integer', 'between:1,5'],
-            'title'   => ['nullable', 'string', 'max:200'],
+            'rating' => ['required', 'integer', 'between:1,5'],
+            'title' => ['nullable', 'string', 'max:200'],
             'comment' => ['required', 'string', 'min:5', 'max:2000'],
         ], [
-            'rating.required'  => 'Please select a star rating.',
-            'rating.between'   => 'Rating must be between 1 and 5 stars.',
+            'rating.required' => 'Please select a star rating.',
+            'rating.between' => 'Rating must be between 1 and 5 stars.',
             'comment.required' => 'Please enter your review text.',
-            'comment.min'      => 'Review must be at least 5 characters.',
+            'comment.min' => 'Review must be at least 5 characters.',
         ]);
 
         // Duplicate prevention: check if customer already reviewed this product
@@ -52,14 +52,14 @@ class ReviewController extends Controller
         $autoApprove = StoreSetting::getValue('auto_approve_reviews', '0') === '1';
 
         Review::create([
-            'product_id'           => $product->id,
-            'customer_id'          => $customer->id,
-            'customer_name'        => $customer->name,
-            'customer_email'       => $customer->email,
-            'rating'               => $validated['rating'],
-            'title'                => $validated['title'] ?? null,
-            'comment'              => $validated['comment'],
-            'is_approved'          => $autoApprove,
+            'product_id' => $product->id,
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_email' => $customer->email,
+            'rating' => $validated['rating'],
+            'title' => $validated['title'] ?? null,
+            'comment' => $validated['comment'],
+            'is_approved' => $autoApprove,
             'is_verified_purchase' => $isVerifiedPurchase,
         ]);
 

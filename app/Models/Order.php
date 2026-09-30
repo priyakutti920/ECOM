@@ -2,33 +2,47 @@
 
 namespace App\Models;
 
+use App\Services\Inventory\InventoryService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class Order extends Model
 {
-    public const STATUS_PLACED           = 'placed';
-    public const STATUS_CONFIRMED        = 'confirmed';
-    public const STATUS_PROCESSING       = 'processing';
-    public const STATUS_PACKED           = 'packed';
-    public const STATUS_SHIPPED          = 'shipped';
+    use SoftDeletes;
+
+    public const STATUS_PLACED = 'placed';
+
+    public const STATUS_CONFIRMED = 'confirmed';
+
+    public const STATUS_PROCESSING = 'processing';
+
+    public const STATUS_PACKED = 'packed';
+
+    public const STATUS_SHIPPED = 'shipped';
+
     public const STATUS_OUT_FOR_DELIVERY = 'out_for_delivery';
-    public const STATUS_DELIVERED        = 'delivered';
-    public const STATUS_CANCELLED        = 'cancelled';
-    public const STATUS_RETURNED         = 'returned';
+
+    public const STATUS_DELIVERED = 'delivered';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUS_RETURNED = 'returned';
 
     public const ALL_STATUSES = [
-        'placed'           => 'Placed',
-        'confirmed'        => 'Confirmed',
-        'processing'       => 'Processing',
-        'packed'           => 'Packed',
-        'shipped'          => 'Shipped',
+        'placed' => 'Placed',
+        'confirmed' => 'Confirmed',
+        'processing' => 'Processing',
+        'packed' => 'Packed',
+        'shipped' => 'Shipped',
         'out_for_delivery' => 'Out for Delivery',
-        'delivered'        => 'Delivered',
-        'cancelled'        => 'Cancelled',
-        'returned'         => 'Returned',
+        'delivered' => 'Delivered',
+        'cancelled' => 'Cancelled',
+        'returned' => 'Returned',
     ];
 
     protected $fillable = [
@@ -39,31 +53,34 @@ class Order extends Model
         'addr_full_name', 'addr_line_1', 'addr_line_2',
         'addr_city', 'addr_state', 'addr_pincode',
         'addr_mobile_primary', 'addr_mobile_alternate', 'addr_type',
-        'subtotal', 'discount', 'shipping', 'total',
+        'subtotal', 'discount', 'tax_amount', 'shipping', 'total',
         'payment_method', 'payment_status', 'payment_gateway',
-        'payment_order_id', 'payment_utr', 'paid_at',
+        'payment_order_id', 'gateway_payment_id', 'gateway_signature',
+        'payment_utr', 'paid_at',
         'status',
         'custom_statuses', 'status_history',
         'cancelled_reason', 'cancelled_at',
         'refunded_amount', 'refunded_at', 'refund_reference',
-        'dispatched_via', 'tracking_number', 'dispatched_at',
+        'dispatched_via', 'shipment_id', 'awb_code', 'courier_name',
+        'courier_company_id', 'shipping_label_url', 'tracking_number', 'dispatched_at',
         'marked_paid_at', 'marked_paid_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'subtotal'       => 'decimal:2',
-            'discount'       => 'decimal:2',
-            'shipping'       => 'decimal:2',
-            'total'          => 'decimal:2',
-            'refunded_amount'=> 'decimal:2',
-            'paid_at'        => 'datetime',
-            'cancelled_at'   => 'datetime',
-            'refunded_at'    => 'datetime',
-            'dispatched_at'  => 'datetime',
+            'subtotal' => 'decimal:2',
+            'discount' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'shipping' => 'decimal:2',
+            'total' => 'decimal:2',
+            'refunded_amount' => 'decimal:2',
+            'paid_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'refunded_at' => 'datetime',
+            'dispatched_at' => 'datetime',
             'marked_paid_at' => 'datetime',
-            'custom_statuses'=> 'array',
+            'custom_statuses' => 'array',
             'status_history' => 'array',
         ];
     }
@@ -76,13 +93,13 @@ class Order extends Model
      */
     public function appendCustomStatus(string $message, ?int $byUserId = null, ?string $byUserName = null): self
     {
-        $now      = now()->toDateTimeString();
+        $now = now()->toDateTimeString();
         $existing = $this->custom_statuses ?? [];
         $existing[] = [
             'message' => $message,
-            'by'      => $byUserName,
-            'by_id'   => $byUserId,
-            'at'      => $now,
+            'by' => $byUserName,
+            'by_id' => $byUserId,
+            'at' => $now,
         ];
         $this->custom_statuses = $existing;
 
@@ -98,13 +115,14 @@ class Order extends Model
     {
         $hist = $this->status_history ?? [];
         $hist[] = [
-            'event'   => $event,
-            'detail'  => $detail,
-            'by'      => $byUserName,
-            'by_id'   => $byUserId,
-            'at'      => now()->toDateTimeString(),
+            'event' => $event,
+            'detail' => $detail,
+            'by' => $byUserName,
+            'by_id' => $byUserId,
+            'at' => now()->toDateTimeString(),
         ];
         $this->status_history = $hist;
+
         return $this;
     }
 
@@ -147,40 +165,35 @@ class Order extends Model
         return $this->hasMany(OrderReturn::class);
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'order_id');
+    }
+
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class, 'order_id')->latestOfMany();
+    }
+
     /**
      * Cancel the order, replenish all item inventory, and restore/revoke coupons safely.
      */
     public function cancelWithRestock(string $reason, ?int $userId = null, ?string $userName = null): void
     {
-        \Illuminate\Support\Facades\DB::transaction(function () use ($reason, $userId, $userName) {
-            $this->status           = self::STATUS_CANCELLED;
+        DB::transaction(function () use ($reason, $userId, $userName) {
+            $this->status = self::STATUS_CANCELLED;
             $this->cancelled_reason = $reason;
-            $this->cancelled_at     = now();
+            $this->cancelled_at = now();
+
+            if (in_array($this->payment_status, ['pending', 'unpaid', null], true)) {
+                $this->payment_status = 'cancelled';
+            }
 
             $this->pushHistory('cancelled', $reason, $userId, $userName);
             $this->save();
 
-            // 1. Replenish product and variation stock
-            foreach ($this->items as $item) {
-                if ($item->product_id) {
-                    $p = Product::find($item->product_id);
-                    if ($p) {
-                        $p->increment('qty', $item->quantity);
-                        if ($p->stock_status === 'out_of_stock' && $p->qty > 0) {
-                            $p->update(['stock_status' => 'in_stock']);
-                        }
-                    }
-                }
-                if (!empty($item->variation_id)) {
-                    $v = ProductVariation::find($item->variation_id);
-                    if ($v && $v->manage_inventory) {
-                        $v->increment('qty', $item->quantity);
-                        if ($v->stock_status === 'out_of_stock' && $v->qty > 0) {
-                            $v->update(['stock_status' => 'in_stock']);
-                        }
-                    }
-                }
-            }
+            // 1. Replenish product and variation stock with audit ledger logging
+            app(InventoryService::class)->restoreForCancelledOrder($this, $reason, $userId, $userName);
 
             // 2. Revoke any bonus coupon issued by this order
             Coupon::where('order_id', $this->id)->whereNull('used_at')->delete();
@@ -189,14 +202,15 @@ class Order extends Model
             $usedCoupon = Coupon::where('used_in_order_id', $this->id)->first();
             if ($usedCoupon) {
                 $usedCoupon->update([
-                    'used_at'          => null,
+                    'used_at' => null,
                     'used_in_order_id' => null,
-                    'is_active'        => true,
+                    'is_active' => true,
                 ]);
             }
 
             // 4. Mark invoice as cancelled if exists
-            Invoice::where('invoice_json', 'like', '%"order_code":"' . $this->order_code . '"%')
+            Invoice::where('order_id', $this->id)
+                ->orWhere('invoice_json', 'like', '%"order_code":"'.$this->order_code.'"%')
                 ->update(['status' => 2]);
         });
     }
@@ -213,7 +227,7 @@ class Order extends Model
     public static function nextOrderCode(string $prefix = 'NS'): string
     {
         do {
-            $code = $prefix . '-' . strtoupper(Str::random(6));
+            $code = $prefix.'-'.strtoupper(Str::random(6));
         } while (static::where('order_code', $code)->exists());
 
         return $code;

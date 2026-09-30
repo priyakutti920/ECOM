@@ -142,6 +142,12 @@
             <a href="{{ route('admin.settings.store') }}" class="settings-nav-item {{ request()->routeIs('admin.settings.store') ? 'active' : '' }}">
                 <i class="fas fa-store"></i> Store Settings
             </a>
+            <a href="{{ route('admin.settings.features') }}" class="settings-nav-item {{ request()->routeIs('admin.settings.features') ? 'active' : '' }}">
+                <i class="fas fa-th-large"></i> Trust Features
+            </a>
+            <a href="{{ route('admin.navigation.index') }}" class="settings-nav-item {{ request()->routeIs('admin.navigation.*') ? 'active' : '' }}">
+                <i class="fas fa-compass"></i> Navigation Bar
+            </a>
 
             <div class="settings-sidebar-title" style="margin-top:8px;">Marketing</div>
             <a href="{{ route('admin.settings.seo') }}" class="settings-nav-item {{ request()->routeIs('admin.settings.seo') ? 'active' : '' }}">

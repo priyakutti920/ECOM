@@ -9,22 +9,36 @@ class ProductVariation extends Model
     protected $fillable = [
         'product_id', 'name', 'sku', 'price',
         'special_price', 'special_price_start', 'special_price_end',
-        'manage_inventory', 'qty', 'stock_status',
+        'manage_inventory', 'qty', 'low_stock_threshold', 'stock_status',
     ];
 
     protected function casts(): array
     {
         return [
-            'price'              => 'decimal:2',
-            'special_price'     => 'decimal:2',
+            'price'               => 'decimal:2',
+            'special_price'       => 'decimal:2',
             'special_price_start' => 'date',
             'special_price_end'   => 'date',
-            'manage_inventory'  => 'boolean',
-            'qty'               => 'integer',
+            'manage_inventory'    => 'boolean',
+            'qty'                 => 'integer',
+            'low_stock_threshold' => 'integer',
         ];
     }
 
     public function product() { return $this->belongsTo(Product::class); }
+
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class, 'variation_id')->latest();
+    }
+
+    public function scopeLowStock($query)
+    {
+        return $query->where('manage_inventory', true)
+            ->where('stock_status', 'in_stock')
+            ->whereColumn('qty', '<=', 'low_stock_threshold')
+            ->where('qty', '>', 0);
+    }
 
     public function images()
     {

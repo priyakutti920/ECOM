@@ -83,5 +83,10 @@
     "additionalDirectories": [
       "D:\\nellai street"
     ]
+  },
+  "skillOverrides": {
+    "slides": "name-only",
+    "ui-styling": "name-only",
+    "ui-ux-pro-max": "name-only"
   }
 }

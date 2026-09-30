@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AppearanceFilesController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
@@ -27,8 +28,9 @@ use App\Models\StoreSetting;
 // PUBLIC FRONTEND (Amazon-style shop)
 // ================================================================
 Route::get('/', [ShopController::class, 'home'])->name('shop.home');
-Route::get('/products', [ShopController::class, 'home'])->name('shop.products');
+Route::get('/products', [ShopController::class, 'shop'])->name('shop.products');
 Route::get('/shop', [ShopController::class, 'shop'])->name('shop.shop');
+Route::get('/deals', [ShopController::class, 'deals'])->name('shop.deals');
 Route::get('/wishlist', [ShopController::class, 'wishlist'])->name('shop.wishlist');
 Route::get('/category/{id}', [ShopController::class, 'category'])->name('shop.category');
 Route::get('/product/{slug}', [ShopController::class, 'product'])->name('shop.product');
@@ -39,12 +41,8 @@ Route::get('/track-order', [OrdersController::class, 'trackOrder'])->name('shop.
 Route::get('/cart', [CartController::class, 'show'])->name('shop.cart');
 Route::post('/api/cart/items', [CartController::class, 'items'])->name('api.cart.items');
 
-// Wishlist APIs
-Route::post('/api/wishlist/toggle', [LoginController::class, 'toggleWishlist'])->name('api.wishlist.toggle');
+// Wishlist read API (public; returns empty list if guest)
 Route::get('/api/wishlist/items', [LoginController::class, 'getWishlistItems'])->name('api.wishlist.items');
-
-// Customer Reviews submission
-Route::post('/product/{product}/reviews', [ShopReviewController::class, 'store'])->name('shop.reviews.store');
 
 // Customer registration & login
 Route::get('/register', [LoginController::class, 'showRegister'])->name('shop.register');
@@ -59,7 +57,7 @@ Route::prefix('login')->name('shop.login.')->group(function () {
     Route::post('/otp', [LoginController::class, 'verifyOtp'])->middleware('throttle:10,1')->name('verify');
     Route::get('/resend', [LoginController::class, 'resendOtp'])->middleware('throttle:3,1')->name('resend');
 });
-Route::post('/logout', [LoginController::class, 'logout'])->name('shop.logout');
+Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('shop.logout');
 
 // Customer Password Reset
 Route::get('/forgot-password', [LoginController::class, 'showForgotPassword'])->name('shop.password.forgot');
@@ -73,6 +71,9 @@ Route::get('/api/customer/auth-check', function () {
         'authenticated' => \Illuminate\Support\Facades\Auth::guard('customer')->check(),
     ]);
 });
+
+// Pincode Serviceability & Delivery ETA (public API)
+Route::get('/api/pincode/check', [\App\Http\Controllers\Shop\PincodeController::class, 'check'])->name('api.pincode.check');
 
 // Buy Now / Checkout — requires customer login
 Route::middleware('customer')->group(function () {
@@ -90,6 +91,7 @@ Route::middleware('customer')->group(function () {
  // Payment — token is the temp pending order id (TMP...)
  Route::get ('/pay/{token}',          [PaymentController::class, 'show'])    ->name('shop.payment.show');
  Route::post('/pay/{token}/initiate', [PaymentController::class, 'initiate'])->name('shop.payment.initiate');
+ Route::post('/pay/{token}/verify',   [PaymentController::class, 'verifyClientPayment'])->name('shop.payment.verify');
  Route::get ('/pay/{token}/status',   [PaymentController::class, 'status'])  ->name('shop.payment.status');
  Route::get ('/pay/{token}/return',   [PaymentController::class, 'return'])  ->name('shop.payment.return');
 
@@ -112,12 +114,18 @@ Route::middleware('customer')->group(function () {
  Route::post('/account/support/{ticket}/close',               [\App\Http\Controllers\Shop\SupportController::class, 'close'])->name('shop.support.close');
 
  // My Coupons (JSON)
- Route::get('/api/coupons/mine', [\App\Http\Controllers\Shop\CouponController::class, 'myCoupons'])->name('api.coupons.mine');
+    Route::get('/api/coupons/mine', [\App\Http\Controllers\Shop\CouponController::class, 'myCoupons'])->name('api.coupons.mine');
+    Route::post('/api/wishlist/toggle', [LoginController::class, 'toggleWishlist'])->name('api.wishlist.toggle');
+    Route::post('/product/{product}/reviews', [ShopReviewController::class, 'store'])->name('shop.reviews.store');
 });
 
-// UPI webhook — public POST endpoint, CSRF-exempt (configured in bootstrap/app.php)
+// Payment webhooks — public POST endpoints, CSRF-exempt (configured in bootstrap/app.php)
 Route::post('/api/upi/webhook', [PaymentController::class, 'webhook'])->name('shop.payment.webhook');
 Route::post('/payment/webhook', [PaymentController::class, 'webhook']);
+Route::post('/api/payment/webhook/{gateway?}', [PaymentController::class, 'webhook'])->name('api.payment.webhook');
+Route::post('/api/courier/webhook', [\App\Http\Controllers\Admin\OrderController::class, 'courierWebhook'])->name('api.courier.webhook');
+
+Route::get('/appearance/files', fn () => redirect()->route('admin.appearance.files.index'));
 
 // ================================================================
 // PUBLIC SEO/UTILITY ROUTES
@@ -134,9 +142,6 @@ Route::get('/sitemap.xml', function () {
  $baseUrl = config('app.url', url('/'));
  $canonicalUrl = StoreSetting::getValue('canonical_url', $baseUrl);
 
-    $categories = Category::active()->get(['id', 'slug', 'updated_at']);
-    $products = Product::active()->get(['id', 'slug', 'updated_at']);
-
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
     $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 
@@ -146,7 +151,7 @@ Route::get('/sitemap.xml', function () {
     $xml .= '        <priority>1.0</priority>' . "\n";
     $xml .= '    </url>' . "\n";
 
-    foreach ($categories as $cat) {
+    foreach (Category::active()->select(['id', 'slug', 'updated_at'])->cursor() as $cat) {
         $catIdentifier = $cat->slug ?: $cat->id;
         $xml .= '    <url>' . "\n";
         $xml .= '        <loc>' . $baseUrl . '/category/' . $catIdentifier . '</loc>' . "\n";
@@ -156,7 +161,7 @@ Route::get('/sitemap.xml', function () {
         $xml .= '    </url>' . "\n";
     }
 
-    foreach ($products as $prod) {
+    foreach (Product::active()->select(['id', 'slug', 'updated_at'])->cursor() as $prod) {
         $slug = $prod->slug ?: ('product-' . $prod->id);
         $xml .= '    <url>' . "\n";
         $xml .= '        <loc>' . $baseUrl . '/product/' . $slug . '</loc>' . "\n";
@@ -234,6 +239,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::post('/categories/{category}/toggle', [CategoryController::class, 'toggleActive'])->name('categories.toggle');
  Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
+ Route::get('/navigation', [\App\Http\Controllers\Admin\NavigationController::class, 'index'])->name('navigation.index');
+ Route::post('/navigation', [\App\Http\Controllers\Admin\NavigationController::class, 'update'])->name('navigation.update');
+ Route::get('/settings/navigation', [\App\Http\Controllers\Admin\NavigationController::class, 'index'])->name('settings.navigation');
+
+ // Appearance — Files & Media Manager
+ Route::get   ('/appearance/files',        [AppearanceFilesController::class, 'index'])->name('appearance.files.index');
+ Route::post  ('/appearance/files/upload', [AppearanceFilesController::class, 'upload'])->name('appearance.files.upload');
+ Route::post  ('/appearance/files/set-as', [AppearanceFilesController::class, 'setAs'])->name('appearance.files.set-as');
+ Route::post  ('/appearance/files/sync',   [AppearanceFilesController::class, 'sync'])->name('appearance.files.sync');
+ Route::delete('/appearance/files/{id}',   [AppearanceFilesController::class, 'destroy'])->name('appearance.files.destroy');
+ Route::get   ('/files',                   fn () => redirect()->route('admin.appearance.files.index'))->name('files.index');
+
  Route::get('/settings', [AdminDashboardController::class, 'settingsStore'])->name('settings');
  Route::get('/settings/store', [AdminDashboardController::class, 'settingsStore'])->name('settings.store');
  Route::get('/settings/seo', [AdminDashboardController::class, 'settingsSeo'])->name('settings.seo');
@@ -262,6 +279,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::post('/settings/tax-gst-save', [AdminDashboardController::class, 'settingsTaxGstSave'])->name('settings.tax-gst-save');
  Route::post('/settings/tax-charge-save', [AdminDashboardController::class, 'settingsTaxChargeSave'])->name('settings.tax-charge-save');
  Route::post('/settings/tax-charge-delete', [AdminDashboardController::class, 'settingsTaxChargeDelete'])->name('settings.tax-charge-delete');
+
+ // Feature Settings
+ Route::get('/settings/features', [AdminDashboardController::class, 'settingsFeatures'])->name('settings.features');
+ Route::get('/settings/features-data', [AdminDashboardController::class, 'settingsFeaturesData'])->name('settings.features-data');
+ Route::post('/settings/features-save', [AdminDashboardController::class, 'settingsFeaturesSave'])->name('settings.features-save');
+ Route::post('/settings/features-toggle', [AdminDashboardController::class, 'settingsFeaturesToggle'])->name('settings.features-toggle');
 
  Route::get('/templates', [TemplateController::class, 'index'])->name('templates.index');
  Route::post('/templates/set-default', [TemplateController::class, 'setDefault'])->name('templates.set-default');
@@ -324,6 +347,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::post ('/orders/{order}/cancel',                 [\App\Http\Controllers\Admin\OrderController::class, 'cancel'])          ->name('orders.cancel');
  Route::post ('/orders/{order}/refund',                 [\App\Http\Controllers\Admin\OrderController::class, 'refund'])          ->name('orders.refund');
  Route::get  ('/orders/{order}/invoice',                [\App\Http\Controllers\Admin\OrderController::class, 'invoice'])         ->name('orders.invoice');
+ Route::post ('/orders/{order}/shipment',               [\App\Http\Controllers\Admin\OrderController::class, 'createShipment'])   ->name('orders.shipment');
+ Route::post ('/orders/{order}/awb',                    [\App\Http\Controllers\Admin\OrderController::class, 'generateAwb'])      ->name('orders.awb');
+ Route::get  ('/orders/{order}/label',                  [\App\Http\Controllers\Admin\OrderController::class, 'downloadLabel'])    ->name('orders.label');
+ Route::get  ('/orders/{order}/track',                  [\App\Http\Controllers\Admin\OrderController::class, 'trackShipment'])    ->name('orders.track');
+
+ // Inventory Management
+ Route::get  ('/inventory',                             [\App\Http\Controllers\Admin\InventoryController::class, 'index'])        ->name('inventory.index');
+ Route::post ('/inventory/adjust',                      [\App\Http\Controllers\Admin\InventoryController::class, 'adjustStock'])  ->name('inventory.adjust');
 
  // Cancellations & Returns
  Route::get   ('/cancellations-returns',                              [\App\Http\Controllers\Admin\CancellationReturnController::class, 'index'])         ->name('cancellations-returns.index');

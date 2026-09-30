@@ -2,6 +2,8 @@
 
 namespace App\Traits;
 
+use Illuminate\Support\Facades\Storage;
+
 trait HasCustomAsset
 {
     /**
@@ -32,7 +34,7 @@ trait HasCustomAsset
         }
 
         // Normalize: no leading slash, no leading public/
-        $path = ltrim($path, '/');
+        $path = ltrim($path, '/\\');
         if (str_starts_with($path, 'public/')) {
             $path = substr($path, 7);
         }
@@ -40,16 +42,11 @@ trait HasCustomAsset
         $request = request();
 
         // When the script name contains /public/ (e.g. /project/public/index.php)
-        // the browser is reaching the app via the /public/ folder. asset()
-        // does NOT include the project sub-folder + /public/ in that case, so
-        // we have to add them ourselves. We pull the project prefix straight
-        // out of the script name so this works whether or not Laravel has set
-        // the request base path (CLI, custom entry points, etc.).
+        // the browser is reaching the app via the /public/ folder.
         if ($request) {
             $scriptName = $request->getScriptName();
             if (str_contains($scriptName, '/public/')) {
                 $host = $request->getSchemeAndHttpHost();
-                // e.g. /project/public/index.php -> project folder is /project
                 $projectFolder = substr($scriptName, 0, strpos($scriptName, '/public/'));
                 $url = $host . $projectFolder . '/public/' . ltrim($path, '/');
                 return $url;
@@ -58,5 +55,68 @@ trait HasCustomAsset
 
         // Standard setup: asset() is reliable.
         return asset($path);
+    }
+
+    /**
+     * Resolves any media path (absolute URL, public file, storage disk file,
+     * uploads subfolder) into a guaranteed working browser-loadable URL.
+     */
+    public static function resolveMediaUrl(?string $path, ?string $fallback = null): ?string
+    {
+        if (empty($path)) {
+            return $fallback;
+        }
+
+        $trimmed = trim($path);
+
+        // 1. External URLs or Data URIs
+        if (str_starts_with($trimmed, 'http://') ||
+            str_starts_with($trimmed, 'https://') ||
+            str_starts_with($trimmed, '//') ||
+            str_starts_with($trimmed, 'data:')) {
+            return $trimmed;
+        }
+
+        // 2. Strip leading slashes and public prefix
+        $clean = ltrim($trimmed, '/\\');
+        if (str_starts_with($clean, 'public/')) {
+            $clean = substr($clean, 7);
+        }
+
+        // 3. If file exists directly in public/ folder (e.g. public/product/..., public/uploads/..., public/images/...)
+        if (file_exists(public_path($clean))) {
+            return self::getCustomAssetUrl($clean);
+        }
+
+        // 4. If path starts with 'storage/'
+        if (str_starts_with($clean, 'storage/')) {
+            $storageSub = substr($clean, 8);
+            if (Storage::disk('public')->exists($storageSub) || file_exists(public_path($clean))) {
+                return self::getCustomAssetUrl($clean);
+            }
+            if (file_exists(public_path($storageSub))) {
+                return self::getCustomAssetUrl($storageSub);
+            }
+            return self::getCustomAssetUrl($clean);
+        }
+
+        // 5. Check if file exists in storage disk 'public' (storage/app/public/$clean or public/storage/$clean)
+        if (Storage::disk('public')->exists($clean) || file_exists(public_path('storage/' . $clean))) {
+            return self::getCustomAssetUrl('storage/' . $clean);
+        }
+
+        // 6. Check common subdirectories in public/
+        foreach (['uploads/', 'images/', 'assets/', 'media/', 'product/'] as $prefix) {
+            if (file_exists(public_path($prefix . $clean))) {
+                return self::getCustomAssetUrl($prefix . $clean);
+            }
+        }
+
+        // 7. If path contains '/' (e.g. 'settings/xyz.png' or 'media/xyz.png'), check if storage-backed
+        if (str_contains($clean, '/')) {
+            return self::getCustomAssetUrl('storage/' . $clean);
+        }
+
+        return self::getCustomAssetUrl($clean);
     }
 }

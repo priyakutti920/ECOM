@@ -69,10 +69,11 @@
                             <input type="hidden" name="var_{{ $var->id }}_images[]" value="{{ $vimg->id }}">
                         </div>
                     @endforeach
-                    <label class="drop-zone var-drop-zone" title="Click or drag to upload">
-                        <i class="fas fa-plus" style="font-size:18px;"></i><span>Add</span>
-                        <input type="file" accept="image/*" multiple class="var-file-input">
-                    </label>
+                    <div class="drop-zone var-drop-zone" title="Choose from Media & Files Library" onclick="openMediaPicker({ target: 'variation', varId: '{{ $var->id }}' })">
+                        <i class="fas fa-images" style="font-size:18px; color:#3a7bd5;"></i>
+                        <span style="font-weight:600; color:#3a7bd5;">Media</span>
+                        <input type="file" accept="image/*" multiple class="var-file-input" style="display:none;">
+                    </div>
                 </div>
                 <input type="hidden" class="var-deleted-images" value="">
             </div>

@@ -142,6 +142,169 @@ label { font-weight:600; font-size:13px; margin-bottom:4px; display:block; color
 /* ── Error messages ── */
 .field-error { border-color:#c0392b !important; }
 span.error-msg { font-size:11px; color:#c0392b; display:block; margin-top:2px; }
+
+/* ── Media Picker Modal ── */
+.media-modal-backdrop {
+    position:fixed; inset:0; background:rgba(15, 23, 42, 0.70);
+    backdrop-filter:blur(4px); z-index:100000; display:flex;
+    align-items:center; justify-content:center; padding:20px;
+    animation:mediaFadeIn .2s ease;
+}
+@keyframes mediaFadeIn { from { opacity:0; } to { opacity:1; } }
+.media-modal-box {
+    background:#ffffff; width:100%; max-width:980px; max-height:90vh;
+    border-radius:12px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.30);
+    display:flex; flex-direction:column; overflow:hidden;
+    animation:mediaZoomIn .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes mediaZoomIn { from { transform:scale(0.96); opacity:0; } to { transform:scale(1); opacity:1; } }
+
+.media-modal-header {
+    padding:16px 22px; border-bottom:1px solid #e2e8f0; display:flex;
+    justify-content:space-between; align-items:center; background:#f8fafc;
+}
+.media-modal-icon {
+    width:38px; height:38px; border-radius:8px; background:#eff6ff;
+    color:#3a7bd5; display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+}
+.media-modal-title { margin:0; font-size:16px; font-weight:700; color:#1e293b; }
+.media-modal-subtitle { margin:2px 0 0; font-size:12px; color:#64748b; }
+.media-modal-close {
+    background:none; border:none; font-size:24px; color:#94a3b8;
+    cursor:pointer; line-height:1; padding:4px 8px; border-radius:4px;
+    transition:all .15s;
+}
+.media-modal-close:hover { color:#0f172a; background:#e2e8f0; }
+
+.media-modal-nav {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 22px; border-bottom:1px solid #e2e8f0; background:#ffffff;
+    flex-wrap:wrap; gap:12px;
+}
+.media-nav-tabs { display:flex; gap:6px; }
+.media-tab-btn {
+    padding:7px 14px; border:1px solid #e2e8f0; background:#f8fafc;
+    border-radius:6px; font-size:13px; font-weight:600; color:#475569;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    transition:all .15s;
+}
+.media-tab-btn:hover { background:#f1f5f9; color:#1e293b; }
+.media-tab-btn.active {
+    background:#3a7bd5; border-color:#3a7bd5; color:#ffffff;
+}
+.media-tab-btn .badge {
+    background:rgba(255,255,255,0.25); color:inherit; font-size:11px;
+    padding:2px 6px; border-radius:10px; font-weight:700;
+}
+.media-tab-btn:not(.active) .badge {
+    background:#e2e8f0; color:#475569;
+}
+
+.media-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.media-search-box {
+    position:relative; width:220px;
+}
+.media-search-box i {
+    position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    color:#94a3b8; font-size:12px;
+}
+.media-search-box input {
+    width:100%; padding:6px 10px 6px 30px; border:1px solid #cbd5e1;
+    border-radius:6px; font-size:12px; outline:none; transition:border-color .15s;
+}
+.media-search-box input:focus { border-color:#3a7bd5; box-shadow:0 0 0 2px rgba(58,123,213,0.15); }
+
+.media-select-filter {
+    padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px;
+    font-size:12px; color:#334155; background:#ffffff; outline:none;
+}
+.media-btn-icon {
+    width:32px; height:32px; border:1px solid #cbd5e1; background:#ffffff;
+    border-radius:6px; display:inline-flex; align-items:center;
+    justify-content:center; color:#64748b; cursor:pointer; transition:all .15s;
+}
+.media-btn-icon:hover { background:#f1f5f9; color:#0f172a; }
+
+.media-modal-body {
+    flex:1; overflow-y:auto; padding:18px 22px; min-height:360px; max-height:55vh;
+}
+.media-tab-content { height:100%; }
+
+.media-grid-container {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(135px, 1fr));
+    gap:14px;
+}
+.media-grid-item {
+    position:relative; border:2px solid #e2e8f0; border-radius:8px;
+    background:#ffffff; overflow:hidden; cursor:pointer;
+    transition:all .15s ease; user-select:none;
+}
+.media-grid-item:hover {
+    border-color:#94a3b8; transform:translateY(-2px);
+    box-shadow:0 6px 14px rgba(0,0,0,0.06);
+}
+.media-grid-item.selected {
+    border-color:#27ae60; background:#f0fdf4;
+    box-shadow:0 0 0 2px rgba(39,174,96,0.35);
+}
+.media-item-thumb {
+    width:100%; height:110px; object-fit:cover; display:block;
+    background:#f8fafc;
+}
+.media-item-badge {
+    position:absolute; top:6px; right:6px; width:22px; height:22px;
+    border-radius:50%; background:#27ae60; color:#fff; font-size:11px;
+    display:none; align-items:center; justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.25);
+}
+.media-grid-item.selected .media-item-badge { display:flex; }
+
+.media-item-info { padding:6px 8px; }
+.media-item-name {
+    font-size:11px; font-weight:600; color:#1e293b; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; display:block;
+}
+.media-item-meta {
+    font-size:10px; color:#64748b; margin-top:2px; display:flex;
+    justify-content:space-between;
+}
+
+.media-spinner-wrap {
+    text-align:center; padding:60px 20px; color:#64748b;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+}
+.media-empty-notice {
+    text-align:center; padding:60px 20px; color:#64748b;
+}
+
+/* Upload Tab Dropzone */
+.media-upload-dropzone {
+    border:2.5px dashed #cbd5e1; border-radius:10px; padding:50px 20px;
+    text-align:center; background:#f8fafc; transition:all .15s;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:300px;
+}
+.media-upload-dropzone.dragover {
+    border-color:#3a7bd5; background:#eff6ff;
+}
+
+/* Modal Footer */
+.media-modal-footer {
+    padding:14px 22px; border-top:1px solid #e2e8f0; display:flex;
+    justify-content:space-between; align-items:center; background:#f8fafc;
+    flex-wrap:wrap; gap:12px;
+}
+.media-selection-summary {
+    display:flex; align-items:center; gap:12px; font-size:13px;
+    font-weight:600; color:#334155;
+}
+.media-btn-clear {
+    background:none; border:none; color:#ef4444; font-size:12px;
+    cursor:pointer; text-decoration:underline; padding:0;
+}
+.media-btn-clear:hover { color:#b91c1c; }
+.media-modal-actions { display:flex; gap:10px; }
 </style>
 @endpush
 
@@ -188,11 +351,11 @@ span.error-msg { font-size:11px; color:#c0392b; display:block; margin-top:2px; }
                                 </div>
                             @endforeach
                         @endif
-                        <label class="drop-zone" id="drop-zone" title="Click or drag to upload">
-                            <i class="fas fa-plus" style="font-size:18px;"></i>
-                            <span>Add</span>
-                            <input type="file" accept="image/*" multiple id="file-input">
-                        </label>
+                        <div class="drop-zone" id="drop-zone" title="Choose from Media & Files Library" onclick="openMediaPicker({ target: 'product' })">
+                            <i class="fas fa-images" style="font-size:20px; color:#3a7bd5;"></i>
+                            <span style="font-weight:600; color:#3a7bd5;">Choose Media</span>
+                            <input type="file" accept="image/*" multiple id="file-input" style="display:none;">
+                        </div>
                     </div>
                     <p class="help-block">First image is automatically set as primary. Click star to change. Drag to reorder.</p>
                 </div>
@@ -555,16 +718,113 @@ span.error-msg { font-size:11px; color:#c0392b; display:block; margin-top:2px; }
                 <div class="form-group var-full">
                     <label>Variation Images</label>
                     <div class="img-gallery var-img-gallery" id="">
-                        <label class="drop-zone var-drop-zone" title="Click or drag to upload">
-                            <i class="fas fa-plus" style="font-size:18px;"></i><span>Add</span>
-                            <input type="file" accept="image/*" multiple class="var-file-input">
-                        </label>
+                        <div class="drop-zone var-drop-zone" title="Choose from Media & Files Library">
+                            <i class="fas fa-images" style="font-size:18px; color:#3a7bd5;"></i>
+                            <span style="font-weight:600; color:#3a7bd5;">Media</span>
+                            <input type="file" accept="image/*" multiple class="var-file-input" style="display:none;">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </template>
+
+{{-- ═══ MEDIA FILE PICKER MODAL (Popup) ═══ --}}
+<div id="mediaPickerModal" class="media-modal-backdrop" style="display:none;">
+    <div class="media-modal-box">
+        <!-- Header -->
+        <div class="media-modal-header">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div class="media-modal-icon">
+                    <i class="fas fa-photo-video"></i>
+                </div>
+                <div>
+                    <h3 class="media-modal-title" id="mediaModalTitle">Choose Media Files</h3>
+                    <p class="media-modal-subtitle">Select files uploaded in Appearance &gt; Files, or upload new files directly.</p>
+                </div>
+            </div>
+            <button type="button" class="media-modal-close" onclick="closeMediaPicker()">&times;</button>
+        </div>
+
+        <!-- Navigation Tabs & Toolbar -->
+        <div class="media-modal-nav">
+            <div class="media-nav-tabs">
+                <button type="button" class="media-tab-btn active" id="tabBtnLibrary" onclick="switchMediaTab('library')">
+                    <i class="fas fa-folder-open"></i> Media Library <span class="badge" id="libraryCountBadge">0</span>
+                </button>
+                <button type="button" class="media-tab-btn" id="tabBtnUpload" onclick="switchMediaTab('upload')">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload New
+                </button>
+            </div>
+
+            <div class="media-toolbar" id="mediaLibraryToolbar">
+                <div class="media-search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="mediaSearchInput" placeholder="Search files by name..." autocomplete="off">
+                </div>
+                <select id="mediaFolderFilter" class="media-select-filter" onchange="filterMediaGrid()">
+                    <option value="all">All Folders</option>
+                </select>
+                <button type="button" class="media-btn-icon" title="Scan disk and refresh" onclick="loadMediaFiles(true)">
+                    <i class="fas fa-sync-alt" id="mediaRefreshIcon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body Content -->
+        <div class="media-modal-body">
+            <!-- Tab 1: Library Grid View -->
+            <div id="mediaTabLibrary" class="media-tab-content">
+                <div id="mediaLoadingSpinner" class="media-spinner-wrap" style="display:none;">
+                    <i class="fas fa-spinner fa-spin fa-2x" style="color:#3a7bd5;"></i>
+                    <span style="font-size:13px; font-weight:600;">Loading media files...</span>
+                </div>
+                <div id="mediaEmptyNotice" class="media-empty-notice" style="display:none;">
+                    <i class="fas fa-folder-open fa-3x" style="color:#cbd5e1; margin-bottom:12px; display:inline-block;"></i>
+                    <h4 style="margin:0 0 6px; font-size:15px; color:#475569;">No media files found</h4>
+                    <p style="margin:0; font-size:12px; color:#94a3b8;">Upload files in Appearance &gt; Files or click "Upload New" above.</p>
+                </div>
+                <div class="media-grid-container" id="mediaGridContainer">
+                    <!-- Dynamic items rendered here -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Upload Dropzone -->
+            <div id="mediaTabUpload" class="media-tab-content" style="display:none;">
+                <div class="media-upload-dropzone" id="mediaModalDropzone">
+                    <i class="fas fa-cloud-upload-alt fa-3x" style="color:#3a7bd5; margin-bottom:12px;"></i>
+                    <h4 style="margin:0 0 6px; font-size:16px; font-weight:700; color:#1e293b;">Drag &amp; drop images here, or browse</h4>
+                    <p style="font-size:12px; color:#888; margin:0 0 16px;">Supports JPG, PNG, WEBP, GIF, SVG up to 20MB. Uploads directly to Appearance Files.</p>
+                    <input type="file" id="mediaModalFileInput" accept="image/*" multiple style="display:none;">
+                    <button type="button" class="btn btn-primary" style="padding:8px 20px; font-size:13px; font-weight:600;" onclick="document.getElementById('mediaModalFileInput').click()">
+                        <i class="fas fa-folder-open"></i> Browse Files from Computer
+                    </button>
+                    <div id="mediaUploadProgress" class="media-upload-progress" style="display:none; margin-top:16px;">
+                        <i class="fas fa-spinner fa-spin text-primary"></i>
+                        <span id="mediaUploadStatus" style="font-size:13px; font-weight:600; color:#3a7bd5; margin-left:6px;">Uploading file(s)...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="media-modal-footer">
+            <div class="media-selection-summary">
+                <span id="mediaSelectedCountText">0 files selected</span>
+                <button type="button" class="media-btn-clear" id="mediaBtnClearSelection" onclick="clearMediaSelection()" style="display:none;">
+                    Clear Selection
+                </button>
+            </div>
+            <div class="media-modal-actions">
+                <button type="button" class="btn btn-default" onclick="closeMediaPicker()" style="border:1px solid #cbd5e1;">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnInsertSelectedMedia" disabled onclick="insertSelectedMedia()" style="background:#27ae60; border-color:#27ae60; font-weight:600;">
+                    <i class="fas fa-check"></i> <span id="btnInsertText">Add to Product</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -601,11 +861,22 @@ $(function () {
         ]
     });
 
-    // Image drop zone
-    var $dropZone  = $('#drop-zone');
-    var $fileInput  = $('#file-input');
+    // Image drop zone — opens Media Picker popup instead of OS file manager
+    var $dropZone = $('#drop-zone');
+    var $fileInput = $('#file-input');
 
-    $dropZone.on('click', function () { $fileInput.click(); });
+    $dropZone.on('click', function (e) {
+        e.preventDefault();
+        openMediaPicker({ target: 'product' });
+    });
+
+    // Delegate click on variation drop zones to open Media Picker for that variation
+    $(document).on('click', '.var-drop-zone', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var varId = $(this).closest('.var-card').attr('data-var-id');
+        openMediaPicker({ target: 'variation', varId: varId });
+    });
 
     $fileInput.on('change', function () { handleFiles(this.files); });
 
@@ -753,13 +1024,16 @@ function renderGallery() {
         $gallery.prepend(html);
     });
 
-    $gallery.append('<label class="drop-zone" id="drop-zone" title="Click or drag to upload">' +
-        '<i class="fas fa-plus" style="font-size:18px;"></i><span>Add</span>' +
-        '<input type="file" accept="image/*" multiple id="file-input"></label>');
+    $gallery.append('<div class="drop-zone" id="drop-zone" title="Choose from Media & Files Library">' +
+        '<i class="fas fa-images" style="font-size:20px; color:#3a7bd5;"></i><span style="font-weight:600; color:#3a7bd5;">Choose Media</span>' +
+        '<input type="file" accept="image/*" multiple id="file-input" style="display:none;"></div>');
 
     // Rebind drop zone
     var $dz = $('#drop-zone');
-    $dz.on('click', function () { $('#file-input').click(); });
+    $dz.on('click', function (e) {
+        e.preventDefault();
+        openMediaPicker({ target: 'product' });
+    });
     $dz.on('dragover', function (e) { e.preventDefault(); $(this).addClass('drag-over'); });
     $dz.on('dragleave', function () { $(this).removeClass('drag-over'); });
     $dz.on('drop', function (e) {
@@ -1171,5 +1445,374 @@ function toast(msg, type) {
     $('#toast-wrap').append(el);
     setTimeout(function () { el.fadeOut(300, function () { el.remove(); }); }, 3500);
 }
+
+// ══════════════════════════════════════════════════════════════
+// ── MEDIA FILE PICKER POPUP SYSTEM (Appearance > Files)
+// ══════════════════════════════════════════════════════════════
+var mediaPicker = {
+    target: 'product',
+    varId: null,
+    selectedFiles: [],
+    allFiles: [],
+    loaded: false,
+    activeTab: 'library',
+    endpoint: '{{ route('admin.appearance.files.index') }}',
+    setAsEndpoint: '{{ route('admin.appearance.files.set-as') }}',
+    uploadEndpoint: '{{ route('admin.appearance.files.upload') }}',
+    syncEndpoint: '{{ route('admin.appearance.files.sync') }}',
+};
+
+function openMediaPicker(options) {
+    options = options || {};
+    mediaPicker.target = options.target || 'product';
+    mediaPicker.varId = options.varId || null;
+    mediaPicker.selectedFiles = [];
+
+    // Update labels based on target
+    if (mediaPicker.target === 'variation') {
+        $('#mediaModalTitle').html('<i class="fas fa-layer-group text-primary" style="margin-right:6px;"></i> Choose Images for Variation');
+        $('#btnInsertText').text('Add to Variation');
+    } else {
+        $('#mediaModalTitle').html('<i class="fas fa-images text-primary" style="margin-right:6px;"></i> Choose Images for Product');
+        $('#btnInsertText').text('Add to Product');
+    }
+
+    updateMediaSelectionUI();
+    switchMediaTab('library');
+    $('#mediaPickerModal').fadeIn(180);
+    $('body').css('overflow', 'hidden');
+
+    if (!mediaPicker.loaded) {
+        loadMediaFiles();
+    } else {
+        renderMediaGrid();
+    }
+}
+
+function closeMediaPicker() {
+    $('#mediaPickerModal').fadeOut(150);
+    $('body').css('overflow', '');
+}
+
+// Close on backdrop click
+$(document).on('click', '#mediaPickerModal', function (e) {
+    if ($(e.target).is('#mediaPickerModal')) {
+        closeMediaPicker();
+    }
+});
+
+// Close on Escape key
+$(document).on('keydown', function (e) {
+    if (e.key === 'Escape' && $('#mediaPickerModal').is(':visible')) {
+        closeMediaPicker();
+    }
+});
+
+function switchMediaTab(tab) {
+    mediaPicker.activeTab = tab;
+    if (tab === 'library') {
+        $('#tabBtnLibrary').addClass('active');
+        $('#tabBtnUpload').removeClass('active');
+        $('#mediaTabLibrary').show();
+        $('#mediaTabUpload').hide();
+        $('#mediaLibraryToolbar').show();
+    } else {
+        $('#tabBtnLibrary').removeClass('active');
+        $('#tabBtnUpload').addClass('active');
+        $('#mediaTabLibrary').hide();
+        $('#mediaTabUpload').show();
+        $('#mediaLibraryToolbar').hide();
+    }
+}
+
+function loadMediaFiles(forceSync) {
+    var $icon = $('#mediaRefreshIcon');
+    $icon.addClass('fa-spin');
+    $('#mediaLoadingSpinner').show();
+    $('#mediaGridContainer').hide();
+    $('#mediaEmptyNotice').hide();
+
+    var doFetch = function () {
+        $.ajax({
+            url: mediaPicker.endpoint,
+            method: 'GET',
+            data: { json: 1, type: 'image' },
+            success: function (res) {
+                $icon.removeClass('fa-spin');
+                $('#mediaLoadingSpinner').hide();
+                if (res.success && res.data) {
+                    mediaPicker.allFiles = res.data;
+                    mediaPicker.loaded = true;
+                    $('#libraryCountBadge').text(res.total || res.data.length);
+
+                    // Update folder filter dropdown
+                    var currentFolder = $('#mediaFolderFilter').val();
+                    var folders = ['all'];
+                    res.data.forEach(function (f) {
+                        if (f.folder && !folders.includes(f.folder)) folders.push(f.folder);
+                    });
+                    var folderOpts = '<option value="all">All Folders</option>';
+                    folders.forEach(function (fld) {
+                        if (fld !== 'all') {
+                            folderOpts += '<option value="' + fld + '">' + fld.charAt(0).toUpperCase() + fld.slice(1) + '</option>';
+                        }
+                    });
+                    $('#mediaFolderFilter').html(folderOpts).val(currentFolder || 'all');
+
+                    renderMediaGrid();
+                } else {
+                    $('#mediaEmptyNotice').show();
+                }
+            },
+            error: function () {
+                $icon.removeClass('fa-spin');
+                $('#mediaLoadingSpinner').hide();
+                $('#mediaEmptyNotice').show();
+                toast('Failed to load media files.', 'error');
+            }
+        });
+    };
+
+    if (forceSync) {
+        $.post(mediaPicker.syncEndpoint, function () {
+            doFetch();
+        }).fail(function () {
+            doFetch();
+        });
+    } else {
+        doFetch();
+    }
+}
+
+function renderMediaGrid() {
+    var $grid = $('#mediaGridContainer');
+    $grid.empty().show();
+    var q = ($('#mediaSearchInput').val() || '').toLowerCase().trim();
+    var folder = $('#mediaFolderFilter').val();
+
+    var filtered = mediaPicker.allFiles.filter(function (file) {
+        var matchQ = !q || (file.name && file.name.toLowerCase().includes(q)) || (file.filename && file.filename.toLowerCase().includes(q));
+        var matchFolder = !folder || folder === 'all' || file.folder === folder;
+        return matchQ && matchFolder;
+    });
+
+    if (filtered.length === 0) {
+        $('#mediaEmptyNotice').show();
+        $grid.hide();
+        return;
+    }
+
+    $('#mediaEmptyNotice').hide();
+    $grid.show();
+
+    filtered.forEach(function (file) {
+        var isSelected = mediaPicker.selectedFiles.some(function (f) { return f.id === file.id; });
+        var html = '<div class="media-grid-item' + (isSelected ? ' selected' : '') + '" data-id="' + file.id + '" onclick="toggleMediaSelect(' + file.id + ')" ondblclick="quickInsertMedia(' + file.id + ')">' +
+            '<div class="media-item-badge"><i class="fas fa-check"></i></div>' +
+            '<img src="' + file.url + '" alt="' + (file.name || '') + '" class="media-item-thumb" loading="lazy">' +
+            '<div class="media-item-info">' +
+            '<span class="media-item-name" title="' + (file.filename || file.name) + '">' + (file.name || file.filename) + '</span>' +
+            '<div class="media-item-meta">' +
+            '<span>' + (file.size || '') + '</span>' +
+            '<span style="text-transform:capitalize;">' + (file.folder || '') + '</span>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+        $grid.append(html);
+    });
+}
+
+function filterMediaGrid() {
+    renderMediaGrid();
+}
+
+$(document).on('input', '#mediaSearchInput', function () {
+    renderMediaGrid();
+});
+
+function toggleMediaSelect(fileId) {
+    var file = mediaPicker.allFiles.find(function (f) { return f.id === fileId; });
+    if (!file) return;
+
+    var idx = mediaPicker.selectedFiles.findIndex(function (f) { return f.id === fileId; });
+    if (idx > -1) {
+        mediaPicker.selectedFiles.splice(idx, 1);
+        $('.media-grid-item[data-id="' + fileId + '"]').removeClass('selected');
+    } else {
+        mediaPicker.selectedFiles.push(file);
+        $('.media-grid-item[data-id="' + fileId + '"]').addClass('selected');
+    }
+    updateMediaSelectionUI();
+}
+
+function clearMediaSelection() {
+    mediaPicker.selectedFiles = [];
+    $('.media-grid-item').removeClass('selected');
+    updateMediaSelectionUI();
+}
+
+function updateMediaSelectionUI() {
+    var count = mediaPicker.selectedFiles.length;
+    $('#mediaSelectedCountText').text(count + ' file' + (count === 1 ? '' : 's') + ' selected');
+    $('#mediaBtnClearSelection').toggle(count > 0);
+    $('#btnInsertSelectedMedia').prop('disabled', count === 0);
+}
+
+function quickInsertMedia(fileId) {
+    var file = mediaPicker.allFiles.find(function (f) { return f.id === fileId; });
+    if (!file) return;
+    mediaPicker.selectedFiles = [file];
+    insertSelectedMedia();
+}
+
+function insertSelectedMedia() {
+    if (mediaPicker.selectedFiles.length === 0) return;
+
+    var selected = mediaPicker.selectedFiles.slice();
+    var target = mediaPicker.target;
+    var varId = mediaPicker.varId;
+    var btn = $('#btnInsertSelectedMedia');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Adding...');
+
+    if (target === 'product') {
+        var attachPromises = [];
+
+        selected.forEach(function (file) {
+            if (productId) {
+                // Product exists in database: attach via backend
+                var p = $.ajax({
+                    url: mediaPicker.setAsEndpoint,
+                    method: 'POST',
+                    data: {
+                        action: 'product',
+                        file_id: file.id,
+                        product_id: productId,
+                        is_primary: (existingImages.length === 0)
+                    }
+                }).then(function (res) {
+                    if (res.success) {
+                        existingImages.push({
+                            id: res.image_id,
+                            url: res.image_url,
+                            is_primary: res.is_primary || (existingImages.length === 0)
+                        });
+                    }
+                });
+                attachPromises.push(p);
+            } else {
+                // New product creation mode: queue image path
+                existingImages.push({
+                    id: file.path,
+                    url: file.url,
+                    is_primary: (existingImages.length === 0)
+                });
+            }
+        });
+
+        var finish = function () {
+            renderGallery();
+            closeMediaPicker();
+            toast(selected.length + ' image(s) added to product.', 'success');
+            btn.prop('disabled', false).html('<i class="fas fa-check"></i> <span id="btnInsertText">Add to Product</span>');
+        };
+
+        if (attachPromises.length > 0) {
+            $.when.apply($, attachPromises).always(finish);
+        } else {
+            finish();
+        }
+    } else if (target === 'variation') {
+        var $card = $('.var-card[data-var-id="' + varId + '"]');
+        var $gallery = $card.find('.var-img-gallery');
+        var $dz = $gallery.find('.drop-zone');
+        var attachPromises = [];
+
+        selected.forEach(function (file) {
+            var isNumericVar = varId && !String(varId).startsWith('new_');
+            if (isNumericVar) {
+                var p = $.ajax({
+                    url: mediaPicker.setAsEndpoint,
+                    method: 'POST',
+                    data: {
+                        action: 'variation',
+                        file_id: file.id,
+                        variation_id: varId,
+                        is_primary: false
+                    }
+                }).then(function (res) {
+                    if (res.success) {
+                        var imgHtml = '<div class="img-thumb" data-id="' + res.image_id + '">' +
+                            '<img src="' + res.image_url + '" alt="">' +
+                            '<div class="img-actions">' +
+                            '<button type="button" class="btn-img-action btn-img-primary" title="Set Primary" onclick="setPrimaryImg(this)"><i class="fas fa-star"></i></button>' +
+                            '<button type="button" class="btn-img-action btn-img-remove" title="Remove" onclick="removeImg(this)"><i class="fas fa-trash"></i></button>' +
+                            '</div>' +
+                            '<input type="hidden" name="var_' + varId + '_images[]" value="' + res.image_id + '">' +
+                            '</div>';
+                        $dz.before(imgHtml);
+                    }
+                });
+                attachPromises.push(p);
+            } else {
+                var imgHtml = '<div class="img-thumb" data-id="' + file.path + '">' +
+                    '<img src="' + file.url + '" alt="">' +
+                    '<div class="img-actions">' +
+                    '<button type="button" class="btn-img-action btn-img-primary" title="Set Primary" onclick="setPrimaryImg(this)"><i class="fas fa-star"></i></button>' +
+                    '<button type="button" class="btn-img-action btn-img-remove" title="Remove" onclick="removeImg(this)"><i class="fas fa-trash"></i></button>' +
+                    '</div>' +
+                    '<input type="hidden" name="var_' + varId + '_images[]" value="' + file.path + '">' +
+                    '</div>';
+                $dz.before(imgHtml);
+            }
+        });
+
+        var finishVar = function () {
+            closeMediaPicker();
+            toast(selected.length + ' image(s) added to variation.', 'success');
+            btn.prop('disabled', false).html('<i class="fas fa-check"></i> <span id="btnInsertText">Add to Variation</span>');
+        };
+
+        if (attachPromises.length > 0) {
+            $.when.apply($, attachPromises).always(finishVar);
+        } else {
+            finishVar();
+        }
+    }
+}
+
+// Inline upload in media picker modal
+$(document).on('change', '#mediaModalFileInput', function () {
+    var files = this.files;
+    if (!files.length) return;
+
+    var fd = new FormData();
+    for (var i = 0; i < files.length; i++) {
+        fd.append('files[]', files[i]);
+    }
+    fd.append('folder', 'product');
+
+    $('#mediaUploadProgress').show();
+    $('#mediaUploadStatus').text('Uploading ' + files.length + ' file(s)...');
+
+    $.ajax({
+        url: mediaPicker.uploadEndpoint,
+        method: 'POST',
+        data: fd,
+        processData: false,
+        contentType: false,
+        success: function (res) {
+            $('#mediaUploadProgress').hide();
+            toast('Files uploaded to media library!', 'success');
+            // Reload files and switch to library tab
+            switchMediaTab('library');
+            loadMediaFiles(false);
+        },
+        error: function (xhr) {
+            $('#mediaUploadProgress').hide();
+            var err = xhr.responseJSON && xhr.responseJSON.message;
+            toast(err || 'Upload failed.', 'error');
+        }
+    });
+});
 </script>
 @endpush

@@ -3,23 +3,16 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
-use App\Mail\AdminOrderNotificationMail;
-use App\Mail\OrderInvoiceMail;
-use App\Models\Coupon;
 use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\Product;
-use App\Models\ProductVariation;
 use App\Models\StoreSetting;
-use App\Services\BonusService;
+use App\Services\Inventory\InventoryService;
+use App\Services\Order\OrderService;
+use App\Services\Payment\PaymentManager;
 use App\Services\UpiPaymentService;
-use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
@@ -27,138 +20,170 @@ class PaymentController extends Controller
     /** How long a pending order may sit waiting for the customer to pay. */
     private const PENDING_TTL_MINUTES = 30;
 
-    public function __construct(private UpiPaymentService $upi)
-    {
-    }
+    public function __construct(
+        private UpiPaymentService $upi,
+        private PaymentManager $paymentManager,
+        private InventoryService $inventoryService,
+        private OrderService $orderService
+    ) {}
 
     /**
      * Show the "Pay Now" page for a previously-stashed pending order.
      */
-    public function show(string $token)
+    public function show(Request $request, string $token)
     {
         $pending = $this->loadPending($token);
 
-        if (!$pending) {
+        if (! $pending) {
             return redirect()->route('shop.home')
                 ->with('info', 'This payment session has expired. Please place your order again.');
         }
 
-        // If somehow already paid (e.g. user refreshes the page after success),
-        // surface the existing order.
-        if ($pending['order_id'] ?? null) {
+        // If somehow already paid (e.g. user refreshes the page after success), surface the existing order.
+        if (! empty($pending['order_id'])) {
             $order = Order::find($pending['order_id']);
             if ($order) {
                 return redirect()->route('shop.order.success', ['order' => $order->order_code]);
             }
         }
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
-        $gatewayConfigured = $this->upi->isConfigured();
+        $storeName = StoreSetting::getStoreName();
+        $gateways = $this->paymentManager->getActiveGateways();
+
+        // Default or chosen gateway
+        $requestedMethod = $request->query('method', $pending['payment_method'] ?? 'upi');
+        $activeMethod = $this->paymentManager->isSupported($requestedMethod) ? $requestedMethod : 'upi';
+
+        // Check if chosen gateway driver is configured
+        $driver = $this->paymentManager->driver($activeMethod);
+        $gatewayConfigured = $driver->isConfigured();
+
+        // Update pending payment method if changed on pay page
+        if ($activeMethod !== ($pending['payment_method'] ?? null)) {
+            $pending['payment_method'] = $activeMethod;
+            $this->savePending($token, $pending);
+        }
 
         return view('shop.payment', [
-            'token'             => $token,
-            'pending'           => $pending,
-            'storeName'         => $storeName,
+            'token' => $token,
+            'pending' => $pending,
+            'storeName' => $storeName,
+            'gateways' => $gateways,
+            'activeMethod' => $activeMethod,
             'gatewayConfigured' => $gatewayConfigured,
         ]);
     }
 
     /**
-     * Customer clicked "Pay Now" — call the UPI gateway and return the payment URL.
-     * JSON endpoint so the page can open the URL in a new tab and start polling.
+     * Customer clicked "Pay Now" — call the configured gateway and return payment URL or client payload.
      */
     public function initiate(Request $request, string $token)
     {
         $pending = $this->loadPending($token);
 
-        if (!$pending) {
+        if (! $pending) {
             return response()->json([
                 'success' => false,
                 'message' => 'Payment session expired. Please start checkout again.',
             ], 410);
         }
 
-        if (!$this->upi->isConfigured()) {
+        $method = $request->input('payment_method', $pending['payment_method'] ?? 'upi');
+        $driver = $this->paymentManager->driver($method);
+
+        if (! $driver->isConfigured()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Payment gateway is not configured. Please contact support.',
+                'message' => "Payment gateway [{$driver->getName()}] is not configured. Please choose another payment method or contact support.",
             ], 503);
         }
 
-        $result = $this->upi->createOrder([
-            'order_id'        => $token,                       // we use our temp token AS the gateway order_id
-            'amount'          => $pending['total'],
-            'customer_mobile' => $pending['contact']['mobile'],
-            'redirect_url'    => route('shop.payment.return', ['token' => $token]),
-            'remark1'         => 'Order ' . $token,
-            'remark2'         => $pending['contact']['name'] ?? '',
+        $result = $driver->createOrder([
+            'order_id' => $token,
+            'amount' => $pending['total'],
+            'customer_name' => $pending['contact']['name'] ?? '',
+            'customer_mobile' => $pending['contact']['mobile'] ?? '',
+            'customer_email' => $pending['contact']['email'] ?? '',
+            'redirect_url' => route('shop.payment.return', ['token' => $token, 'gateway' => $method]),
         ]);
 
-        if (!$result['success']) {
-            Log::warning('UPI createOrder failed', ['token' => $token, 'result' => $result]);
+        if (! $result['success']) {
+            Log::warning("Gateway [{$method}] createOrder failed", ['token' => $token, 'result' => $result]);
+
             return response()->json([
                 'success' => false,
                 'message' => $result['message'] ?? 'Could not initiate payment.',
             ], 422);
         }
 
-        // Stash the upstream order_id back into the pending payload
-        $pending['gateway_order_id'] = $result['order_id'];
-        $pending['payment_url']      = $result['payment_url'];
+        // Stash the upstream order_id and gateway method back into the pending payload
+        $pending['payment_method'] = $method;
+        $pending['gateway_order_id'] = $result['gateway_order_id'];
+        $pending['payment_url'] = $result['payment_url'] ?? null;
+        $pending['client_payload'] = $result['client_payload'] ?? [];
         $this->savePending($token, $pending);
 
         return response()->json([
-            'success'     => true,
-            'payment_url' => $result['payment_url'],
-            'order_id'    => $result['order_id'],
+            'success' => true,
+            'method' => $method,
+            'payment_url' => $result['payment_url'] ?? null,
+            'client_payload' => $result['client_payload'] ?? [],
+            'order_id' => $result['gateway_order_id'] ?? $token,
         ]);
     }
 
     /**
      * Polled by the payment page to know when to redirect to the success page.
-     * Calls the gateway's status API and, on success, materialises the order in the DB.
      */
-    public function status(string $token)
+    public function status(Request $request, string $token)
     {
         $pending = $this->loadPending($token);
 
-        if (!$pending) {
+        if (! $pending) {
             return response()->json(['state' => 'expired'], 410);
         }
 
         // Already materialised?
-        if (!empty($pending['order_id'])) {
+        if (! empty($pending['order_id'])) {
             $order = Order::find($pending['order_id']);
             if ($order) {
                 return response()->json([
-                    'state'    => 'paid',
+                    'state' => 'paid',
                     'redirect' => route('shop.order.success', ['order' => $order->order_code]),
                 ]);
             }
         }
 
-        $status = $this->upi->checkStatus($token);
+        $method = $pending['payment_method'] ?? 'upi';
+        $driver = $this->paymentManager->driver($method);
 
-        if (!$status['success']) {
+        $status = $driver->checkStatus(
+            $pending['gateway_order_id'] ?? $token,
+            $pending['gateway_payment_id'] ?? null
+        );
+
+        if (! $status['success']) {
             return response()->json(['state' => 'pending']);
         }
 
-        if (!empty($status['is_paid'])) {
+        if (! empty($status['is_paid'])) {
             try {
+                $status['gateway'] = $method;
                 $order = $this->materialiseOrder($token, $pending, $status);
+
                 return response()->json([
-                    'state'    => 'paid',
+                    'state' => 'paid',
                     'redirect' => route('shop.order.success', ['order' => $order->order_code]),
                 ]);
             } catch (\UnexpectedValueException $e) {
                 return response()->json([
-                    'state'   => 'failed',
+                    'state' => 'failed',
                     'message' => $e->getMessage(),
                 ], 400);
             }
         }
 
-        if (!empty($status['is_failed'])) {
+        if (! empty($status['is_failed'])) {
             return response()->json(['state' => 'failed', 'message' => 'Payment failed or was cancelled.']);
         }
 
@@ -166,120 +191,185 @@ class PaymentController extends Controller
     }
 
     /**
-     * The gateway redirects the user here after they finish (or cancel) payment.
-     * We check status once on arrival and either show success or send them back to the pay page.
+     * Verify payment completed on client-side SDK (e.g. Razorpay modal callback).
+     */
+    public function verifyClientPayment(Request $request, string $token)
+    {
+        $pending = $this->loadPending($token);
+
+        if (! $pending) {
+            return response()->json(['success' => false, 'message' => 'Session expired.'], 410);
+        }
+
+        $method = $request->input('payment_method', $pending['payment_method'] ?? 'razorpay');
+        $driver = $this->paymentManager->driver($method);
+
+        // 1. Signature verification
+        $signatureValid = $driver->verifySignature($request->all(), (string) $request->input('razorpay_signature', ''));
+        if (! $signatureValid) {
+            Log::warning('Client payment verification failed signature check', ['token' => $token, 'data' => $request->all()]);
+
+            return response()->json(['success' => false, 'message' => 'Payment signature verification failed.'], 400);
+        }
+
+        // 2. Query upstream status to verify payment state and amount
+        $paymentId = $request->input('razorpay_payment_id');
+        $status = $driver->checkStatus($request->input('razorpay_order_id', $token), $paymentId);
+
+        if (empty($status['is_paid'])) {
+            return response()->json(['success' => false, 'message' => 'Payment has not been captured yet.'], 422);
+        }
+
+        $status['gateway'] = $method;
+        $status['transaction_id'] = $paymentId;
+        $status['signature'] = $request->input('razorpay_signature');
+
+        try {
+            $order = $this->materialiseOrder($token, $pending, $status);
+
+            return response()->json([
+                'success' => true,
+                'redirect' => route('shop.order.success', ['order' => $order->order_code]),
+            ]);
+        } catch (\UnexpectedValueException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Return URL after gateway redirect.
      */
     public function return(Request $request, string $token)
     {
         $pending = $this->loadPending($token);
 
-        // If already materialised, jump straight to success
-        if ($pending && !empty($pending['order_id'])) {
+        if ($pending && ! empty($pending['order_id'])) {
             $order = Order::find($pending['order_id']);
             if ($order) {
                 return redirect()->route('shop.order.success', ['order' => $order->order_code]);
             }
         }
 
-        if (!$pending) {
-            return redirect()->route('shop.home')
-                ->with('info', 'Payment session expired.');
+        if (! $pending) {
+            return redirect()->route('shop.home')->with('info', 'Payment session expired.');
         }
 
-        // Synchronous status check on return
-        $status = $this->upi->checkStatus($token);
+        $method = $request->query('gateway', $pending['payment_method'] ?? 'upi');
+        $driver = $this->paymentManager->driver($method);
 
-        if (!empty($status['success']) && !empty($status['is_paid'])) {
+        $status = $driver->checkStatus(
+            $pending['gateway_order_id'] ?? $token,
+            $pending['gateway_payment_id'] ?? null
+        );
+
+        if (! empty($status['success']) && ! empty($status['is_paid'])) {
             try {
+                $status['gateway'] = $method;
                 $order = $this->materialiseOrder($token, $pending, $status);
+
                 return redirect()->route('shop.order.success', ['order' => $order->order_code]);
             } catch (\UnexpectedValueException $e) {
-                return redirect()->route('shop.payment.show', ['token' => $token])
-                    ->with('info', $e->getMessage());
+                return redirect()->route('shop.payment.show', ['token' => $token])->with('info', $e->getMessage());
             }
         }
 
-        // Otherwise back to the pay page — the poller can keep trying / customer can retry
         return redirect()->route('shop.payment.show', ['token' => $token])
             ->with('info', 'Payment not confirmed yet. If you completed the payment, please wait a few seconds.');
     }
 
     /**
-     * Webhook posted by upicheckout. CSRF-exempted via VerifyCsrfToken::$except.
-     * Trusts the gateway's status, then re-verifies via checkStatus before materialising.
+     * Webhook handler for all payment gateways.
      */
-    public function webhook(Request $request)
+    public function webhook(Request $request, ?string $gateway = null)
     {
-        $orderId = $request->input('order_id');
-        $status  = $request->input('status');
+        $rawOrderId = $request->input('order_id')
+            ?: ($request->input('data.order.order_id')
+            ?: ($request->input('payload.payment.entity.order_id')
+            ?: $request->input('orderId')));
 
-        Log::info('UPI webhook received', ['order_id' => $orderId, 'status' => $status]);
-
-        if (!$orderId) {
-            return response()->json(['success' => false, 'message' => 'missing order_id'], 400);
+        if ($rawOrderId) {
+            $alreadyProcessed = Order::where('payment_order_id', $rawOrderId)
+                ->orWhere('order_code', $rawOrderId)
+                ->first();
+            if ($alreadyProcessed) {
+                return response()->json(['success' => true, 'message' => 'Order already processed']);
+            }
         }
 
-        // Idempotency: if order was already materialised, return success without duplicating actions
-        $existingOrder = Order::where('payment_order_id', $orderId)->first();
+        $selectedGateway = $gateway ?: ($request->input('gateway') ?: 'upi');
+        $driver = $this->paymentManager->driver($selectedGateway);
+
+        Log::info("Payment webhook received for gateway [{$selectedGateway}]");
+
+        $rawBody = (string) $request->getContent();
+        $check = $driver->verifyWebhook($request->all(), $request->headers->all(), $rawBody);
+
+        if (empty($check['success'])) {
+            Log::warning("Payment webhook verification failed for gateway [{$selectedGateway}]", ['check' => $check]);
+
+            return response()->json(['success' => false, 'message' => $check['message'] ?? 'Webhook verification failed'], 400);
+        }
+
+        $orderId = $check['order_id'] ?? null;
+        if (! $orderId) {
+            return response()->json(['success' => false, 'message' => 'Missing order reference in webhook'], 400);
+        }
+
+        // Idempotency: order already materialized?
+        $existingOrder = Order::where('payment_order_id', $orderId)
+            ->orWhere('gateway_payment_id', $check['gateway_payment_id'] ?? 'none')
+            ->first();
+
         if ($existingOrder) {
-            return response()->json(['success' => true, 'message' => 'order already processed']);
+            return response()->json(['success' => true, 'message' => 'Order already processed']);
         }
 
-        // The webhook's order_id IS our temp token (we sent it on createOrder)
         $pending = $this->loadPending($orderId);
-
-        if (!$pending) {
-            return response()->json(['success' => false, 'message' => 'no pending order found, ignored'], 404);
+        if (! $pending) {
+            return response()->json(['success' => false, 'message' => 'No pending order found for token'], 404);
         }
 
-        // Verify with status API directly from the payment provider to prevent spoofing
-        $check = $this->upi->checkStatus($orderId);
-
-        if (!empty($check['success']) && !empty($check['is_paid'])) {
+        if (! empty($check['is_paid'])) {
             try {
+                $check['gateway'] = $selectedGateway;
+                $check['transaction_id'] = $check['gateway_payment_id'] ?? null;
                 $this->materialiseOrder($orderId, $pending, $check);
-                return response()->json(['success' => true, 'message' => 'order materialised']);
+
+                return response()->json(['success' => true, 'message' => 'Order materialized']);
             } catch (\UnexpectedValueException $e) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
             }
         }
 
-        if (!empty($check['is_failed'])) {
-            Log::info("UPI webhook: payment failed or cancelled for token {$orderId}");
-            return response()->json(['success' => false, 'message' => 'payment failed']);
-        }
-
-        Log::warning("UPI webhook: checkStatus did not verify payment for {$orderId}", ['check_result' => $check]);
-        return response()->json(['success' => false, 'message' => 'payment could not be verified with gateway'], 422);
+        return response()->json(['success' => true, 'message' => 'Webhook received, state: '.($check['is_failed'] ? 'failed' : 'pending')]);
     }
 
     /**
-     * Order success page — shown after a confirmed payment.
-     * Looked up by the friendly order_code (NS0001, ...). Ownership-guarded.
+     * Order success page.
      */
     public function success(string $order)
     {
         $orderModel = Order::where('order_code', $order)
-            ->with('items')
+            ->with(['items', 'customer', 'address'])
             ->firstOrFail();
 
         abort_if($orderModel->customer_id !== Auth::guard('customer')->id(), 403);
 
-        $storeName = \App\Models\StoreSetting::getStoreName();
+        $storeName = StoreSetting::getStoreName();
 
         return view('shop.order-success', [
             'storeName' => $storeName,
-            'order'     => $orderModel,
+            'order' => $orderModel,
         ]);
     }
 
     // ────────────────────────────────────────────────────
-    // Helpers
+    // Internal Helpers & Materialization
     // ────────────────────────────────────────────────────
 
     private function cacheKey(string $token): string
     {
-        return 'pending_order:' . $token;
+        return 'pending_order:'.$token;
     }
 
     private function loadPending(string $token): ?array
@@ -292,14 +382,11 @@ class PaymentController extends Controller
         Cache::put($this->cacheKey($token), $payload, now()->addMinutes(self::PENDING_TTL_MINUTES));
     }
 
-    /**
-     * Stash a brand-new pending order and return its token.
-     * Called from CartController::placeOrder.
-     */
     public static function stashPending(array $payload): string
     {
-        $token = 'TMP' . strtoupper(Str::random(10));
-        Cache::put('pending_order:' . $token, $payload, now()->addMinutes(self::PENDING_TTL_MINUTES));
+        $token = 'TMP'.strtoupper(Str::random(10));
+        Cache::put('pending_order:'.$token, $payload, now()->addMinutes(self::PENDING_TTL_MINUTES));
+
         return $token;
     }
 
@@ -308,169 +395,38 @@ class PaymentController extends Controller
      */
     private function materialiseOrder(string $token, array $pending, array $status): Order
     {
-        $paidAmount = (float) ($status['amount'] ?? 0);
+        $paidAmount = isset($status['amount']) ? (float) $status['amount'] : (float) $pending['total'];
         $expectedAmount = (float) $pending['total'];
 
-        if (abs($paidAmount - $expectedAmount) > 0.01) {
+        // Verify amount with 0.05 margin for currency conversion rounding
+        if (abs($paidAmount - $expectedAmount) > 0.05) {
             Log::error('Payment amount mismatch', [
                 'expected_amount' => $expectedAmount,
-                'paid_amount'     => $paidAmount,
-                'token'           => $token,
+                'paid_amount' => $paidAmount,
+                'token' => $token,
             ]);
 
             throw new \UnexpectedValueException('Payment amount verification failed.');
         }
 
-        return DB::transaction(function () use ($token, $pending, $status) {
-            // Re-check with a lock — webhook + status poll can both arrive
-            $existing = Order::where('payment_order_id', $token)->lockForUpdate()->first();
-            if ($existing) {
-                return $existing;
-            }
+        $order = $this->orderService->createFromPending($pending, [
+            'payment_method' => $pending['payment_method'] ?? 'upi',
+            'payment_status' => 'paid',
+            'payment_gateway' => $status['gateway'] ?? ($pending['payment_method'] ?? 'upi'),
+            'payment_order_id' => $token,
+            'gateway_payment_id' => $status['transaction_id'] ?? ($status['utr'] ?? null),
+            'gateway_signature' => $status['signature'] ?? null,
+            'payment_utr' => $status['utr'] ?? null,
+            'paid_at' => now(),
+        ]);
 
-            $order = Order::create([
-                'order_code'             => Order::nextOrderCode('NS'),
-                'customer_id'            => $pending['customer_id'],
-                'address_id'             => $pending['address']['id'] ?? null,
+        // Mark pending payload as materialized
+        $pending['order_id'] = $order->id;
+        $this->savePending($token, $pending);
 
-                'contact_name'           => $pending['contact']['name'],
-                'contact_mobile'         => $pending['contact']['mobile'],
-                'contact_email'          => $pending['contact']['email'] ?? null,
+        Log::info("Order materialized: {$order->order_code} (token {$token})");
 
-                'addr_full_name'         => $pending['address']['full_name'],
-                'addr_line_1'            => $pending['address']['line1'],
-                'addr_line_2'            => $pending['address']['line2'] ?? null,
-                'addr_city'              => $pending['address']['city'],
-                'addr_state'             => $pending['address']['state'],
-                'addr_pincode'           => $pending['address']['pincode'],
-                'addr_mobile_primary'    => $pending['address']['mobile_primary'],
-                'addr_mobile_alternate'  => $pending['address']['mobile_alternate'] ?? null,
-                'addr_type'              => $pending['address']['type'],
-
-                'subtotal'               => $pending['subtotal'],
-                'discount'               => $pending['discount'],
-                'shipping'               => $pending['shipping'] ?? 0,
-                'total'                  => $pending['total'],
-
-                'payment_method'         => 'upi',
-                'payment_status'         => 'paid',
-                'payment_gateway'        => 'upicheckout',
-                'payment_order_id'       => $token,
-                'payment_utr'            => $status['utr'] ?? null,
-                'paid_at'                => now(),
-
-                'status'                 => 'placed',
-            ]);
-
-            // Snapshot line items — re-fetch product details server-side, never trust cart prices
-            $itemIds   = collect($pending['items'])->pluck('id')->all();
-            $products  = Product::whereIn('id', $itemIds)->get()->keyBy('id');
-
-            foreach ($pending['items'] as $item) {
-                $p = $products->get($item['id']);
-                $optIds = collect($item['options'] ?? [])->pluck('id')->filter()->all();
-                $unit = $p ? $p->calculateUnitPrice($item['variation_id'] ?? null, $optIds)
-                           : (float) ($item['price'] ?? 0);
-                $qty  = max(1, (int) ($item['qty'] ?? 1));
-
-                $row = OrderItem::create([
-                    'order_id'       => $order->id,
-                    'product_id'     => $p?->id,
-                    'product_name'   => $p?->name ?? ($item['name'] ?? 'Product #' . $item['id']),
-                    'product_slug'   => $p?->slug,
-                    'product_image'  => $p?->image_url ?? ($item['image'] ?? null),
-                    'quantity'       => $qty,
-                    'unit_price'     => $unit,
-                    'line_total'     => $unit * $qty,
-                    'variation_id'   => $item['variation_id'] ?? null,
-                    'variation_name' => $item['variation_name'] ?? null,
-                    'color'          => $item['color'] ?? null,
-                    'options'        => $item['options'] ?? null,
-                ]);
-
-                // Decrement stock
-                if ($p) {
-                    $p->decrement('qty', $qty);
-                    if ($p->qty <= 0) {
-                        $p->update(['stock_status' => 'out_of_stock']);
-                    }
-                }
-                if (!empty($item['variation_id'])) {
-                    $v = ProductVariation::find($item['variation_id']);
-                    if ($v && $v->manage_inventory) {
-                        $v->decrement('qty', $qty);
-                        if ($v->qty <= 0) {
-                            $v->update(['stock_status' => 'out_of_stock']);
-                        }
-                    }
-                }
-
-                // Snapshot the providers so the order view is stable even if
-                // the product_provider pivot later changes.
-                if ($p) {
-                    $providers = $p->load('providers')->providers;
-                    $names = $providers->pluck('name')->all();
-                    $ids   = $providers->pluck('id')->all();
-                    \Illuminate\Support\Facades\DB::table('order_items')
-                        ->where('id', $row->id)
-                        ->update([
-                            'provider_names' => json_encode(array_values($names)),
-                            'provider_ids'   => json_encode(array_values($ids)),
-                        ]);
-                }
-            }
-
-            // Coupon redemption (if a coupon was applied on this order) — only
-            // mark the coupon used when the order was paid.
-            if (!empty($pending['coupon_code'])) {
-                $coupon = Coupon::where('code', $pending['coupon_code'])
-                    ->where('is_active', true)
-                    ->whereNull('used_at')
-                    ->first();
-                if ($coupon) {
-                    $coupon->markUsed($order->id);
-                }
-            }
-
-            // Auto-issue a coupon for this order (BonusService) — the new
-            // % - off the order total gets credited to the customer's account.
-            try {
-                app(BonusService::class)->evaluateAndIssue($order);
-            } catch (\Throwable $e) {
-                Log::warning('BonusService evaluateAndIssue failed', [
-                    'order_id' => $order->id,
-                    'error'    => $e->getMessage(),
-                ]);
-            }
-
-            // Mark the pending payload as materialised so subsequent polls/webhook short-circuit
-            $pending['order_id'] = $order->id;
-            $this->savePending($token, $pending);
-
-            Log::info("Order materialised: {$order->order_code} (token {$token})");
-
-            // Email the invoice PDF to the customer
-            $this->sendInvoiceEmail($order);
-
-            // Notify store admin
-            $adminEmail = StoreSetting::getValue('email', config('mail.from.address'));
-            if ($adminEmail) {
-                try {
-                    Mail::to($adminEmail)->send(new AdminOrderNotificationMail($order));
-                } catch (\Throwable $e) {
-                    Log::warning('Admin order notification email failed: ' . $e->getMessage());
-                }
-            }
-
-            // Automatically generate invoice record in invoices table
-            try {
-                \App\Http\Controllers\InvoiceController::createFromOrder($order);
-            } catch (\Throwable $e) {
-                Log::warning('Auto-invoice creation failed: ' . $e->getMessage());
-            }
-
-            return $order;
-        });
+        return $order;
     }
 
     /**
@@ -478,163 +434,11 @@ class PaymentController extends Controller
      */
     public static function createCodOrder(array $pending): Order
     {
-        return DB::transaction(function () use ($pending) {
-            $order = Order::create([
-                'order_code'             => Order::nextOrderCode('NS'),
-                'customer_id'            => $pending['customer_id'],
-                'address_id'             => $pending['address']['id'] ?? null,
-
-                'contact_name'           => $pending['contact']['name'],
-                'contact_mobile'         => $pending['contact']['mobile'],
-                'contact_email'          => $pending['contact']['email'] ?? null,
-
-                'addr_full_name'         => $pending['address']['full_name'],
-                'addr_line_1'            => $pending['address']['line1'],
-                'addr_line_2'            => $pending['address']['line2'] ?? null,
-                'addr_city'              => $pending['address']['city'],
-                'addr_state'             => $pending['address']['state'],
-                'addr_pincode'           => $pending['address']['pincode'],
-                'addr_mobile_primary'    => $pending['address']['mobile_primary'],
-                'addr_mobile_alternate'  => $pending['address']['mobile_alternate'] ?? null,
-                'addr_type'              => $pending['address']['type'],
-
-                'subtotal'               => $pending['subtotal'],
-                'discount'               => $pending['discount'],
-                'shipping'               => $pending['shipping'] ?? 0,
-                'total'                  => $pending['total'],
-
-                'payment_method'         => 'cod',
-                'payment_status'         => 'pending',
-                'payment_gateway'        => 'cod',
-                'payment_order_id'       => 'COD' . strtoupper(Str::random(10)),
-                'paid_at'                => null,
-
-                'status'                 => Order::STATUS_PLACED,
-            ]);
-
-            $itemIds  = collect($pending['items'])->pluck('id')->all();
-            $products = Product::whereIn('id', $itemIds)->with(['variations', 'options'])->get()->keyBy('id');
-
-            foreach ($pending['items'] as $item) {
-                $p = $products->get($item['id']);
-                $optIds = collect($item['options'] ?? [])->pluck('id')->filter()->all();
-                $unit = $p ? $p->calculateUnitPrice($item['variation_id'] ?? null, $optIds)
-                           : (float) ($item['price'] ?? 0);
-                $qty  = max(1, (int) ($item['qty'] ?? 1));
-
-                $row = OrderItem::create([
-                    'order_id'       => $order->id,
-                    'product_id'     => $p?->id,
-                    'product_name'   => $p?->name ?? ($item['name'] ?? 'Product #' . $item['id']),
-                    'product_slug'   => $p?->slug,
-                    'product_image'  => $p?->image_url ?? ($item['image'] ?? null),
-                    'quantity'       => $qty,
-                    'unit_price'     => $unit,
-                    'line_total'     => $unit * $qty,
-                    'variation_id'   => $item['variation_id'] ?? null,
-                    'variation_name' => $item['variation_name'] ?? null,
-                    'color'          => $item['color'] ?? null,
-                    'options'        => $item['options'] ?? null,
-                ]);
-
-                // Decrement stock
-                if ($p) {
-                    $p->decrement('qty', $qty);
-                    if ($p->qty <= 0) {
-                        $p->update(['stock_status' => 'out_of_stock']);
-                    }
-                }
-                if (!empty($item['variation_id'])) {
-                    $v = ProductVariation::find($item['variation_id']);
-                    if ($v && $v->manage_inventory) {
-                        $v->decrement('qty', $qty);
-                        if ($v->qty <= 0) {
-                            $v->update(['stock_status' => 'out_of_stock']);
-                        }
-                    }
-                }
-
-                if ($p) {
-                    $providers = $p->load('providers')->providers;
-                    $names = $providers->pluck('name')->all();
-                    $ids   = $providers->pluck('id')->all();
-                    DB::table('order_items')
-                        ->where('id', $row->id)
-                        ->update([
-                            'provider_names' => json_encode(array_values($names)),
-                            'provider_ids'   => json_encode(array_values($ids)),
-                        ]);
-                }
-            }
-
-            if (!empty($pending['coupon_code'])) {
-                $coupon = Coupon::where('code', $pending['coupon_code'])
-                    ->where('is_active', true)
-                    ->whereNull('used_at')
-                    ->first();
-                if ($coupon) {
-                    $coupon->markUsed($order->id);
-                }
-            }
-
-            // Notifications
-            try {
-                $email = $order->contact_email ?: optional($order->customer)->email;
-                if ($email) {
-                    Mail::to($email)->send(new OrderInvoiceMail($order));
-                }
-            } catch (\Throwable $e) {
-                Log::warning('COD order invoice email failed: ' . $e->getMessage());
-            }
-
-            $adminEmail = StoreSetting::getValue('email', config('mail.from.address'));
-            if ($adminEmail) {
-                try {
-                    Mail::to($adminEmail)->send(new AdminOrderNotificationMail($order));
-                } catch (\Throwable $e) {
-                    Log::warning('Admin order notification email failed: ' . $e->getMessage());
-                }
-            }
-
-            try {
-                app(WhatsAppService::class)->sendAutomatedNotification($order);
-            } catch (\Throwable $e) {
-                Log::warning('WhatsApp notification failed: ' . $e->getMessage());
-            }
-
-            // Automatically generate invoice record in invoices table
-            try {
-                \App\Http\Controllers\InvoiceController::createFromOrder($order);
-            } catch (\Throwable $e) {
-                Log::warning('Auto-invoice creation for COD failed: ' . $e->getMessage());
-            }
-
-            Log::info("COD Order created: {$order->order_code}");
-            return $order;
-        });
+        return app(OrderService::class)->createCodOrder($pending);
     }
 
-    /**
-     * Email the order invoice (with PDF attachment) to the customer.
-     * Priority: order contact_email → user account email.
-     * Silently logs and continues on failure — never breaks checkout.
-     */
     protected function sendInvoiceEmail(Order $order): void
     {
-        try {
-            $email = $order->contact_email ?: optional($order->customer)->email;
-            if (empty($email)) {
-                Log::info("Order invoice email skipped: no email for order {$order->order_code}");
-                return;
-            }
-            \Illuminate\Support\Facades\Mail::to($email)
-                ->send(new \App\Mail\OrderInvoiceMail($order));
-            Log::info("Order invoice emailed to {$email} for {$order->order_code}");
-        } catch (\Throwable $e) {
-            Log::warning('Order invoice email failed', [
-                'order_id' => $order->id,
-                'error'    => $e->getMessage(),
-            ]);
-        }
+        $this->orderService->sendInvoiceEmail($order);
     }
 }

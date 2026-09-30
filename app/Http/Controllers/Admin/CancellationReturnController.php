@@ -86,33 +86,18 @@ class CancellationReturnController extends Controller
         $return->resolved_at = in_array($data['status'], ['completed', 'rejected'], true) ? now() : null;
         $return->save();
 
-        // Restock returned item when return is completed
-        if ($data['status'] === 'completed' && $prevStatus !== 'completed') {
-            $item = $return->orderItem;
-            if ($item) {
-                $retQty = max(1, (int)($return->quantity ?: $item->quantity));
-                if ($item->product_id) {
-                    $p = \App\Models\Product::find($item->product_id);
-                    if ($p) {
-                        $p->increment('qty', $retQty);
-                        if ($p->stock_status === 'out_of_stock' && $p->qty > 0) {
-                            $p->update(['stock_status' => 'in_stock']);
-                        }
-                    }
-                }
-                if (!empty($item->variation_id)) {
-                    $v = \App\Models\ProductVariation::find($item->variation_id);
-                    if ($v && $v->manage_inventory) {
-                        $v->increment('qty', $retQty);
-                        if ($v->stock_status === 'out_of_stock' && $v->qty > 0) {
-                            $v->update(['stock_status' => 'in_stock']);
-                        }
-                    }
-                }
-            }
+        // Restock returned item when return is completed (exactly once via InventoryService)
+        $restocked = false;
+        if ($data['status'] === 'completed') {
+            $restocked = app(\App\Services\Inventory\InventoryService::class)->restoreForReturn(
+                $return,
+                null,
+                auth()->id(),
+                auth()->user()?->name
+            );
         }
 
-        return back()->with('success', 'Return status updated to ' . $return->status_label . ($data['status'] === 'completed' ? ' and inventory restocked.' : '.'));
+        return back()->with('success', 'Return status updated to ' . $return->status_label . ($restocked ? ' and inventory restocked.' : '.'));
     }
 
     /**

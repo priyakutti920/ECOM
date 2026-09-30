@@ -532,6 +532,21 @@ class ProductController extends Controller
         $file = $request->file('image');
         $path = $file->store('product', 'public');
 
+        // Also index in MediaFile manager
+        try {
+            \App\Models\MediaFile::create([
+                'name' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
+                'filename' => basename($path),
+                'path' => $path,
+                'disk' => 'public',
+                'mime_type' => $file->getClientMimeType() ?: 'image/jpeg',
+                'size' => $file->getSize() ?: 0,
+                'folder' => 'product',
+            ]);
+        } catch (\Throwable $e) {
+            // Silently continue if duplicate
+        }
+
         if ($request->filled('product_id')) {
             $existing = ProductImage::where('product_id', $request->product_id)->count();
             $isPrimary = $existing === 0;
@@ -555,7 +570,7 @@ class ProductController extends Controller
             return response()->json([
                 'success'    => true,
                 'image_id'   => $path,
-                'image_url'  => asset($path),
+                'image_url'  => \App\Models\Product::resolveMediaUrl($path),
                 'is_primary' => false,
             ]);
         }

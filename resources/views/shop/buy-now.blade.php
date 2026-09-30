@@ -5,90 +5,96 @@
 
 @push('styles')
 <style>
-.buy-now-page { max-width: 1100px; margin: 0 auto; padding: 16px; }
-.buy-now-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
-.buy-now-form { background: #fff; padding: 24px; border-radius: 4px; border: 1px solid #e7e7e7; }
-.buy-now-summary { background: #fff; padding: 20px; border-radius: 4px; border: 1px solid #e7e7e7; position: sticky; top: 80px; }
-.section-title { font-size: 18px; font-weight: 700; color: var(--amazon-charcoal); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #e7e7e7; }
-.sub-title { font-size: 14px; font-weight: 700; color: var(--amazon-charcoal); margin: 16px 0 8px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
-.form-field { margin-bottom: 10px; }
-.form-field label { display:block; font-size: 12px; color: #0F1111; font-weight: 600; margin-bottom: 4px; }
-.form-field label .req { color: #c7511f; }
-.form-field input, .form-field select { width: 100%; padding: 9px 10px; border: 1px solid #d5d9d9; border-radius: 4px; font-size: 14px; outline: none; transition: border 0.15s, box-shadow 0.15s; background: #fff; }
-.form-field input:focus, .form-field select:focus { border-color: #007185; box-shadow: 0 0 0 3px rgba(0,113,133,0.15); }
-.form-field input.error, .form-field select.error { border-color: #c7511f; box-shadow: 0 0 0 3px rgba(199,81,31,0.15); }
-.form-field .err-msg { display:none; color: #c7511f; font-size: 12px; margin-top: 3px; }
+.buy-now-page { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+.buy-now-title { font-size: 24px; font-weight: 800; color: var(--color-heading, #0f172a); margin: 0 0 20px; }
+.buy-now-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 24px; align-items: start; }
+.buy-now-form { background: #ffffff; padding: 28px; border-radius: var(--radius-lg, 12px); border: 1px solid var(--color-border, #e2e8f0); box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+.buy-now-summary { background: #ffffff; padding: 24px; border-radius: var(--radius-lg, 12px); border: 1px solid var(--color-border, #e2e8f0); position: sticky; top: 80px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+.section-title { font-size: 17px; font-weight: 700; color: var(--color-heading, #0f172a); margin: 0 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--color-border, #e2e8f0); display: flex; align-items: center; gap: 8px; }
+.section-title i { color: var(--color-primary, #0068e1); }
+.sub-title { font-size: 13.5px; font-weight: 700; color: var(--color-heading, #0f172a); margin: 18px 0 10px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
+.form-field { margin-bottom: 14px; }
+.form-field label { display: block; font-size: 12px; color: var(--color-heading, #0f172a); font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+.form-field label .req { color: #ef4444; }
+.form-field input, .form-field select { width: 100%; padding: 10px 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); font-size: 14px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; background: #ffffff; }
+.form-field input:focus, .form-field select:focus { border-color: var(--color-primary, #0068e1); box-shadow: 0 0 0 3px rgba(0, 104, 225, 0.15); }
+.form-field input.error, .form-field select.error { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
+.form-field .err-msg { display: none; color: #ef4444; font-size: 12px; margin-top: 4px; }
 .form-field.has-error .err-msg { display: block; }
-.address-type-row { display:flex; gap: 10px; }
-.address-type-row label { display:flex; align-items:center; gap:6px; padding:8px 12px; border:1px solid #d5d9d9; border-radius: 18px; cursor:pointer; font-weight: 500; font-size: 13px; flex:1; }
-.address-type-row label:has(input:checked) { background: #fef7e3; border-color: #f0c14b; }
+
+.address-type-row { display: flex; gap: 10px; }
+.address-type-row label { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); cursor: pointer; font-weight: 600; font-size: 13px; flex: 1; transition: all 0.15s ease; background: #f8fafc; }
+.address-type-row label:has(input:checked) { background: rgba(0, 104, 225, 0.08); border-color: var(--color-primary, #0068e1); color: var(--color-primary, #0068e1); font-weight: 700; }
 .address-type-row input { display: none; }
-.address-type-row i { color: #555; }
-.empty-cart-warning { background: #fef2f2; border: 1px solid #c7511f; padding: 14px 16px; border-radius: 4px; margin-bottom: 12px; color: #842029; font-size: 14px; }
-.summary-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
-.summary-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; background: #f3f3f3; }
+.address-type-row i { font-size: 15px; }
+
+.empty-cart-warning { background: #fff1f2; border: 1px solid #fecdd3; padding: 14px 18px; border-radius: var(--radius-md, 8px); margin-bottom: 16px; color: #9f1239; font-size: 13.5px; }
+.summary-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--color-border, #e2e8f0); }
+.summary-item img { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-sm, 6px); background: #f8fafc; border: 1px solid var(--color-border, #e2e8f0); }
 .summary-item .info { flex: 1; min-width: 0; }
-.summary-item .name { font-size: 13px; font-weight: 600; color: #0F1111; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-.summary-item .meta { font-size: 11px; color: var(--medium-gray); margin-top: 2px; }
-.summary-item .price { font-size: 14px; font-weight: 700; color: #c7511f; white-space: nowrap; }
-.bn-qty-row { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; }
-.bn-qty-btn { width: 22px; height: 22px; border: 1px solid #d5d9d9; background: #f0f2f2; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 700; padding: 0; }
-.bn-qty-btn:hover { background: #e7e7e7; }
-.bn-qty-input { width: 32px; height: 22px; text-align: center; border: 1px solid #d5d9d9; border-radius: 4px; font-size: 12px; font-weight: 600; padding: 0; -moz-appearance: textfield; }
-.bn-qty-input::-webkit-outer-spin-button, .bn-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.bn-unit-price { margin-left: 4px; color: var(--medium-gray); font-size: 11px; }
-.summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
-.summary-row.total { font-size: 18px; font-weight: 700; border-top: 1px solid #e7e7e7; padding-top: 10px; margin-top: 6px; }
-.summary-row.discount { color: #c7511f; }
-.btn-place { width: 100%; background: #ffd814; border: 1px solid #fcd200; border-radius: 100px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; }
-.btn-place:hover { background: #f7ca00; }
+.summary-item .name { font-size: 13.5px; font-weight: 600; color: var(--color-heading, #0f172a); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.35; }
+.summary-item .meta { font-size: 11.5px; color: var(--color-muted, #64748b); margin-top: 3px; }
+.summary-item .price { font-size: 14.5px; font-weight: 700; color: var(--color-heading, #0f172a); white-space: nowrap; }
+
+.bn-qty-row { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; }
+.bn-qty-btn { width: 24px; height: 24px; border: 1px solid var(--color-border, #e2e8f0); background: #f8fafc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 700; padding: 0; color: var(--color-heading, #0f172a); }
+.bn-qty-btn:hover { background: #e2e8f0; }
+.bn-qty-input { width: 34px; height: 24px; text-align: center; border: 1px solid var(--color-border, #e2e8f0); border-radius: 4px; font-size: 12px; font-weight: 600; padding: 0; -moz-appearance: textfield; outline: none; }
+.bn-unit-price { margin-left: 6px; color: var(--color-muted, #64748b); font-size: 11.5px; }
+
+.summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13.5px; color: var(--color-text, #334155); }
+.summary-row.total { font-size: 18px; font-weight: 800; color: var(--color-heading, #0f172a); border-top: 1px solid var(--color-border, #e2e8f0); padding-top: 12px; margin-top: 8px; }
+.summary-row.discount { color: #16a34a; font-weight: 600; }
+
+.btn-place { width: 100%; background: var(--color-primary, #0068e1); color: #ffffff; border: none; border-radius: var(--radius-md, 8px); padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 16px; box-shadow: 0 2px 8px rgba(0, 104, 225, 0.3); transition: all 0.15s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-place:hover { background: var(--color-primary-hover, #0051b3); transform: translateY(-1px); }
 .btn-place:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-place i { margin-right: 6px; }
-.secure-note { font-size: 11px; color: var(--medium-gray); text-align: center; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 4px; }
-.secure-note i { color: #007600; }
-.bonus-note { background: #f0f7ff; border: 1px solid #cce0ff; padding: 8px 10px; border-radius: 4px; font-size: 12px; color: #0a4b87; margin: 10px 0; }
+
+.secure-note { font-size: 11.5px; color: var(--color-muted, #64748b); text-align: center; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.secure-note i { color: #16a34a; }
+.bonus-note { background: #eff6ff; border: 1px solid #bfdbfe; padding: 10px 14px; border-radius: var(--radius-md, 8px); font-size: 12.5px; color: #1e40af; margin: 12px 0; }
 
 /* Coupon block */
-.coupon-block { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #d5d9d9; }
-.coupon-block-row { display: flex; gap: 6px; }
-.coupon-block-row input { flex: 1; padding: 8px 10px; border: 1px solid #d5d9d9; border-radius: 4px; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.5px; }
-.coupon-block-row input:focus { outline: none; border-color: #007185; box-shadow: 0 0 0 2px rgba(0,113,133,0.10); }
-.coupon-block-row button { background: #f0f2f2; border: 1px solid #d5d9d9; padding: 8px 14px; border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: #111; }
-.coupon-block-row button:hover { background: #e7e9e9; }
-.coupon-msg { margin-top: 6px; font-size: 11.5px; padding: 4px 0; }
-.coupon-msg.ok { color: #007600; }
-.coupon-msg.err { color: #c7511f; }
-.coupon-toggle { display: inline-block; margin-top: 6px; font-size: 11.5px; color: #007185; cursor: pointer; }
+.coupon-block { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--color-border, #cbd5e1); }
+.coupon-block-row { display: flex; gap: 8px; }
+.coupon-block-row input { flex: 1; padding: 9px 12px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; outline: none; }
+.coupon-block-row input:focus { border-color: var(--color-primary, #0068e1); box-shadow: 0 0 0 3px rgba(0,104,225,0.15); }
+.coupon-block-row button { background: #f8fafc; border: 1px solid var(--color-border, #e2e8f0); padding: 9px 16px; border-radius: var(--radius-md, 8px); font-size: 13px; font-weight: 600; cursor: pointer; color: var(--color-heading, #0f172a); transition: all 0.15s; }
+.coupon-block-row button:hover { background: #e2e8f0; }
+.coupon-msg { margin-top: 6px; font-size: 12px; padding: 4px 0; }
+.coupon-msg.ok { color: #16a34a; font-weight: 600; }
+.coupon-msg.err { color: #ef4444; }
+.coupon-toggle { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--color-primary, #0068e1); cursor: pointer; font-weight: 600; }
 .coupon-toggle:hover { text-decoration: underline; }
-.coupon-list { margin-top: 6px; max-height: 160px; overflow-y: auto; }
-.coupon-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border: 1px dashed #cce0ff; border-radius: 4px; background: #f7fbff; margin-bottom: 6px; font-size: 12px; }
+.coupon-list { margin-top: 8px; max-height: 160px; overflow-y: auto; }
+.coupon-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border: 1px dashed #bfdbfe; border-radius: var(--radius-sm, 6px); background: #f8fafc; margin-bottom: 8px; font-size: 12px; }
 .coupon-item .ci-body { flex: 1; }
-.coupon-item .ci-code { font-weight: 700; color: #0a4b87; letter-spacing: 0.5px; }
-.coupon-item .ci-min { color: #888; font-size: 10.5px; }
-.coupon-item .ci-use { background: #007185; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-.coupon-item .ci-use:hover { background: #005f6b; }
+.coupon-item .ci-code { font-weight: 700; color: var(--color-primary, #0068e1); letter-spacing: 0.5px; }
+.coupon-item .ci-min { color: var(--color-muted, #64748b); font-size: 11px; }
+.coupon-item .ci-use { background: var(--color-primary, #0068e1); color: #fff; border: none; padding: 4px 12px; border-radius: var(--radius-sm, 6px); font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.coupon-item .ci-use:hover { background: var(--color-primary-hover, #0051b3); }
 
 /* Saved address picker */
-.saved-address-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-bottom: 12px; }
-.saved-address-option { display: flex; gap: 10px; padding: 12px; border: 1px solid #d5d9d9; border-radius: 6px; cursor: pointer; background: #fff; transition: border 0.15s, background 0.15s; }
-.saved-address-option:has(input:checked) { border-color: #007185; background: #f0f8fa; box-shadow: 0 0 0 2px rgba(0,113,133,0.12); }
-.saved-address-option input { margin-top: 4px; flex-shrink: 0; accent-color: #007185; }
+.saved-address-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.saved-address-option { display: flex; gap: 10px; padding: 14px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); cursor: pointer; background: #ffffff; transition: all 0.15s ease; }
+.saved-address-option:has(input:checked) { border-color: var(--color-primary, #0068e1); background: rgba(0, 104, 225, 0.05); box-shadow: 0 0 0 2px rgba(0, 104, 225, 0.15); }
+.saved-address-option input { margin-top: 4px; flex-shrink: 0; accent-color: var(--color-primary, #0068e1); }
 .saved-address-body { flex: 1; min-width: 0; }
-.saved-address-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 14px; color: #111; flex-wrap: wrap; }
-.saved-address-text { font-size: 12.5px; color: #444; line-height: 1.55; }
-.type-pill { background: #fef7e3; color: #946a00; padding: 1px 7px; border-radius: 100px; font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
-.type-pill.type-work { background: #e7f2fb; color: #1a5a8d; }
-.default-pill { background: #007600; color: #fff; padding: 1px 7px; border-radius: 100px; font-size: 10.5px; font-weight: 700; }
-.btn-toggle-new { background: #fff; border: 1px dashed #007185; color: #007185; border-radius: 6px; padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; }
-.btn-toggle-new:hover { background: #f0f8fa; }
-.btn-toggle-new.open { background: #fff5e7; border-color: #c7511f; color: #c7511f; }
+.saved-address-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 14px; color: var(--color-heading, #0f172a); font-weight: 600; flex-wrap: wrap; }
+.saved-address-text { font-size: 12.5px; color: var(--color-muted, #64748b); line-height: 1.55; }
+.type-pill { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 600; }
+.type-pill.type-work { background: #e0f2fe; color: #0369a1; }
+.default-pill { background: #16a34a; color: #fff; padding: 2px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 700; }
+.btn-toggle-new { background: #ffffff; border: 1px dashed var(--color-primary, #0068e1); color: var(--color-primary, #0068e1); border-radius: var(--radius-md, 8px); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 16px; transition: all 0.15s; }
+.btn-toggle-new:hover { background: rgba(0, 104, 225, 0.06); }
+.btn-toggle-new.open { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 #new-address-block.collapsed { display: none; }
 
 @media (max-width: 768px) {
- .buy-now-grid { grid-template-columns: 1fr; }
- .buy-now-summary { position: static; }
- .form-row { grid-template-columns: 1fr; }
+    .buy-now-grid { grid-template-columns: 1fr; }
+    .buy-now-summary { position: static; }
+    .form-row { grid-template-columns: 1fr; }
 }
 </style>
 @endpush
@@ -138,6 +144,7 @@
  <input type="radio" name="address_id" value="{{ $addr->id }}"
  {{ $addr->is_default ? 'checked' : '' }}
  data-default="{{ $addr->is_default ? '1' : '0' }}"
+ data-pincode="{{ $addr->pincode }}"
  onchange="bnOnAddressChange()">
  <div class="saved-address-body">
  <div class="saved-address-head">
@@ -198,7 +205,7 @@
  <div class="form-row">
  <div class="form-field">
  <label>PIN code <span class="req">*</span></label>
- <input type="text" name="pincode" id="bn-addr-pin" maxlength="6" pattern="[0-9]{6}" placeholder="6 digit PIN" value="{{ old('pincode') }}">
+ <input type="text" name="pincode" id="bn-addr-pin" maxlength="6" pattern="[0-9]{6}" placeholder="6 digit PIN" value="{{ old('pincode') }}" oninput="if(this.value.length===6) updateCheckoutPincodeEta(this.value)">
  <div class="err-msg">Enter a valid 6-digit PIN</div>
  </div>
  <div class="form-field">
@@ -233,21 +240,62 @@
  <h2 class="section-title" style="margin-top:24px;">
  <i class="fas fa-credit-card" style="color: var(--amazon-orange); margin-right:8px;"></i>Payment Method
  </h2>
- <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
- <label style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid #d5d9d9; border-radius:6px; cursor:pointer; background:#fff; transition:all 0.15s;">
- <input type="radio" name="payment_method" value="upi" checked style="width:18px; height:18px; accent-color:#007185;">
- <div>
- <div style="font-weight:700; font-size:14px; color:#0F1111;"><i class="fas fa-qrcode" style="color:#007185; margin-right:6px;"></i> UPI / Instant Online Payment</div>
- <div style="font-size:12px; color:#565959;">Pay securely via Google Pay, PhonePe, Paytm, BHIM, or QR Code.</div>
- </div>
- </label>
- <label style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid #d5d9d9; border-radius:6px; cursor:pointer; background:#fff; transition:all 0.15s;">
- <input type="radio" name="payment_method" value="cod" style="width:18px; height:18px; accent-color:#007185;">
- <div>
- <div style="font-weight:700; font-size:14px; color:#0F1111;"><i class="fas fa-hand-holding-usd" style="color:#007600; margin-right:6px;"></i> Cash on Delivery (COD)</div>
- <div style="font-size:12px; color:#565959;">Pay with cash or UPI at your doorstep upon receiving the parcel.</div>
- </div>
- </label>
+ <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;" id="payment-gateways-container">
+ @if(isset($paymentGateways) && count($paymentGateways) > 0)
+     @foreach($paymentGateways as $gIndex => $gw)
+         @php
+             $gSlug = is_array($gw) ? ($gw['slug'] ?? '') : (is_object($gw) && method_exists($gw, 'getSlug') ? $gw->getSlug() : ($gw->slug ?? ''));
+             $gName = is_array($gw) ? ($gw['name'] ?? '') : (is_object($gw) && method_exists($gw, 'getName') ? $gw->getName() : ($gw->name ?? ''));
+             $isFirst = $gIndex === 0;
+         @endphp
+         <label class="payment-option-label" id="option-{{ $gSlug }}" style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid #d5d9d9; border-radius:6px; cursor:pointer; background:#fff; transition:all 0.15s;">
+             <input type="radio" name="payment_method" value="{{ $gSlug }}" {{ $isFirst ? 'checked' : '' }} style="width:18px; height:18px; accent-color:#007185;">
+             <div style="flex:1;">
+                 <div style="font-weight:700; font-size:14px; color:#0F1111;">
+                     @if($gSlug === 'razorpay')
+                         <i class="fas fa-credit-card" style="color:#0284c7; margin-right:6px;"></i> Razorpay (Cards, NetBanking, UPI, Wallets)
+                     @elseif($gSlug === 'cashfree')
+                         <i class="fas fa-wallet" style="color:#0891b2; margin-right:6px;"></i> Cashfree Payments
+                     @elseif($gSlug === 'upi')
+                         <i class="fas fa-qrcode" style="color:#007185; margin-right:6px;"></i> UPI / Instant Online Payment
+                     @elseif($gSlug === 'cod')
+                         <i class="fas fa-hand-holding-usd" style="color:#007600; margin-right:6px;"></i> Cash on Delivery (COD)
+                     @else
+                         <i class="fas fa-credit-card" style="color:#007185; margin-right:6px;"></i> {{ $gName }}
+                     @endif
+                 </div>
+                 <div class="desc" style="font-size:12px; color:#565959;">
+                     @if($gSlug === 'razorpay')
+                         Pay securely using Credit/Debit Card, Net Banking, UPI, or Wallets.
+                     @elseif($gSlug === 'cashfree')
+                         Fast Indian payment gateway supporting UPI, Cards, Netbanking.
+                     @elseif($gSlug === 'upi')
+                         Pay securely via Google Pay, PhonePe, Paytm, BHIM, or QR Code.
+                     @elseif($gSlug === 'cod')
+                         Pay with cash or UPI at your doorstep upon receiving the parcel.
+                     @else
+                         Secure checkout via {{ $gName }}.
+                     @endif
+                 </div>
+             </div>
+         </label>
+     @endforeach
+ @else
+     <label style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid #d5d9d9; border-radius:6px; cursor:pointer; background:#fff; transition:all 0.15s;">
+         <input type="radio" name="payment_method" value="upi" checked style="width:18px; height:18px; accent-color:#007185;">
+         <div>
+             <div style="font-weight:700; font-size:14px; color:#0F1111;"><i class="fas fa-qrcode" style="color:#007185; margin-right:6px;"></i> UPI / Instant Online Payment</div>
+             <div style="font-size:12px; color:#565959;">Pay securely via Google Pay, PhonePe, Paytm, BHIM, or QR Code.</div>
+         </div>
+     </label>
+     <label style="display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid #d5d9d9; border-radius:6px; cursor:pointer; background:#fff; transition:all 0.15s;">
+         <input type="radio" name="payment_method" value="cod" style="width:18px; height:18px; accent-color:#007185;">
+         <div>
+             <div style="font-weight:700; font-size:14px; color:#0F1111;"><i class="fas fa-hand-holding-usd" style="color:#007600; margin-right:6px;"></i> Cash on Delivery (COD)</div>
+             <div style="font-size:12px; color:#565959;">Pay with cash or UPI at your doorstep upon receiving the parcel.</div>
+         </div>
+     </label>
+ @endif
  </div>
 
  <input type="hidden" name="items" id="bn-items">
@@ -262,6 +310,16 @@
  <!-- Right: order summary -->
  <div class="buy-now-summary">
  <h2 class="section-title">Order Summary</h2>
+
+ {{-- Delivery ETA Box --}}
+ <div id="checkout-eta-box" style="margin-bottom:12px; padding:10px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:12.5px; color:#166534; display:none;">
+     <div style="font-weight:700; display:flex; align-items:center; gap:6px;">
+         <i class="fas fa-truck" style="color:#15803d;"></i>
+         <span id="checkout-eta-title">Estimated Delivery</span>
+     </div>
+     <div id="checkout-eta-text" style="font-size:12px; margin-top:2px; color:#14532d;"></div>
+ </div>
+
  <div id="bn-items-list"></div>
  <div class="summary-row" style="margin-top:10px;"><span>Subtotal</span><span>₹<span id="bn-subtotal">0</span></span></div>
  <div class="summary-row discount" id="bn-discount-row" style="display:none;"><span>Discount</span><span id="bn-discount">-₹0</span></div>
@@ -529,6 +587,73 @@ function bnOnAddressChange() {
  btn.classList.remove('open');
  btn.innerHTML = '<i class="fas fa-plus-circle"></i> Add a new address';
  }
+ const picked = document.querySelector('input[name="address_id"]:checked');
+ if (picked && picked.dataset.pincode) {
+  updateCheckoutPincodeEta(picked.dataset.pincode);
+ }
+}
+
+// Pincode ETA & Serviceability check in checkout
+async function updateCheckoutPincodeEta(pincode) {
+    const box = document.getElementById('checkout-eta-box');
+    const text = document.getElementById('checkout-eta-text');
+    const title = document.getElementById('checkout-eta-title');
+    const codOption = document.getElementById('option-cod');
+    const pin = (pincode || '').trim();
+
+    if (!box || !pin || !/^[1-9][0-9]{5}$/.test(pin)) {
+        if (box) box.style.display = 'none';
+        return;
+    }
+
+    box.style.display = 'block';
+    box.style.background = '#f8fafc';
+    box.style.borderColor = '#cbd5e1';
+    title.textContent = 'Checking delivery...';
+    text.textContent = 'Verifying serviceability for PIN ' + pin;
+
+    try {
+        const res = await fetch(`/api/pincode/check?pincode=${encodeURIComponent(pin)}`);
+        const data = await res.json();
+
+        if (data.serviceable) {
+            box.style.background = '#f0fdf4';
+            box.style.borderColor = '#bbf7d0';
+            title.textContent = 'Delivery by ' + (data.eta_date || (data.estimated_days + ' days'));
+            text.innerHTML = (data.courier_name ? 'Express shipping via ' + data.courier_name : 'Standard Delivery') + 
+                             (data.city ? ' to ' + data.city : '');
+
+            // Check COD availability
+            if (codOption) {
+                const codInput = codOption.querySelector('input[value="cod"]');
+                const codDesc = codOption.querySelector('.desc');
+                if (!data.cod_available) {
+                    if (codInput) {
+                        codInput.disabled = true;
+                        if (codInput.checked) {
+                            const firstRadio = document.querySelector('input[name="payment_method"]:not([value="cod"])');
+                            if (firstRadio) firstRadio.checked = true;
+                        }
+                    }
+                    codOption.style.opacity = '0.5';
+                    codOption.style.cursor = 'not-allowed';
+                    if (codDesc) codDesc.innerHTML = '<span style="color:#b91c1c;">Cash on Delivery is unavailable for PIN ' + pin + '.</span>';
+                } else {
+                    if (codInput) codInput.disabled = false;
+                    codOption.style.opacity = '1';
+                    codOption.style.cursor = 'pointer';
+                    if (codDesc) codDesc.textContent = 'Pay with cash or UPI at your doorstep upon receiving the parcel.';
+                }
+            }
+        } else {
+            box.style.background = '#fef2f2';
+            box.style.borderColor = '#fecaca';
+            title.textContent = 'Serviceability Alert';
+            text.textContent = data.message || 'Sorry, this pincode is currently unserviceable.';
+        }
+    } catch (e) {
+        box.style.display = 'none';
+    }
 }
 
 // Form validation
@@ -721,6 +846,7 @@ function bnCouponMsg(msg, kind) {
 
 document.addEventListener('DOMContentLoaded', () => {
  bnLoad();
+ bnOnAddressChange();
  // Auto-apply coupon as user types (no need to click Apply).
  // We only re-apply when the value reaches typical coupon length (≥ 4 chars),
  // or is cleared — to avoid spamming the API on every keystroke.

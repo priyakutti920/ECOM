@@ -15,10 +15,13 @@ class OrderReturn extends Model
         'order_id', 'order_item_id', 'product_id', 'customer_id',
         'reason', 'description', 'image_path',
         'status', 'admin_note',
+        'quantity', 'restocked_at',
         'requested_at', 'resolved_at',
     ];
 
     protected $casts = [
+        'quantity'     => 'integer',
+        'restocked_at' => 'datetime',
         'requested_at' => 'datetime',
         'resolved_at'  => 'datetime',
     ];

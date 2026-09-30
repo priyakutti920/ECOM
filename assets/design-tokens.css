@@ -1,0 +1,137 @@
+/* Design Tokens - Auto-generated */
+/* Do not edit directly - modify tokens.json instead */
+
+/* === PRIMITIVES === */
+:root {
+  --primitive-color-brand-blue-50: #F0F6FF;
+  --primitive-color-brand-blue-100: #E8F2FF;
+  --primitive-color-brand-blue-200: #C5DFFF;
+  --primitive-color-brand-blue-300: #8FBFFF;
+  --primitive-color-brand-blue-400: #5A9FFF;
+  --primitive-color-brand-blue-500: #0068E1;
+  --primitive-color-brand-blue-600: #0053B8;
+  --primitive-color-brand-blue-700: #004399;
+  --primitive-color-brand-blue-800: #003279;
+  --primitive-color-brand-blue-900: #001D59;
+  --primitive-color-brand-dark-50: #626F84;
+  --primitive-color-brand-dark-100: #4A5568;
+  --primitive-color-brand-dark-200: #3D4552;
+  --primitive-color-brand-dark-300: #333A43;
+  --primitive-color-brand-dark-400: #2D333B;
+  --primitive-color-brand-dark-500: #292D32;
+  --primitive-color-brand-dark-600: #22262A;
+  --primitive-color-brand-dark-700: #1C1F23;
+  --primitive-color-brand-dark-800: #15171A;
+  --primitive-color-brand-dark-900: #0F1012;
+  --primitive-color-accent-green-50: #ECFDF5;
+  --primitive-color-accent-green-100: #D1FAE5;
+  --primitive-color-accent-green-200: #A7F3D0;
+  --primitive-color-accent-green-300: #6EE7B7;
+  --primitive-color-accent-green-400: #34D399;
+  --primitive-color-accent-green-500: #10B981;
+  --primitive-color-accent-green-600: #059669;
+  --primitive-color-accent-green-700: #047857;
+  --primitive-color-accent-green-800: #065F46;
+  --primitive-color-accent-green-900: #064E3B;
+  --primitive-spacing-0: 0;
+  --primitive-spacing-1: 4px;
+  --primitive-spacing-2: 6px;
+  --primitive-spacing-3: 10px;
+  --primitive-spacing-4: 14px;
+  --primitive-spacing-5: 20px;
+  --primitive-spacing-6: 28px;
+  --primitive-spacing-7: 40px;
+  --primitive-spacing-8: 56px;
+  --primitive-fontSize-xs: 12px;
+  --primitive-fontSize-sm: 14px;
+  --primitive-fontSize-base: 16px;
+  --primitive-fontSize-lg: 18px;
+  --primitive-fontSize-xl: 22px;
+  --primitive-fontSize-2xl: 28px;
+  --primitive-fontSize-3xl: 36px;
+  --primitive-fontWeight-light: 300;
+  --primitive-fontWeight-regular: 400;
+  --primitive-fontWeight-medium: 500;
+  --primitive-fontWeight-semibold: 600;
+  --primitive-fontWeight-bold: 700;
+  --primitive-radius-xs: 4px;
+  --primitive-radius-sm: 6px;
+  --primitive-radius-md: 10px;
+  --primitive-radius-lg: 14px;
+  --primitive-radius-xl: 20px;
+  --primitive-radius-full: 9999px;
+  --primitive-shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
+  --primitive-shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  --primitive-shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+  --primitive-shadow-card: 0 2px 10px rgba(0,0,0,0.05);
+  --primitive-shadow-card-hover: 0 8px 24px rgba(0,0,0,0.12);
+  --primitive-shadow-drawer: -4px 0 25px rgba(0,0,0,0.15);
+  --primitive-duration-fast: 150ms;
+  --primitive-duration-normal: 250ms;
+  --primitive-duration-slow: 350ms;
+}
+
+/* === SEMANTIC === */
+:root {
+  --color-primary: {primitive.color.primary.500};
+  --color-primary-hover: {primitive.color.primary.600};
+  --color-primary-active: {primitive.color.primary.700};
+  --color-primary-light: {primitive.color.primary.400};
+  --color-primary-lighter: {primitive.color.primary.100};
+  --color-primary-dark: {primitive.color.primary.600};
+  --color-primary-glow: rgba(0,104,225,0.2);
+  --color-secondary: {primitive.color.secondary.500};
+  --color-secondary-dark: {primitive.color.secondary.600};
+  --color-accent: {primitive.color.accent.500};
+  --color-accent-hover: {primitive.color.accent.600};
+  --color-accent-light: {primitive.color.accent.300};
+  --color-success: {primitive.color.accent.500};
+  --color-success-light: {primitive.color.accent.300};
+  --color-warning: #F59E0B;
+  --color-warning-light: #FEF3C7;
+  --color-danger: #EF4444;
+  --color-danger-light: #FEE2E2;
+  --color-info: {primitive.color.secondary.500};
+  --color-info-light: {primitive.color.secondary.300};
+  --color-text-main: #292D32;
+  --color-text-muted: #626F84;
+  --color-text-inverse: #FFFFFF;
+  --color-bg-page: #F8F9FA;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-muted: #F3F5F8;
+  --color-border: #E2E8F0;
+  --color-border-light: #EDF2F7;
+  --color-secondary-hover: {primitive.color.secondary.600};
+  --color-secondary-light: {primitive.color.secondary.300};
+  --color-error: {primitive.color.primary.500};
+  --color-error-light: {primitive.color.primary.300};
+}
+
+/* === COMPONENTS === */
+:root {
+  --button-primary-bg: {primitive.color.primary.500};
+  --button-primary-bg-hover: {primitive.color.primary.600};
+  --button-primary-bg-active: {primitive.color.primary.700};
+  --button-primary-text: #FFFFFF;
+  --button-primary-radius: 10px;
+  --button-primary-padding-x: 20px;
+  --button-primary-padding-y: 10px;
+  --button-primary-font-weight: 600;
+  --button-secondary-bg: #F3F5F8;
+  --button-secondary-bg-hover: #E2E8F0;
+  --button-secondary-text: #292D32;
+  --button-secondary-radius: 10px;
+  --button-secondary-border: #E2E8F0;
+  --input-bg: #FFFFFF;
+  --input-border: #E2E8F0;
+  --input-border-focus: {primitive.color.primary.500};
+  --input-radius: 6px;
+  --input-padding-x: 14px;
+  --input-padding-y: 6px;
+  --input-font-size: 14px;
+  --card-bg: #FFFFFF;
+  --card-border: #EDF2F7;
+  --card-radius: 14px;
+  --card-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  --card-padding: 20px;
+}

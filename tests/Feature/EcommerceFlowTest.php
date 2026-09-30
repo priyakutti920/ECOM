@@ -109,4 +109,63 @@ class EcommerceFlowTest extends TestCase
         $res = $this->get('/account/orders/NS0001');
         $res->assertStatus(403);
     }
+
+    public function test_deals_route_returns_discounted_products(): void
+    {
+        Product::create([
+            'name'          => 'Deal Product',
+            'slug'          => 'deal-product',
+            'price'         => 1000.00,
+            'special_price' => 700.00,
+            'is_active'     => true,
+        ]);
+
+        $res = $this->get('/deals');
+        $res->assertStatus(200);
+        $res->assertSee('Deal Product');
+    }
+
+    public function test_root_category_fetches_subcategory_products(): void
+    {
+        $parent = Category::create([
+            'name'      => 'Fashion',
+            'slug'      => 'fashion',
+            'is_active' => true,
+            'status'    => 0,
+        ]);
+
+        $child = Category::create([
+            'name'      => 'Shirts',
+            'slug'      => 'shirts',
+            'parent_id' => $parent->id,
+            'is_active' => true,
+            'status'    => 0,
+        ]);
+
+        Product::create([
+            'name'        => 'Linen Shirt',
+            'slug'        => 'linen-shirt',
+            'price'       => 1200.00,
+            'category_id' => $child->id,
+            'is_active'   => true,
+        ]);
+
+        // Access root category page
+        $res = $this->get('/category/fashion');
+        $res->assertStatus(200);
+        $res->assertSee('Linen Shirt');
+
+        // Access root category via shop filter
+        $resShop = $this->get('/shop?category=' . $parent->id);
+        $resShop->assertStatus(200);
+        $resShop->assertSee('Linen Shirt');
+    }
+
+    public function test_products_route_renders_shop_catalog(): void
+    {
+        $res = $this->get('/products');
+        $res->assertStatus(200);
+        $res->assertSee('All Products');
+    }
 }
+

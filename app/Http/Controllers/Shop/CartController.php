@@ -9,42 +9,44 @@ use App\Models\Coupon;
 use App\Models\CustomerAddress;
 use App\Models\Product;
 use App\Models\StoreSetting;
+use App\Services\Order\OrderFinancialCalculator;
+use App\Services\Payment\PaymentManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class CartController extends Controller
 {
- /**
- * Cart page — display all items
- * Note: Cart items are stored in browser localStorage to keep things simple.
- * Server returns product details for each item id passed in via cookie/query.
- */
- public function show(Request $request)
- {
- $storeName = StoreSetting::getStoreName();
- $bonuses = Bonus::active()->get();
- $categories = Category::active()->orderBy('sort_order')->limit(20)->get();
+    /**
+     * Cart page — display all items
+     * Note: Cart items are stored in browser localStorage to keep things simple.
+     * Server returns product details for each item id passed in via cookie/query.
+     */
+    public function show(Request $request)
+    {
+        $storeName = StoreSetting::getStoreName();
+        $bonuses = Bonus::active()->get();
+        $categories = Category::active()->orderBy('sort_order')->limit(20)->get();
 
- // Customer-owned coupons they can apply on this order.
- $customerId = Auth::guard('customer')->id();
- $coupons = $customerId
- ? Coupon::where('customer_id', $customerId)
- ->whereNull('used_at')
- ->where(function ($q) {
- $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
- })
- ->orderByDesc('created_at')
- ->get()
- : collect();
+        // Customer-owned coupons they can apply on this order.
+        $customerId = Auth::guard('customer')->id();
+        $coupons = $customerId
+        ? Coupon::where('customer_id', $customerId)
+            ->whereNull('used_at')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->orderByDesc('created_at')
+            ->get()
+        : collect();
 
- return view('shop.cart', compact('storeName', 'bonuses', 'categories', 'coupons'));
- }
+        return view('shop.cart', compact('storeName', 'bonuses', 'categories', 'coupons'));
+    }
 
- /**
- * Get product details for items currently in cart
- * Called by frontend JavaScript to refresh prices/stock.
- */
+    /**
+     * Get product details for items currently in cart
+     * Called by frontend JavaScript to refresh prices/stock.
+     */
     public function items(Request $request)
     {
         $ids = (array) $request->input('ids', []);
@@ -61,18 +63,20 @@ class CartController extends Controller
 
         $items = [];
         foreach ($ids as $id) {
-            if (!isset($products[$id])) continue;
+            if (! isset($products[$id])) {
+                continue;
+            }
             $p = $products[$id];
             $price = (float) $p->effective_price;
             $items[] = [
-                'id'             => $p->id,
-                'name'           => $p->name,
-                'slug'           => $p->slug,
-                'image'          => $p->image_url,
-                'price'          => $price,
+                'id' => $p->id,
+                'name' => $p->name,
+                'slug' => $p->slug,
+                'image' => $p->image_url,
+                'price' => $price,
                 'original_price' => (float) $p->price,
-                'in_stock'       => $p->stock_status === 'in_stock' && ($p->qty === null || $p->qty > 0),
-                'qty_available'  => (int) ($p->qty ?? 10),
+                'in_stock' => $p->stock_status === 'in_stock' && ($p->qty === null || $p->qty > 0),
+                'qty_available' => (int) ($p->qty ?? 10),
             ];
         }
 
@@ -96,7 +100,9 @@ class CartController extends Controller
             ? $customer->addresses()->orderByDesc('is_default')->orderByDesc('id')->get()
             : collect();
 
-        return view('shop.buy-now', compact('storeName', 'bonuses', 'categories', 'addresses', 'customer'));
+        $paymentGateways = app(PaymentManager::class)->getActiveGateways();
+
+        return view('shop.buy-now', compact('storeName', 'bonuses', 'categories', 'addresses', 'customer', 'paymentGateways'));
     }
 
     /**
@@ -108,59 +114,60 @@ class CartController extends Controller
 
         // Step 1: validate contact details + items (always required)
         $base = $request->validate([
-            'name'           => 'required|string|max:120',
-            'mobile'         => 'required|string|regex:/^[0-9]{10}$/',
-            'email'          => 'nullable|email|max:120',
-            'items'          => 'required',
-            'address_id'     => 'nullable|integer|exists:customer_addresses,id',
-            'payment_method' => 'nullable|string|in:upi,cod',
+            'name' => 'required|string|max:120',
+            'mobile' => 'required|string|regex:/^[0-9]{10}$/',
+            'email' => 'nullable|email|max:120',
+            'items' => 'required',
+            'address_id' => 'nullable|integer|exists:customer_addresses,id',
+            'payment_method' => 'nullable|string|in:upi,cod,razorpay,cashfree,manual',
         ]);
 
         // Step 2: resolve the delivery address — either an existing saved one
         // or a brand-new one captured inline.
-        if (!empty($base['address_id'])) {
+        if (! empty($base['address_id'])) {
             $address = CustomerAddress::find($base['address_id']);
-            abort_if(!$address || $address->customer_id !== $customerId, 403);
+            abort_if(! $address || $address->customer_id !== $customerId, 403);
         } else {
             // Validate full new-address payload
             $new = $request->validate([
-                'full_name'        => 'required|string|max:120',
-                'address_line_1'   => 'required|string|max:255',
-                'address_line_2'   => 'nullable|string|max:255',
-                'city'             => 'required|string|max:120',
-                'state'            => 'required|string|max:120',
-                'pincode'          => 'required|string|regex:/^[0-9]{6}$/',
-                'mobile_primary'   => 'required|string|regex:/^[0-9]{10}$/',
+                'full_name' => 'required|string|max:120',
+                'address_line_1' => 'required|string|max:255',
+                'address_line_2' => 'nullable|string|max:255',
+                'city' => 'required|string|max:120',
+                'state' => 'required|string|max:120',
+                'pincode' => 'required|string|regex:/^[0-9]{6}$/',
+                'mobile_primary' => 'required|string|regex:/^[0-9]{10}$/',
                 'mobile_alternate' => 'nullable|string|regex:/^[0-9]{10}$/',
-                'address_type'     => 'required|in:home,work',
-                'save_address'     => 'sometimes|boolean',
+                'address_type' => 'required|in:home,work',
+                'save_address' => 'sometimes|boolean',
             ], [
-                'pincode.regex'        => 'Enter a valid 6-digit PIN code.',
+                'pincode.regex' => 'Enter a valid 6-digit PIN code.',
                 'mobile_primary.regex' => 'Enter a valid 10-digit mobile number.',
             ]);
 
             // Persist the new address (auto-default if it's the first one)
             $address = DB::transaction(function () use ($new, $customerId) {
-                $isFirst = !CustomerAddress::forCustomer($customerId)->exists();
+                $isFirst = ! CustomerAddress::forCustomer($customerId)->exists();
+
                 return CustomerAddress::create([
-                    'customer_id'      => $customerId,
-                    'full_name'        => $new['full_name'],
-                    'mobile_primary'   => $new['mobile_primary'],
+                    'customer_id' => $customerId,
+                    'full_name' => $new['full_name'],
+                    'mobile_primary' => $new['mobile_primary'],
                     'mobile_alternate' => $new['mobile_alternate'] ?? null,
-                    'address_line_1'   => $new['address_line_1'],
-                    'address_line_2'   => $new['address_line_2'] ?? null,
-                    'city'             => $new['city'],
-                    'state'            => $new['state'],
-                    'pincode'          => $new['pincode'],
-                    'type'             => $new['address_type'],
-                    'is_default'       => $isFirst,
+                    'address_line_1' => $new['address_line_1'],
+                    'address_line_2' => $new['address_line_2'] ?? null,
+                    'city' => $new['city'],
+                    'state' => $new['state'],
+                    'pincode' => $new['pincode'],
+                    'type' => $new['address_type'],
+                    'is_default' => $isFirst,
                 ]);
             });
         }
 
         // Step 3: rebuild pricing server-side from the products (never trust client prices)
         $cartItems = json_decode($base['items'], true) ?: [];
-        if (!is_array($cartItems) || empty($cartItems)) {
+        if (! is_array($cartItems) || empty($cartItems)) {
             return back()->withErrors(['items' => 'Your cart is empty.'])->withInput();
         }
 
@@ -171,9 +178,11 @@ class CartController extends Controller
         $itemsPayload = [];
         foreach ($cartItems as $row) {
             $p = $products->get($row['id'] ?? null);
-            if (!$p) continue;
+            if (! $p) {
+                continue;
+            }
             $qty = max(1, (int) ($row['qty'] ?? 1));
-            $varId = !empty($row['variation_id']) ? (int) $row['variation_id'] : null;
+            $varId = ! empty($row['variation_id']) ? (int) $row['variation_id'] : null;
             $optionIds = collect($row['options'] ?? [])->pluck('id')->filter()->all();
 
             // Stock & Inventory Check
@@ -182,10 +191,11 @@ class CartController extends Controller
             }
 
             if ($p->manage_inventory && $p->qty < $qty) {
-                $available = max(0, (int)$p->qty);
+                $available = max(0, (int) $p->qty);
                 $msg = $available > 0
                     ? "Sorry, '{$p->name}' only has {$available} unit(s) left in stock (requested {$qty})."
                     : "Sorry, '{$p->name}' is currently out of stock.";
+
                 return back()->withErrors(['items' => $msg])->withInput();
             }
 
@@ -199,26 +209,31 @@ class CartController extends Controller
                         return back()->withErrors(['items' => "Sorry, '{$p->name} - {$varName}' is out of stock."])->withInput();
                     }
                     if ($v->manage_inventory && $v->qty < $qty) {
-                        $vAvail = max(0, (int)$v->qty);
+                        $vAvail = max(0, (int) $v->qty);
                         $msg = $vAvail > 0
                             ? "Sorry, '{$p->name} - {$varName}' only has {$vAvail} unit(s) left in stock."
                             : "Sorry, '{$p->name} - {$varName}' is out of stock.";
+
                         return back()->withErrors(['items' => $msg])->withInput();
                     }
                 }
             }
 
             $subtotal += $price * $qty;
+            $vObj = ($varId && isset($p->variations)) ? $p->variations->firstWhere('id', $varId) : null;
+            $itemSku = $vObj ? ($vObj->sku ?: ($p->sku ?: ($p->code ?: null))) : ($p->sku ?: ($p->code ?: null));
+
             $itemsPayload[] = [
-                'id'             => $p->id,
-                'qty'            => $qty,
-                'price'          => $price,
-                'name'           => $p->name,
-                'image'          => $p->image_url,
-                'variation_id'   => $varId,
+                'id' => $p->id,
+                'qty' => $qty,
+                'price' => $price,
+                'name' => $p->name,
+                'sku' => $itemSku,
+                'image' => $p->image_url,
+                'variation_id' => $varId,
                 'variation_name' => $varName,
-                'color'          => $row['color'] ?? null,
-                'options'        => $row['options'] ?? null,
+                'color' => $row['color'] ?? null,
+                'options' => $row['options'] ?? null,
             ];
         }
 
@@ -228,29 +243,29 @@ class CartController extends Controller
 
         // Discounts
         $couponCode = strtoupper(trim((string) $request->input('coupon_code', '')));
-        $coupon     = null;
-        $couponErr  = null;
+        $coupon = null;
+        $couponErr = null;
 
         if ($couponCode !== '') {
             $coupon = Coupon::where('code', $couponCode)
                 ->redeemableFor($customerId)
                 ->first();
 
-            if (!$coupon) {
+            if (! $coupon) {
                 $couponErr = 'Invalid or expired coupon code.';
             } elseif ($coupon->min_amount > 0 && $subtotal < (float) $coupon->min_amount) {
-                $couponErr = 'Add items worth at least ₹' . number_format($coupon->min_amount, 0) . ' to use this coupon.';
+                $couponErr = 'Add items worth at least ₹'.number_format($coupon->min_amount, 0).' to use this coupon.';
             }
         }
 
         $currentDiscount = 0.00;
-        $discountSource  = null;
+        $discountSource = null;
         $futureBonusPercent = 0.0;
-        $futureBonusAmount  = 0.00;
+        $futureBonusAmount = 0.00;
 
-        if ($coupon && !$couponErr) {
+        if ($coupon && ! $couponErr) {
             $currentDiscount = (float) $coupon->discountFor($subtotal);
-            $discountSource  = 'coupon:' . $coupon->code;
+            $discountSource = 'coupon:'.$coupon->code;
         } else {
             $bonuses = Bonus::active()->get();
             $bestPct = 0.0;
@@ -261,56 +276,73 @@ class CartController extends Controller
             }
             if ($bestPct > 0) {
                 $futureBonusPercent = $bestPct;
-                $futureBonusAmount  = round($subtotal * ($bestPct / 100), 2);
-                $discountSource     = 'bonus:' . $bestPct;
+                $futureBonusAmount = round($subtotal * ($bestPct / 100), 2);
+                $discountSource = 'bonus:'.$bestPct;
             }
-            // Bonus is a future credit/benefit, current order discount remains 0.00
             $currentDiscount = 0.00;
         }
 
-        if (!empty($couponErr)) {
+        if (! empty($couponErr)) {
             return back()->withErrors(['coupon_code' => $couponErr])->withInput();
         }
 
-        $total = round($subtotal - $currentDiscount, 2);
+        // Authoritative single-point financial calculation
+        $calc = OrderFinancialCalculator::calculate(
+            $subtotal,
+            $currentDiscount,
+            0.0,
+            $address->state
+        );
 
         $pendingPayload = [
             'customer_id' => $customerId,
             'contact' => [
-                'name'   => $base['name'],
+                'name' => $base['name'],
                 'mobile' => $base['mobile'],
-                'email'  => $base['email'] ?? null,
+                'email' => $base['email'] ?? null,
             ],
             'address' => [
-                'id'               => $address->id,
-                'full_name'        => $address->full_name,
-                'line1'            => $address->address_line_1,
-                'line2'            => $address->address_line_2,
-                'city'             => $address->city,
-                'state'            => $address->state,
-                'pincode'          => $address->pincode,
-                'mobile_primary'   => $address->mobile_primary,
+                'id' => $address->id,
+                'full_name' => $address->full_name,
+                'line1' => $address->address_line_1,
+                'line2' => $address->address_line_2,
+                'city' => $address->city,
+                'state' => $address->state,
+                'pincode' => $address->pincode,
+                'mobile_primary' => $address->mobile_primary,
                 'mobile_alternate' => $address->mobile_alternate,
-                'type'             => $address->type,
+                'type' => $address->type,
             ],
-            'items'                   => $itemsPayload,
-            'subtotal'                => $subtotal,
-            'discount'                => $currentDiscount,
-            'shipping'                => 0,
-            'total'                   => $total,
-            'coupon_code'             => $coupon?->code,
-            'discount_source'         => $discountSource,
+            'items' => $itemsPayload,
+            'subtotal' => $calc['subtotal'],
+            'discount' => $calc['discount'],
+            'tax_amount' => $calc['tax_amount'],
+            'cgst' => $calc['cgst'],
+            'sgst' => $calc['sgst'],
+            'igst' => $calc['igst'],
+            'is_interstate' => $calc['is_interstate'],
+            'shipping' => $calc['shipping'],
+            'total' => $calc['total'],
+            'coupon_code' => $coupon?->code,
+            'discount_source' => $discountSource,
             'future_bonus_percentage' => $futureBonusPercent,
-            'future_bonus_amount'     => $futureBonusAmount,
+            'future_bonus_amount' => $futureBonusAmount,
         ];
 
         $paymentMethod = $request->input('payment_method', 'upi');
+        if ($paymentMethod === 'manual') {
+            $paymentMethod = 'cod';
+        }
+        $pendingPayload['payment_method'] = $paymentMethod;
+
         if ($paymentMethod === 'cod') {
             $order = PaymentController::createCodOrder($pendingPayload);
+
             return redirect()->route('shop.order.success', ['order' => $order->order_code]);
         }
 
         $token = PaymentController::stashPending($pendingPayload);
-        return redirect()->route('shop.payment.show', ['token' => $token]);
+
+        return redirect()->route('shop.payment.show', ['token' => $token, 'method' => $paymentMethod]);
     }
 }

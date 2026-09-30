@@ -29,8 +29,8 @@ class SupportController extends Controller
         $faqs = $this->faqs();
 
         $storeName = \App\Models\StoreSetting::getStoreName();
-        $whatsappNumber = \App\Models\StoreSetting::getValue('whatsapp_number', '');
-        $whatsappText   = \App\Models\StoreSetting::getValue('whatsapp_default_text', 'Hi, I need help with my order');
+        $whatsappNumber = \App\Models\StoreSetting::getValue('whatsapp_number') ?: \App\Models\StoreSetting::getValue('wa_number', '');
+        $whatsappText   = \App\Models\StoreSetting::getValue('whatsapp_default_text') ?: \App\Models\StoreSetting::getValue('wa_message', 'Hi, I need help with my order');
 
         return view('shop.help', [
             'storeName'       => $storeName,

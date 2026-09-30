@@ -250,6 +250,36 @@
                             <a onclick="openRefundModal({{ (float) $order->total }})"><i class="fas fa-undo"></i> Refund…</a>
                         </li>
                         <li class="divider"></li>
+                        <li class="action-section">Shipping & Courier</li>
+                        @if(!$order->shipment_id)
+                            <li>
+                                <form method="post" action="{{ route('admin.orders.shipment', $order->order_code) }}" style="margin:0;">
+                                    @csrf
+                                    <button type="submit" style="background:none; border:none; padding:7px 14px; font-size:13px; width:100%; text-align:left; cursor:pointer; color:#333;">
+                                        <i class="fas fa-shipping-fast" style="width:18px; color:#888;"></i> Create Shipment
+                                    </button>
+                                </form>
+                            </li>
+                        @endif
+                        @if($order->shipment_id && !$order->awb_code)
+                            <li>
+                                <form method="post" action="{{ route('admin.orders.awb', $order->order_code) }}" style="margin:0;">
+                                    @csrf
+                                    <button type="submit" style="background:none; border:none; padding:7px 14px; font-size:13px; width:100%; text-align:left; cursor:pointer; color:#333;">
+                                        <i class="fas fa-barcode" style="width:18px; color:#888;"></i> 1-Click Generate AWB
+                                    </button>
+                                </form>
+                            </li>
+                        @endif
+                        @if($order->shipment_id || $order->awb_code)
+                            <li>
+                                <a href="{{ route('admin.orders.label', $order->order_code) }}" target="_blank"><i class="fas fa-print"></i> Print Shipping Label</a>
+                            </li>
+                            <li>
+                                <a onclick="fetchLiveTracking()"><i class="fas fa-search-location"></i> Live Track Courier</a>
+                            </li>
+                        @endif
+                        <li class="divider"></li>
                         <li class="action-section">Invoices & Templates</li>
                         <li>
                             <a href="{{ route('admin.invoices.from-order', $order->order_code) }}" style="color:#2563eb; font-weight:600;"><i class="fas fa-file-invoice"></i> Open in Invoice Manager</a>
@@ -277,6 +307,18 @@
     @if(session('success'))
         <div class="ord-pay-callout" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534;">
             <i class="fas fa-check-circle"></i> {{ session('success') }}
+        </div>
+    @endif
+
+    @if($errors->has('courier'))
+        <div class="ord-pay-callout" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;margin-top:10px;">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Courier Error:</strong> {{ $errors->first('courier') }}
+        </div>
+    @endif
+
+    @if(session('info'))
+        <div class="ord-pay-callout" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af;margin-top:10px;">
+            <i class="fas fa-info-circle"></i> {{ session('info') }}
         </div>
     @endif
 
@@ -520,6 +562,59 @@
                 </div>
             </div>
 
+            {{-- Shipping & Fulfillment --}}
+            <div class="panel">
+                <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span><i class="fas fa-shipping-fast"></i> Courier Fulfillment</span>
+                    @if($order->awb_code)
+                        <span class="badge" style="background:#10b981; color:#fff; font-size:10px; padding:3px 7px; border-radius:4px; font-weight:700;">AWB ASSIGNED</span>
+                    @elseif($order->shipment_id)
+                        <span class="badge" style="background:#f59e0b; color:#fff; font-size:10px; padding:3px 7px; border-radius:4px; font-weight:700;">SHIPMENT READY</span>
+                    @endif
+                </div>
+                <div class="panel-body">
+                    <div class="ord-info-row"><span class="lbl">Courier</span><span class="val">{{ $order->courier_name ?: ($order->dispatched_via ?: '—') }}</span></div>
+                    <div class="ord-info-row"><span class="lbl">Shipment ID</span><span class="val">{{ $order->shipment_id ?: '—' }}</span></div>
+                    <div class="ord-info-row"><span class="lbl">AWB Code</span><span class="val"><strong>{{ $order->awb_code ?: ($order->tracking_number ?: '—') }}</strong></span></div>
+                    @if($order->shipping_label_url)
+                        <div class="ord-info-row"><span class="lbl">Shipping Label</span><span class="val"><a href="{{ $order->shipping_label_url }}" target="_blank" style="color:#2563eb; font-weight:600;"><i class="fas fa-external-link-alt"></i> View PDF Label</a></span></div>
+                    @endif
+
+                    <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+                        @if(!$order->shipment_id)
+                            <form method="post" action="{{ route('admin.orders.shipment', $order->order_code) }}" style="margin:0;">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-block" style="background:#4f46e5; color:#fff; font-weight:600; padding:8px 12px; border-radius:6px; border:none; width:100%; cursor:pointer;">
+                                    <i class="fas fa-truck-loading"></i> Create Shiprocket Shipment
+                                </button>
+                            </form>
+                        @elseif(!$order->awb_code)
+                            <form method="post" action="{{ route('admin.orders.awb', $order->order_code) }}" style="margin:0;">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-block" style="background:#10b981; color:#fff; font-weight:600; padding:8px 12px; border-radius:6px; border:none; width:100%; cursor:pointer;">
+                                    <i class="fas fa-barcode"></i> 1-Click Generate AWB
+                                </button>
+                            </form>
+                        @endif
+
+                        @if($order->shipment_id || $order->awb_code)
+                            <div style="display:flex; gap:8px;">
+                                <a href="{{ route('admin.orders.label', $order->order_code) }}" target="_blank" class="btn btn-sm" style="flex:1; background:#0284c7; color:#fff; font-weight:600; padding:8px 12px; border-radius:6px; text-decoration:none; text-align:center;">
+                                    <i class="fas fa-print"></i> Print Label
+                                </a>
+                                <button type="button" onclick="fetchLiveTracking()" class="btn btn-sm" style="flex:1; background:#059669; color:#fff; font-weight:600; padding:8px 12px; border-radius:6px; border:none; cursor:pointer;">
+                                    <i class="fas fa-search-location"></i> Live Track
+                                </button>
+                            </div>
+                        @endif
+
+                        <button type="button" onclick="openDispatchModal()" class="btn btn-sm" style="background:#f3f4f6; color:#374151; font-weight:600; padding:6px 12px; border-radius:6px; border:1px solid #d1d5db; margin-top:4px; cursor:pointer;">
+                            <i class="fas fa-edit"></i> Manual Dispatch Override…
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             @if($order->cancelled_reason)
                 <div class="panel">
                     <div class="panel-head"><i class="fas fa-times-circle" style="color:#c0392b;"></i> Cancellation</div>
@@ -640,7 +735,21 @@
         <button type="button" class="btn btn-secondary" onclick="closeModals()">Cancel</button>
         <button type="submit" class="btn btn-primary">Record refund</button>
     </div>
-</form>
+<div class="ord-modal" id="ordTrackModal" style="max-width:550px;">
+    <div class="m-head">
+        <h3><i class="fas fa-search-location"></i> Live Courier Tracking</h3>
+        <button type="button" class="x" onclick="closeModals()">×</button>
+    </div>
+    <div class="m-body" id="ordTrackBody">
+        <div style="text-align:center; padding:30px; color:#6b7280;">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <div style="margin-top:10px;">Fetching tracking updates from courier...</div>
+        </div>
+    </div>
+    <div class="m-foot">
+        <button type="button" class="btn btn-secondary" onclick="closeModals()">Close</button>
+    </div>
+</div>
 
 @endsection
 
@@ -663,6 +772,48 @@
     function openRefundModal(total) {
         document.getElementById('ordRefundAmount').value = total.toFixed(2);
         openModal(document.getElementById('ordRefundModal'));
+    }
+
+    function fetchLiveTracking() {
+        const modal = document.getElementById('ordTrackModal');
+        const body = document.getElementById('ordTrackBody');
+        body.innerHTML = '<div style="text-align:center; padding:30px; color:#6b7280;"><i class="fas fa-spinner fa-spin fa-2x"></i><div style="margin-top:10px;">Fetching tracking updates from courier...</div></div>';
+        openModal(modal);
+
+        fetch("{{ route('admin.orders.track', $order->order_code) }}", {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success && !data.current_status) {
+                body.innerHTML = '<div style="padding:15px; color:#b91c1c; background:#fef2f2; border-radius:6px;"><i class="fas fa-exclamation-triangle"></i> ' + (data.message || 'Tracking details not yet available.') + '</div>';
+                return;
+            }
+
+            let html = '<div style="margin-bottom:14px; padding:12px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0;">';
+            html += '<div style="font-size:12px; color:#166534; font-weight:700; text-transform:uppercase;">Current Status</div>';
+            html += '<div style="font-size:16px; font-weight:700; color:#14532d; margin-top:2px;">' + (data.current_status || 'In Transit') + '</div>';
+            html += '</div>';
+
+            if (data.activities && data.activities.length > 0) {
+                html += '<div style="font-size:12px; font-weight:700; color:#4b5563; text-transform:uppercase; margin-bottom:8px;">Activity Log</div>';
+                html += '<div style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">';
+                data.activities.forEach(act => {
+                    html += '<div style="padding:8px 10px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; font-size:12px;">';
+                    html += '<div style="font-weight:600; color:#1f2937;">' + (act.activity || act.status || 'Scan') + '</div>';
+                    html += '<div style="color:#6b7280; font-size:11px; margin-top:2px;">' + (act.date || act.time || '') + (act.location ? ' · ' + act.location : '') + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="font-size:12px; color:#6b7280; font-style:italic;">No detailed scan logs recorded yet.</div>';
+            }
+
+            body.innerHTML = html;
+        })
+        .catch(err => {
+            body.innerHTML = '<div style="padding:15px; color:#b91c1c; background:#fef2f2; border-radius:6px;"><i class="fas fa-exclamation-triangle"></i> Failed to connect to tracking server.</div>';
+        });
     }
 </script>
 @endpush

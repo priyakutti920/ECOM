@@ -9,17 +9,21 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureCustomerAuthenticated
 {
- /**
- * Handle an incoming request.
- */
- public function handle(Request $request, Closure $next): Response
- {
- if (!Auth::guard('customer')->check()) {
- return redirect()
- ->route('shop.login.email')
- ->with('info', 'Please login to continue.');
- }
+    /**
+     * Handle an incoming request.
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        if (! Auth::guard('customer')->check()) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => 'Unauthenticated.', 'authenticated' => false], 401);
+            }
 
- return $next($request);
- }
+            return redirect()
+                ->route('shop.login.email')
+                ->with('info', 'Please login to continue.');
+        }
+
+        return $next($request);
+    }
 }

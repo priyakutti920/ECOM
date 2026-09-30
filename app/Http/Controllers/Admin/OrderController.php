@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\OrderStatusChangedMail;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Services\Shipping\CourierServiceInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -307,4 +308,92 @@ class OrderController extends Controller
             'hideChrome' => false,
         ]);
     }
+
+    /**
+     * POST /admin/orders/{order}/shipment
+     * Creates shipment order on Shiprocket.
+     */
+    public function createShipment(Request $request, string $order, CourierServiceInterface $courier)
+    {
+        $o = Order::where('order_code', $order)->firstOrFail();
+
+        $res = $courier->createShipment($o);
+
+        if (!$res['success']) {
+            return back()->withErrors(['courier' => $res['message'] ?? 'Failed to create shipment on courier.']);
+        }
+
+        return back()->with('success', $res['message'] ?? 'Shiprocket shipment created successfully.');
+    }
+
+    /**
+     * POST /admin/orders/{order}/awb
+     * Assigns / generates AWB tracking code.
+     */
+    public function generateAwb(Request $request, string $order, CourierServiceInterface $courier)
+    {
+        $o = Order::where('order_code', $order)->firstOrFail();
+
+        $res = $courier->generateAwb($o);
+
+        if (!$res['success']) {
+            return back()->withErrors(['courier' => $res['message'] ?? 'Failed to generate AWB.']);
+        }
+
+        return back()->with('success', $res['message'] ?? 'AWB assigned successfully.');
+    }
+
+    /**
+     * GET /admin/orders/{order}/label
+     * Retrieves or downloads shipping label.
+     */
+    public function downloadLabel(Request $request, string $order, CourierServiceInterface $courier)
+    {
+        $o = Order::where('order_code', $order)->firstOrFail();
+
+        $res = $courier->getShippingLabel($o);
+
+        if (!$res['success'] || empty($res['label_url'])) {
+            return back()->withErrors(['courier' => $res['message'] ?? 'Failed to fetch shipping label.']);
+        }
+
+        return redirect()->away($res['label_url']);
+    }
+
+    /**
+     * GET /admin/orders/{order}/track
+     * Live courier tracking endpoint.
+     */
+    public function trackShipment(Request $request, string $order, CourierServiceInterface $courier)
+    {
+        $o = Order::where('order_code', $order)->firstOrFail();
+
+        $res = $courier->trackShipment($o);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json($res);
+        }
+
+        if (!$res['success']) {
+            return back()->with('error', $res['message'] ?? 'Unable to retrieve tracking information.');
+        }
+
+        return back()->with('info', "Courier Status: " . ($res['current_status'] ?? 'In Transit'));
+    }
+
+    /**
+     * POST /api/courier/webhook
+     * Public webhook callback endpoint for courier partners (Shiprocket).
+     */
+    public function courierWebhook(Request $request, CourierServiceInterface $courier)
+    {
+        $payload = $request->all();
+        $headers = $request->headers->all();
+
+        $result = $courier->handleWebhook($payload, $headers);
+
+        $status = $result['success'] ? 200 : 400;
+        return response()->json($result, $status);
+    }
 }
+
