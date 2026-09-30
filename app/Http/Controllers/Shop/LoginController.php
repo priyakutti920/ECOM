@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\OtpCode;
 use App\Models\User;
 use App\Models\Wishlist;
 use App\Services\OtpService;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -134,6 +136,7 @@ class LoginController extends Controller
 
             $request->session()->put('otp_email', strtolower($validated['email']));
             $request->session()->put('otp_sent_at', now()->toDateTimeString());
+            RateLimiter::clear('verify-otp:' . strtolower($validated['email']));
 
             $redirectTo = $request->input('redirect') ? urldecode($request->input('redirect')) : null;
             if ($redirectTo) {
@@ -178,17 +181,36 @@ class LoginController extends Controller
             return redirect()->route('shop.login.email');
         }
 
+        $throttleKey = 'verify-otp:' . strtolower($email);
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            OtpCode::purgeOld($email);
+            return back()->withErrors([
+                'otp' => 'Maximum verification attempts exceeded. Your OTP has been invalidated. Please request a new one.',
+            ]);
+        }
+
         $validated = $request->validate([
-            'otp' => ['required', 'string', 'regex:/^[0-9]{4}$/'],
+            'otp' => ['required', 'string', 'regex:/^[0-9]{6}$/'],
         ], [
-            'otp.regex' => 'Please enter a valid 4-digit OTP.',
+            'otp.regex' => 'Please enter a valid 6-digit OTP.',
         ]);
 
         $result = $this->otpService->verify($email, $validated['otp']);
 
         if (!$result['success']) {
-            return back()->withErrors(['otp' => $result['message']])->withInput();
+            RateLimiter::hit($throttleKey, 600);
+            $retriesLeft = RateLimiter::retriesLeft($throttleKey, 5);
+            if ($retriesLeft <= 0) {
+                OtpCode::purgeOld($email);
+                return back()->withErrors([
+                    'otp' => 'Maximum verification attempts exceeded. Your OTP has been invalidated. Please request a new one.',
+                ]);
+            }
+            return back()->withErrors(['otp' => $result['message'] . " ({$retriesLeft} attempts remaining)"])->withInput();
         }
+
+        RateLimiter::clear($throttleKey);
 
         // Find existing customer by email, or create one.
         $user = User::where('email', $email)->first();
@@ -227,6 +249,7 @@ class LoginController extends Controller
             if (!$result['success']) {
                 return back()->withErrors(['otp' => $result['message']]);
             }
+            RateLimiter::clear('verify-otp:' . strtolower($email));
             return back()->with('status', $result['message']);
         } catch (\Exception) {
             return back()->withErrors(['otp' => 'Failed to resend OTP. Please try again.']);
@@ -444,9 +467,8 @@ class LoginController extends Controller
         // Attempt sending email
         $sent = $this->sendPasswordResetEmail($email, $resetUrl);
 
-        if (!$sent && (config('app.debug') || app()->environment('local'))) {
-            return back()->with('status', 'Password reset link generated!')
-                ->with('dev_reset_url', $resetUrl);
+        if (!$sent) {
+            \Illuminate\Support\Facades\Log::warning('Password reset email delivery failed.');
         }
 
         return back()->with('status', 'If an account exists for this email, you will receive a password reset link shortly.');

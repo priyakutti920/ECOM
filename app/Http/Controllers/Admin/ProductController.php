@@ -498,38 +498,25 @@ class ProductController extends Controller
         });
     }
 
-    public function destroy(Product $product)
+    public function destroy(Request $request, Product $product)
     {
-        // Delete all related images from storage
-        foreach ($product->images as $img) {
-            if (str_starts_with($img->image, 'product/')) {
-                $fullPath = public_path($img->image);
-                if (file_exists($fullPath)) {
-                    @unlink($fullPath);
-                }
-            } else {
-                Storage::disk('public')->delete($img->image);
-            }
-        }
-        foreach ($product->variations as $var) {
-            foreach ($var->images as $img) {
-                if (str_starts_with($img->image, 'product/')) {
-                    $fullPath = public_path($img->image);
-                    if (file_exists($fullPath)) {
-                        @unlink($fullPath);
-                    }
-                } else {
-                    Storage::disk('public')->delete($img->image);
-                }
-            }
+        if ($request->boolean('force')) {
+            $product->forceDelete();
+            return response()->json(['success' => true, 'message' => 'Product permanently deleted.']);
         }
 
-        $product->categories()->detach();
-        $product->providers()->detach();
-        $product->relatedProducts()->detach();
+        // Soft delete: keep images and relationships intact so product can be restored
         $product->delete();
 
         return response()->json(['success' => true, 'message' => 'Product deleted.']);
+    }
+
+    public function restore($id)
+    {
+        $product = Product::withTrashed()->findOrFail($id);
+        $product->restore();
+
+        return response()->json(['success' => true, 'message' => 'Product restored successfully.']);
     }
 
     // ── Image upload endpoint ─────────────────────────────
@@ -543,9 +530,7 @@ class ProductController extends Controller
         ]);
 
         $file = $request->file('image');
-        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $file->move(public_path('product'), $filename);
-        $path = 'product/' . $filename;
+        $path = $file->store('product', 'public');
 
         if ($request->filled('product_id')) {
             $existing = ProductImage::where('product_id', $request->product_id)->count();
@@ -611,9 +596,7 @@ class ProductController extends Controller
             : ProductImage::where('product_id', $product->id)->count();
 
         foreach ($request->file($key) as $i => $file) {
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('product'), $filename);
-            $path = 'product/' . $filename;
+            $path = $file->store('product', 'public');
             if ($variationId) {
                 ProductVariationImage::create([
                     'product_variation_id' => $variationId,

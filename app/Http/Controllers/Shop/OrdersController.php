@@ -177,7 +177,7 @@ class OrdersController extends Controller
 
     /**
      * Public / Customer Track Order page.
-     * Accessible by order_code and verification mobile/email.
+     * Accessible by order_code and strictly verified 10-digit mobile or email.
      */
     public function trackOrder(Request $request)
     {
@@ -192,38 +192,60 @@ class OrdersController extends Controller
             $customerId = Auth::guard('customer')->id();
 
             if ($customerId) {
-                // If logged in, order must belong to this customer (or match phone)
+                // Logged-in customers track orders belonging to their account
                 $order = Order::where('order_code', $code)
-                    ->where(function ($q) use ($customerId, $phone) {
-                        $q->where('customer_id', $customerId);
-                        if ($phone !== '') {
-                            $q->orWhere('contact_mobile', 'like', "%{$phone}%")
-                              ->orWhere('addr_mobile_primary', 'like', "%{$phone}%");
-                        }
-                    })
-                    ->with(['items', 'customer'])
+                    ->where('customer_id', $customerId)
+                    ->with(['items'])
                     ->first();
-            } else {
-                // Guests MUST provide their registered mobile number or email to verify identity
-                if ($phone === '') {
-                    $error = 'Please enter the mobile number or email associated with this order to view tracking details.';
-                } else {
+
+                if (!$order && $phone !== '') {
+                    // Fall back to phone/email verification if customer has older guest orders
                     $cleanPhone = preg_replace('/\D+/', '', $phone);
+                    $isValidMobile = (bool) preg_match('/^[6-9][0-9]{9}$/', $cleanPhone);
+                    $isValidEmail = (bool) filter_var($phone, FILTER_VALIDATE_EMAIL);
+
+                    if ($isValidMobile || $isValidEmail) {
+                        $order = Order::where('order_code', $code)
+                            ->where(function ($q) use ($phone, $cleanPhone, $isValidMobile, $isValidEmail) {
+                                if ($isValidMobile) {
+                                    $q->where('contact_mobile', $cleanPhone)
+                                      ->orWhere('addr_mobile_primary', $cleanPhone);
+                                } elseif ($isValidEmail) {
+                                    $q->where('contact_email', strtolower($phone));
+                                }
+                            })
+                            ->with(['items'])
+                            ->first();
+                    }
+                }
+            } else {
+                // Guests MUST provide their full registered 10-digit Indian mobile number or valid email
+                $cleanPhone = preg_replace('/\D+/', '', $phone);
+                $isValidMobile = (bool) preg_match('/^[6-9][0-9]{9}$/', $cleanPhone);
+                $isValidEmail = (bool) filter_var($phone, FILTER_VALIDATE_EMAIL);
+
+                if (empty($phone)) {
+                    $error = 'Please enter the 10-digit mobile number or email associated with this order.';
+                } elseif (!$isValidMobile && !$isValidEmail) {
+                    $error = 'Please enter a valid 10-digit mobile number (starting with 6-9) or email address.';
+                } else {
+                    // Strict exact matching — NEVER use LIKE wildcard queries on phone numbers
                     $order = Order::where('order_code', $code)
-                        ->where(function ($q) use ($phone, $cleanPhone) {
-                            if (!empty($cleanPhone)) {
-                                $q->where('contact_mobile', 'like', "%{$cleanPhone}%")
-                                  ->orWhere('addr_mobile_primary', 'like', "%{$cleanPhone}%");
+                        ->where(function ($q) use ($phone, $cleanPhone, $isValidMobile, $isValidEmail) {
+                            if ($isValidMobile) {
+                                $q->where('contact_mobile', $cleanPhone)
+                                  ->orWhere('addr_mobile_primary', $cleanPhone);
+                            } elseif ($isValidEmail) {
+                                $q->where('contact_email', strtolower($phone));
                             }
-                            $q->orWhere('contact_email', $phone);
                         })
-                        ->with(['items', 'customer'])
+                        ->with(['items'])
                         ->first();
                 }
             }
 
             if (!$order && !$error) {
-                $error = 'No order found with the provided details. Please verify your order ID and mobile number.';
+                $error = 'No order found matching the provided order ID and contact details.';
             }
         }
 

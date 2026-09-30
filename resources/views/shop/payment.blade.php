@@ -64,7 +64,8 @@
  @php
  $isCoupon = isset($pending['discount_source']) && str_starts_with((string) $pending['discount_source'], 'coupon:');
  $isBonus = isset($pending['discount_source']) && str_starts_with((string) $pending['discount_source'], 'bonus:');
- $amountToPay = ($isBonus) ? $pending['subtotal'] : $pending['total'];
+ $bonusAmount = $pending['future_bonus_amount'] ?? ($isBonus ? ($pending['discount'] ?? 0) : 0);
+ $amountToPay = $pending['total'];
  @endphp
 
  <div class="amount-block">
@@ -72,8 +73,8 @@
  <div class="val">₹{{ number_format($amountToPay, 2) }}</div>
  @if($isCoupon)
  <div class="note" style="color:#007600;">Coupon <strong>{{ $pending['coupon_code'] }}</strong> applied — you saved ₹{{ number_format($pending['discount'], 2) }} on this order.</div>
- @elseif($isBonus && $pending['discount'] > 0)
- <div class="note" style="color:#007600;">You'll save <strong>₹{{ number_format($pending['discount'], 2) }}</strong> as a coupon for your <strong>next</strong> order. Pay full amount today!</div>
+ @elseif($isBonus && $bonusAmount > 0)
+ <div class="note" style="color:#007600;">You'll save <strong>₹{{ number_format($bonusAmount, 2) }}</strong> as a coupon for your <strong>next</strong> order. Pay full amount today!</div>
  @endif
  </div>
 
@@ -88,8 +89,8 @@
  <div class="row"><span>Subtotal</span><span>₹{{ number_format($pending['subtotal'], 2) }}</span></div>
  @if($isCoupon && $pending['discount'] > 0)
  <div class="row" style="color:#007600;"><span>Coupon {{ $pending['coupon_code'] }}</span><span>−₹{{ number_format($pending['discount'], 2) }}</span></div>
- @elseif($isBonus && $pending['discount'] > 0)
- <div class="row" style="color:#007600;"><span>Next-order bonus (you'll save)</span><span>₹{{ number_format($pending['discount'], 2) }}</span></div>
+ @elseif($isBonus && $bonusAmount > 0)
+ <div class="row" style="color:#007600;"><span>Next-order bonus (you'll save)</span><span>₹{{ number_format($bonusAmount, 2) }}</span></div>
  @endif
  <div class="row"><span>Shipping</span><span style="color:#007600;">FREE</span></div>
  <div class="row tot"><span>Total to pay</span><span>₹{{ number_format($amountToPay, 2) }}</span></div>
@@ -132,6 +133,8 @@
  const pill      = document.getElementById('status-pill');
  let pollTimer   = null;
  let paymentTab  = null;
+ let pollAttempts = 0;
+ const MAX_POLL_ATTEMPTS = 60;
 
  function setPill(state, msg) {
  pill.classList.remove('status-pending', 'status-success', 'status-failed', 'show');
@@ -182,6 +185,7 @@
 
  function startPolling() {
  if (pollTimer) clearInterval(pollTimer);
+ pollAttempts = 0;
  pollTimer = setInterval(checkStatus, 3000);
  // First check after 2s to be snappy
  setTimeout(checkStatus, 2000);
@@ -189,6 +193,14 @@
 
  async function checkStatus() {
  try {
+ pollAttempts++;
+ if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+ clearInterval(pollTimer);
+ setPill('failed', 'Payment confirmation timed out. If money was debited, please check My Orders or contact support.');
+ btn.disabled = false;
+ btnText.innerHTML = '<i class="fas fa-redo"></i> Check Status Again';
+ return;
+ }
  const res = await fetch('/pay/' + encodeURIComponent(token) + '/status', {
  method: 'GET',
  headers: { 'Accept': 'application/json' },

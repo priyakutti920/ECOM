@@ -47,15 +47,14 @@ class InvoiceController extends Controller
             });
         }
 
-        // Statistics
-        $allInvoices = Invoice::all();
+        // Statistics — database aggregates (prevents memory exhaustion on large datasets)
         $stats = [
-            'total_count'    => $allInvoices->count(),
-            'total_amount'   => (float) $allInvoices->sum('total_amount'),
-            'paid_count'     => $allInvoices->where('status', 1)->count(),
-            'paid_amount'    => (float) $allInvoices->where('status', 1)->sum('total_amount'),
-            'pending_count'  => $allInvoices->where('status', 0)->count(),
-            'pending_amount' => (float) $allInvoices->where('status', 0)->sum('total_amount'),
+            'total_count'    => Invoice::count(),
+            'total_amount'   => (float) Invoice::sum('total_amount'),
+            'paid_count'     => Invoice::where('status', 1)->count(),
+            'paid_amount'    => (float) Invoice::where('status', 1)->sum('total_amount'),
+            'pending_count'  => Invoice::where('status', 0)->count(),
+            'pending_amount' => (float) Invoice::where('status', 0)->sum('total_amount'),
         ];
 
         $invoices = $query->paginate(15)->withQueryString();

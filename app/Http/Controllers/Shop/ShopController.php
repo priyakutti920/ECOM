@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Provider;
 use App\Models\StoreSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ShopController extends Controller
 {
@@ -39,7 +40,7 @@ class ShopController extends Controller
  ->first();
  }
 
- $query = Product::active()->with('primaryImage');
+ $query = Product::active()->with(['primaryImage', 'categories'])->withAvg('approvedReviews', 'rating')->withCount('approvedReviews');
 
  if ($activeCategory) {
  // Include products from this category AND its sub-categories (root-friendly)
@@ -103,28 +104,45 @@ class ShopController extends Controller
 
  $featured = Product::active()
  ->where('is_featured', true)
- ->with('primaryImage')
+ ->with(['primaryImage', 'categories'])
+ ->withAvg('approvedReviews', 'rating')
+ ->withCount('approvedReviews')
  ->orderByDesc('id')
  ->limit(10)
  ->get();
 
  $latest = Product::active()
- ->with('primaryImage')
+ ->with(['primaryImage', 'categories'])
+ ->withAvg('approvedReviews', 'rating')
+ ->withCount('approvedReviews')
  ->orderByDesc('id')
  ->limit(10)
  ->get();
 
  $deals = Product::active()
  ->whereNotNull('special_price')
- ->with('primaryImage')
+ ->with(['primaryImage', 'categories'])
+ ->withAvg('approvedReviews', 'rating')
+ ->withCount('approvedReviews')
  ->orderByDesc('id')
  ->limit(8)
  ->get();
 
+ $bestSellerIds = Cache::remember('home_bestseller_ids', 1800, function () {
+     return Product::active()
+         ->orderByDesc('id')
+         ->limit(40)
+         ->pluck('id')
+         ->shuffle()
+         ->take(10)
+         ->all();
+ });
+
  $bestSellers = Product::active()
- ->with('primaryImage')
- ->inRandomOrder()
- ->limit(10)
+ ->whereIn('id', $bestSellerIds)
+ ->with(['primaryImage', 'categories'])
+ ->withAvg('approvedReviews', 'rating')
+ ->withCount('approvedReviews')
  ->get();
 
         $bonuses = Bonus::active()->get();
@@ -174,7 +192,9 @@ class ShopController extends Controller
 
  $query = Product::active()
  ->whereHas('categories', fn($q) => $q->whereIn('categories.id', $categoryIds))
- ->with('primaryImage');
+ ->with(['primaryImage', 'categories'])
+ ->withAvg('approvedReviews', 'rating')
+ ->withCount('approvedReviews');
 
  $sort = $request->get('sort', 'latest');
  switch ($sort) {
@@ -264,7 +284,9 @@ class ShopController extends Controller
  $products = collect();
  if ($q !== '') {
  $products = Product::active()
- ->with('primaryImage')
+ ->with(['primaryImage', 'categories'])
+ ->withAvg('approvedReviews', 'rating')
+ ->withCount('approvedReviews')
  ->where(function ($query) use ($q) {
  $query->where('name', 'like', "%{$q}%")
  ->orWhere('description', 'like', "%{$q}%")

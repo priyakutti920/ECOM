@@ -63,9 +63,7 @@ class TemplateController extends Controller
         $previewPath = null;
         if ($request->hasFile('preview_image')) {
             $file = $request->file('preview_image');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('template'), $filename);
-            $previewPath = 'template/' . $filename;
+            $previewPath = $file->store('template', 'public');
         }
 
         $data = [

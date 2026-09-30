@@ -327,7 +327,7 @@
 </div>
 
 {{-- ── SCRIPTS ── --}}
-<script src="{{ asset('assets/js/jquery-1.12.4.min.js') }}"></script>
+<script src="{{ asset('assets/js/jquery-3.7.1.min.js') }}"></script>
 <script src="{{ asset('assets/js/bootstrap.min.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/summernote/0.8.20/summernote.min.js"></script>
 

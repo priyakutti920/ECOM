@@ -39,7 +39,12 @@ class Category extends Model
 
     public function products()
     {
-        return $this->hasMany(Product::class, 'category_id');
+        return $this->belongsToMany(
+            Product::class,
+            'product_categories'
+        )
+        ->withPivot('sort_order')
+        ->withTimestamps();
     }
 
     use \App\Traits\HasCustomAsset;
@@ -48,7 +53,10 @@ class Category extends Model
     {
         if (!$this->image) return '';
         $path = $this->image;
-        if (!str_starts_with($path, 'product/') && !str_starts_with($path, 'category/') && !str_starts_with($path, 'settings/')) {
+        if (file_exists(public_path($path))) {
+            return self::getCustomAssetUrl($path);
+        }
+        if (!str_starts_with($path, 'storage/')) {
             $path = 'storage/' . $path;
         }
         return self::getCustomAssetUrl($path);

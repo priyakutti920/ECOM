@@ -48,24 +48,24 @@ Route::post('/product/{product}/reviews', [ShopReviewController::class, 'store']
 
 // Customer registration & login
 Route::get('/register', [LoginController::class, 'showRegister'])->name('shop.register');
-Route::post('/register', [LoginController::class, 'register'])->name('shop.register.post');
-Route::post('/login/password', [LoginController::class, 'loginWithPassword'])->name('shop.login.password');
+Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:10,1')->name('shop.register.post');
+Route::post('/login/password', [LoginController::class, 'loginWithPassword'])->middleware('throttle:10,1')->name('shop.login.password');
 
 // Customer login — email + OTP (two-step)
 Route::prefix('login')->name('shop.login.')->group(function () {
     Route::get('/',  [LoginController::class, 'showEmail'])->name('email');
-    Route::post('/', [LoginController::class, 'sendOtp'])->name('send');
+    Route::post('/', [LoginController::class, 'sendOtp'])->middleware('throttle:6,1')->name('send');
     Route::get('/otp',  [LoginController::class, 'showOtp'])->name('otp');
-    Route::post('/otp', [LoginController::class, 'verifyOtp'])->name('verify');
-    Route::get('/resend', [LoginController::class, 'resendOtp'])->name('resend');
+    Route::post('/otp', [LoginController::class, 'verifyOtp'])->middleware('throttle:10,1')->name('verify');
+    Route::get('/resend', [LoginController::class, 'resendOtp'])->middleware('throttle:3,1')->name('resend');
 });
 Route::post('/logout', [LoginController::class, 'logout'])->name('shop.logout');
 
 // Customer Password Reset
 Route::get('/forgot-password', [LoginController::class, 'showForgotPassword'])->name('shop.password.forgot');
-Route::post('/forgot-password', [LoginController::class, 'sendResetLink'])->name('shop.password.email');
+Route::post('/forgot-password', [LoginController::class, 'sendResetLink'])->middleware('throttle:5,1')->name('shop.password.email');
 Route::get('/reset-password/{token}', [LoginController::class, 'showResetPassword'])->name('shop.password.reset.form');
-Route::post('/reset-password', [LoginController::class, 'resetPassword'])->name('shop.password.reset.post');
+Route::post('/reset-password', [LoginController::class, 'resetPassword'])->middleware('throttle:5,1')->name('shop.password.reset.post');
 
 // API: check if customer is authenticated (used by JS)
 Route::get('/api/customer/auth-check', function () {
@@ -117,6 +117,7 @@ Route::middleware('customer')->group(function () {
 
 // UPI webhook — public POST endpoint, CSRF-exempt (configured in bootstrap/app.php)
 Route::post('/api/upi/webhook', [PaymentController::class, 'webhook'])->name('shop.payment.webhook');
+Route::post('/payment/webhook', [PaymentController::class, 'webhook']);
 
 // ================================================================
 // PUBLIC SEO/UTILITY ROUTES
@@ -204,8 +205,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
  Route::middleware('guest')->group(function () {
  Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
- Route::post('/login', [AdminAuthController::class, 'login']);
- Route::post('/setup', [AdminAuthController::class, 'setup'])->name('setup');
+ Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:5,1');
+ Route::post('/setup', [AdminAuthController::class, 'setup'])->middleware('throttle:5,1')->name('setup');
  Route::get('/setup', [AdminAuthController::class, 'showSetupForm'])->name('setup.form');
  });
 

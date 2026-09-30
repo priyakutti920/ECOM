@@ -19,14 +19,6 @@
             </div>
         @endif
 
-        @if(session('dev_reset_url'))
-            <div class="alert alert-warning" style="background:#fff3cd; color:#856404; border-left:3px solid #ffeeba; word-break:break-all;">
-                <strong><i class="fas fa-tools"></i> Dev Mode Link:</strong><br>
-                <a href="{{ session('dev_reset_url') }}" style="color:#d97706; font-weight:600; text-decoration:underline;">
-                    Click here to reset your password directly
-                </a>
-            </div>
-        @endif
 
         @if($errors->any())
             <div class="alert alert-error">

@@ -97,19 +97,31 @@ class UpiPaymentService
 
             $body = $response->json();
 
-            if ($response->successful() && isset($body['status'])) {
+            if ($response->successful()) {
                 $txnStatus = $body['result']['txnStatus'] ?? $body['status'] ?? '';
-                $isSuccess = strtoupper($txnStatus) === 'COMPLETED'
-                    || strtoupper($body['status']) === 'COMPLETED'
-                    || strtoupper($txnStatus) === 'SUCCESS'
-                    || strtoupper($body['status']) === 'SUCCESS';
+                $normalizedStatus = strtoupper((string) $txnStatus);
+                $bodyStatus = strtoupper((string) ($body['status'] ?? ''));
+
+                $isSuccess = $normalizedStatus === 'COMPLETED'
+                    || $bodyStatus === 'COMPLETED'
+                    || $normalizedStatus === 'SUCCESS'
+                    || $bodyStatus === 'SUCCESS';
+
+                $isPending = in_array($normalizedStatus, ['PENDING', 'INITIATED', 'OPEN'], true)
+                    || (empty($normalizedStatus) && !$isSuccess);
+
+                $isFailed = in_array(
+                    $normalizedStatus,
+                    ['FAILED', 'FAILURE', 'CANCELLED', 'EXPIRED', 'REJECTED'],
+                    true
+                );
 
                 return [
                     'success'    => true,
                     'status'     => $txnStatus,
                     'is_paid'    => $isSuccess,
-                    'is_pending' => strtoupper($txnStatus) === 'PENDING',
-                    'is_failed'  => strtoupper($txnStatus) === 'FAILED' || !$isSuccess,
+                    'is_pending' => $isPending,
+                    'is_failed'  => $isFailed,
                     'amount'     => $body['result']['amount'] ?? null,
                     'utr'        => $body['result']['utr'] ?? null,
                     'date'       => $body['result']['date'] ?? null,

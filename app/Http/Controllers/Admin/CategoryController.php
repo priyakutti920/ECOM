@@ -37,9 +37,7 @@ class CategoryController extends Controller
         $imagePath = null;
         if ($request->hasFile('image')) {
             $file = $request->file('image');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('category'), $filename);
-            $imagePath = 'category/' . $filename;
+            $imagePath = $file->store('category', 'public');
         }
 
         $maxOrder = Category::where('status', 0)->max('sort_order') ?? 0;
@@ -90,19 +88,14 @@ class CategoryController extends Controller
         $imagePath = $category->image;
         if ($request->hasFile('image')) {
             if ($imagePath) {
-                if (str_starts_with($imagePath, 'category/')) {
-                    $fullPath = public_path($imagePath);
-                    if (file_exists($fullPath)) {
-                        @unlink($fullPath);
-                    }
+                if (file_exists(public_path($imagePath))) {
+                    @unlink(public_path($imagePath));
                 } else {
-                    Storage::disk('public')->delete($imagePath);
+                    Storage::disk('public')->delete(str_replace('storage/', '', $imagePath));
                 }
             }
             $file = $request->file('image');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('category'), $filename);
-            $imagePath = 'category/' . $filename;
+            $imagePath = $file->store('category', 'public');
         }
 
         // Regenerate or use custom slug

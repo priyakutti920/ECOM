@@ -144,11 +144,18 @@ class PaymentController extends Controller
         }
 
         if (!empty($status['is_paid'])) {
-            $order = $this->materialiseOrder($token, $pending, $status);
-            return response()->json([
-                'state'    => 'paid',
-                'redirect' => route('shop.order.success', ['order' => $order->order_code]),
-            ]);
+            try {
+                $order = $this->materialiseOrder($token, $pending, $status);
+                return response()->json([
+                    'state'    => 'paid',
+                    'redirect' => route('shop.order.success', ['order' => $order->order_code]),
+                ]);
+            } catch (\UnexpectedValueException $e) {
+                return response()->json([
+                    'state'   => 'failed',
+                    'message' => $e->getMessage(),
+                ], 400);
+            }
         }
 
         if (!empty($status['is_failed'])) {
@@ -183,8 +190,13 @@ class PaymentController extends Controller
         $status = $this->upi->checkStatus($token);
 
         if (!empty($status['success']) && !empty($status['is_paid'])) {
-            $order = $this->materialiseOrder($token, $pending, $status);
-            return redirect()->route('shop.order.success', ['order' => $order->order_code]);
+            try {
+                $order = $this->materialiseOrder($token, $pending, $status);
+                return redirect()->route('shop.order.success', ['order' => $order->order_code]);
+            } catch (\UnexpectedValueException $e) {
+                return redirect()->route('shop.payment.show', ['token' => $token])
+                    ->with('info', $e->getMessage());
+            }
         }
 
         // Otherwise back to the pay page — the poller can keep trying / customer can retry
@@ -201,26 +213,35 @@ class PaymentController extends Controller
         $orderId = $request->input('order_id');
         $status  = $request->input('status');
 
-        Log::info('UPI webhook received', $request->all());
+        Log::info('UPI webhook received', ['order_id' => $orderId, 'status' => $status]);
 
         if (!$orderId) {
             return response()->json(['success' => false, 'message' => 'missing order_id'], 400);
+        }
+
+        // Idempotency: if order was already materialised, return success without duplicating actions
+        $existingOrder = Order::where('payment_order_id', $orderId)->first();
+        if ($existingOrder) {
+            return response()->json(['success' => true, 'message' => 'order already processed']);
         }
 
         // The webhook's order_id IS our temp token (we sent it on createOrder)
         $pending = $this->loadPending($orderId);
 
         if (!$pending) {
-            // Already materialised or expired — webhook arrives once, this is fine
-            return response()->json(['success' => true, 'message' => 'no pending order, ignored']);
+            return response()->json(['success' => false, 'message' => 'no pending order found, ignored'], 404);
         }
 
         // Verify with status API directly from the payment provider to prevent spoofing
         $check = $this->upi->checkStatus($orderId);
 
         if (!empty($check['success']) && !empty($check['is_paid'])) {
-            $this->materialiseOrder($orderId, $pending, $check);
-            return response()->json(['success' => true, 'message' => 'order materialised']);
+            try {
+                $this->materialiseOrder($orderId, $pending, $check);
+                return response()->json(['success' => true, 'message' => 'order materialised']);
+            } catch (\UnexpectedValueException $e) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
         }
 
         if (!empty($check['is_failed'])) {
@@ -228,7 +249,7 @@ class PaymentController extends Controller
             return response()->json(['success' => false, 'message' => 'payment failed']);
         }
 
-        Log::warning("UPI webhook: checkStatus did not verify payment for {$orderId}", ['webhook_data' => $request->all(), 'check_result' => $check]);
+        Log::warning("UPI webhook: checkStatus did not verify payment for {$orderId}", ['check_result' => $check]);
         return response()->json(['success' => false, 'message' => 'payment could not be verified with gateway'], 422);
     }
 
@@ -287,6 +308,19 @@ class PaymentController extends Controller
      */
     private function materialiseOrder(string $token, array $pending, array $status): Order
     {
+        $paidAmount = (float) ($status['amount'] ?? 0);
+        $expectedAmount = (float) $pending['total'];
+
+        if (abs($paidAmount - $expectedAmount) > 0.01) {
+            Log::error('Payment amount mismatch', [
+                'expected_amount' => $expectedAmount,
+                'paid_amount'     => $paidAmount,
+                'token'           => $token,
+            ]);
+
+            throw new \UnexpectedValueException('Payment amount verification failed.');
+        }
+
         return DB::transaction(function () use ($token, $pending, $status) {
             // Re-check with a lock — webhook + status poll can both arrive
             $existing = Order::where('payment_order_id', $token)->lockForUpdate()->first();

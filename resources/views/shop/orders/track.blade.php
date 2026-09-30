@@ -62,11 +62,11 @@
         <form method="GET" action="{{ route('shop.track-order') }}" class="track-form-grid">
             <div class="track-field">
                 <label for="track-code">Order Number / ID <span style="color:#c7511f;">*</span></label>
-                <input type="text" id="track-code" name="code" value="{{ $code }}" placeholder="e.g. NS0001" required />
+                <input type="text" id="track-code" name="code" value="{{ $code }}" placeholder="e.g. NS-ABC123" required />
             </div>
             <div class="track-field">
                 <label for="track-phone">Mobile / Email <span style="font-weight:normal; color:#666;">(for verification)</span></label>
-                <input type="text" id="track-phone" name="phone" value="{{ $phone }}" placeholder="10-digit mobile or email" />
+                <input type="text" id="track-phone" name="phone" value="{{ $order ? (preg_match('/^[6-9][0-9]{9}$/', $phone) ? substr($phone, 0, 5) . '*****' : $phone) : $phone }}" placeholder="10-digit mobile or email" />
             </div>
             <button type="submit" class="btn-track">
                 <i class="fas fa-search"></i> Track
@@ -181,26 +181,35 @@
                     </div>
                 </div>
 
-                {{-- Delivery Destination --}}
+                {{-- Delivery Destination (Masked for privacy) --}}
                 <div class="track-panel">
                     <h3><i class="fas fa-map-marker-alt"></i> Delivery Destination</h3>
-                    <p style="margin:0 0 6px;"><strong>{{ $order->addr_full_name }}</strong> ({{ ucfirst($order->addr_type) }})</p>
-                    <p style="margin:0 0 6px; color:#555;">{{ $order->addr_line_1 }}@if($order->addr_line_2), {{ $order->addr_line_2 }}@endif</p>
-                    <p style="margin:0 0 6px; color:#555;">{{ $order->addr_city }}, {{ $order->addr_state }} — {{ $order->addr_pincode }}</p>
-                    <p style="margin:0; color:#555;"><i class="fas fa-phone"></i> {{ $order->addr_mobile_primary }}</p>
+                    @php
+                        $isOwner = Auth::guard('customer')->check() && Auth::guard('customer')->id() === $order->customer_id;
+                        $rawName = $order->addr_full_name ?: ($order->contact_name ?: 'Customer');
+                        $maskedName = $isOwner ? $rawName : (substr($rawName, 0, 1) . str_repeat('*', max(3, strlen($rawName) - 2)) . substr($rawName, -1));
+                        $rawPhone = $order->addr_mobile_primary ?: $order->contact_mobile;
+                        $maskedPhone = $isOwner ? $rawPhone : (str_repeat('*', max(0, strlen($rawPhone) - 4)) . substr($rawPhone, -4));
+                    @endphp
+                    <p style="margin:0 0 6px;"><strong>{{ $maskedName }}</strong> ({{ ucfirst($order->addr_type) }})</p>
+                    @if($isOwner)
+                        <p style="margin:0 0 6px; color:#555;">{{ $order->addr_line_1 }}@if($order->addr_line_2), {{ $order->addr_line_2 }}@endif</p>
+                    @endif
+                    <p style="margin:0 0 6px; color:#555;">{{ $order->addr_city }}, {{ $order->addr_state }} — {{ $isOwner ? $order->addr_pincode : (substr($order->addr_pincode, 0, 3) . '***') }}</p>
+                    <p style="margin:0; color:#555;"><i class="fas fa-phone"></i> {{ $maskedPhone }}</p>
                 </div>
             </div>
 
             {{-- Actions --}}
             <div style="display:flex; gap:12px; margin-top:24px; flex-wrap:wrap;">
-                @php
-                    $waService = app(\App\Services\WhatsAppService::class);
-                    $waUrl = $waService->getClickableShareUrl($order);
-                @endphp
-                <a href="{{ $waUrl }}" target="_blank" rel="noopener" style="padding:9px 18px; background:#25d366; color:#fff; border-radius:100px; font-size:13px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-                    <i class="fab fa-whatsapp"></i> Share on WhatsApp
-                </a>
                 @if(Auth::guard('customer')->check() && Auth::guard('customer')->id() === $order->customer_id)
+                    @php
+                        $waService = app(\App\Services\WhatsAppService::class);
+                        $waUrl = $waService->getClickableShareUrl($order);
+                    @endphp
+                    <a href="{{ $waUrl }}" target="_blank" rel="noopener" style="padding:9px 18px; background:#25d366; color:#fff; border-radius:100px; font-size:13px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
+                    </a>
                     <a href="{{ route('shop.orders.invoice', ['order' => $order->order_code]) }}" style="padding:9px 18px; background:#fff; border:1px solid #d5d9d9; border-radius:100px; font-size:13px; font-weight:600; text-decoration:none; color:#111; display:inline-flex; align-items:center; gap:6px;">
                         <i class="fas fa-file-pdf" style="color:#c7511f;"></i> Download Invoice
                     </a>

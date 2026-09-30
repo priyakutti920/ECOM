@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Mail;
 
 class OtpService
 {
-    private int $otpLength = 4;
+    private int $otpLength = 6;
     private int $expiresInMinutes = 10;
 
     /**
@@ -22,8 +22,8 @@ class OtpService
         // Wipe any prior OTPs for this email
         OtpCode::purgeOld($email);
 
-        // Generate OTP code (4 digits, zero-padded)
-        $code = str_pad((string) random_int(0, 9999), $this->otpLength, '0', STR_PAD_LEFT);
+        // Generate OTP code (6 digits, zero-padded)
+        $code = str_pad((string) random_int(0, 999999), $this->otpLength, '0', STR_PAD_LEFT);
 
         OtpCode::create([
             'email'      => $email,
@@ -34,18 +34,9 @@ class OtpService
 
         $sent = $this->sendEmail($email, $code);
 
-        Log::info("OTP generated for {$email}: {$code}");
+        Log::info("OTP generated for {$email}");
 
         if (!$sent) {
-            if (config('app.debug') || app()->environment('local')) {
-                return [
-                    'success' => true,
-                    'email'   => $email,
-                    'message' => "OTP generated! (Dev Mode: Your OTP is {$code})",
-                    'code'    => $code,
-                ];
-            }
-
             return [
                 'success' => false,
                 'email'   => $email,
@@ -99,18 +90,9 @@ class OtpService
 
         if ($existing) {
             $sent = $this->sendEmail($email, $existing->code);
-            Log::info("OTP resent (reused existing code) for {$email}");
+            Log::info("OTP resent for {$email}");
 
             if (!$sent) {
-                if (config('app.debug') || app()->environment('local')) {
-                    return [
-                        'success' => true,
-                        'email'   => $email,
-                        'message' => "OTP resent! (Dev Mode: Your OTP is {$existing->code})",
-                        'reused'  => true,
-                    ];
-                }
-
                 return [
                     'success' => false,
                     'message' => 'Unable to resend OTP email. Please try again later or use password login.',
@@ -140,6 +122,10 @@ class OtpService
         $password   = StoreSetting::getValue('smtp_password');
         $fromEmail  = StoreSetting::getValue('smtp_from_email');
         $fromName   = StoreSetting::getValue('smtp_from_name') ?: StoreSetting::getStoreName();
+
+        if (app()->environment('testing')) {
+            return true;
+        }
 
         if (!$host || !$username || !$fromEmail) {
             Log::warning('SMTP not configured in admin settings. OTP not emailed.');

@@ -78,6 +78,24 @@
  pattern="[0-9]"
  aria-label="Digit 4"
  />
+ <input
+ type="text"
+ class="otp-digit"
+ id="otp5"
+ maxlength="1"
+ inputmode="numeric"
+ pattern="[0-9]"
+ aria-label="Digit 5"
+ />
+ <input
+ type="text"
+ class="otp-digit"
+ id="otp6"
+ maxlength="1"
+ inputmode="numeric"
+ pattern="[0-9]"
+ aria-label="Digit 6"
+ />
  </div>
 
  {{-- Hidden combined OTP field --}}
@@ -192,13 +210,13 @@
  .otp-inputs-wrapper {
  display: flex;
  justify-content: center;
- gap: 12px;
+ gap: 8px;
  margin-bottom: 20px;
  }
 
  .otp-digit {
- width: 58px;
- height: 58px;
+ width: 48px;
+ height: 52px;
  text-align: center;
  font-size: 22px;
  font-weight: 700;
@@ -312,12 +330,12 @@
  font-size: 22px;
  }
  .otp-digit {
- width: 50px;
- height: 52px;
- font-size: 20px;
+ width: 40px;
+ height: 46px;
+ font-size: 18px;
  }
  .otp-inputs-wrapper {
- gap: 8px;
+ gap: 6px;
  }
  }
 </style>
@@ -331,13 +349,15 @@
  document.getElementById('otp2'),
  document.getElementById('otp3'),
  document.getElementById('otp4'),
+ document.getElementById('otp5'),
+ document.getElementById('otp6'),
  ];
  const combinedInput = document.getElementById('otp-combined');
 
  function updateCombined() {
  combinedInput.value = otpInputs.map(i => i.value).join('');
- // Auto-submit when 4 digits entered
- if (combinedInput.value.length === 4) {
+ // Auto-submit when 6 digits entered
+ if (combinedInput.value.length === 6) {
  document.getElementById('otp-form').requestSubmit();
  }
  }
@@ -357,7 +377,7 @@
  input.addEventListener('paste', function(e) {
  e.preventDefault();
  const pasted = (e.clipboardData || window.clipboardData).getData('text');
- const digits = pasted.replace(/[^0-9]/g, '').slice(0, 4);
+ const digits = pasted.replace(/[^0-9]/g, '').slice(0, 6);
  digits.split('').forEach((char, i) => {
  if (otpInputs[i]) {
  otpInputs[i].value = char;

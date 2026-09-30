@@ -123,10 +123,9 @@ class PaymentController extends Controller
             $q->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $orders = $q->orderByDesc('id')->get();
         $filename = 'payments-export-' . date('Y-m-d-His') . '.csv';
 
-        return response()->streamDownload(function () use ($orders) {
+        return response()->streamDownload(function () use ($q) {
             $handle = fopen('php://output', 'w');
             // Add UTF-8 BOM for Excel compatibility
             fputs($handle, "\xEF\xBB\xBF");
@@ -148,7 +147,7 @@ class PaymentController extends Controller
                 'Created At',
             ]);
 
-            foreach ($orders as $order) {
+            foreach ($q->orderByDesc('id')->lazy(500) as $order) {
                 fputcsv($handle, [
                     $order->order_code,
                     $order->contact_name,
@@ -168,7 +167,7 @@ class PaymentController extends Controller
 
             fclose($handle);
         }, $filename, [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }

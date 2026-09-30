@@ -22,6 +22,7 @@ class Product extends Model
         'video_url', 'seo_url', 'related_products',
         'sort_order', 'meta_keywords', 'og_title',
         'og_description', 'og_image',
+        'is_returnable',
     ];
 
     protected function casts(): array
@@ -30,6 +31,7 @@ class Product extends Model
             'manage_inventory' => 'boolean',
             'is_featured'      => 'boolean',
             'is_active'        => 'boolean',
+            'is_returnable'    => 'boolean',
             'qty'              => 'integer',
             'price'            => 'decimal:2',
             'discount_price'   => 'decimal:2',
@@ -37,6 +39,33 @@ class Product extends Model
             'special_price_start' => 'datetime',
             'special_price_end'   => 'datetime',
         ];
+    }
+
+    protected static function booted()
+    {
+        static::forceDeleting(function (Product $product) {
+            foreach ($product->images as $img) {
+                if (str_starts_with($img->image, 'product/') && file_exists(public_path($img->image))) {
+                    @unlink(public_path($img->image));
+                } else {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('storage/', '', $img->image));
+                }
+                $img->delete();
+            }
+            foreach ($product->variations as $var) {
+                foreach ($var->images as $img) {
+                    if (str_starts_with($img->image, 'product/') && file_exists(public_path($img->image))) {
+                        @unlink(public_path($img->image));
+                    } else {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete(str_replace('storage/', '', $img->image));
+                    }
+                    $img->delete();
+                }
+            }
+            $product->categories()->detach();
+            $product->providers()->detach();
+            $product->relatedProducts()->detach();
+        });
     }
 
     // ── Scopes ──────────────────────────────────────────
@@ -168,6 +197,9 @@ class Product extends Model
 
     public function getAverageRatingAttribute(): float
     {
+        if (isset($this->attributes['approved_reviews_avg_rating'])) {
+            return round((float) $this->attributes['approved_reviews_avg_rating'], 1);
+        }
         if ($this->relationLoaded('approvedReviews')) {
             $avg = $this->approvedReviews->avg('rating');
             return $avg ? round((float) $avg, 1) : 0.0;
@@ -178,6 +210,9 @@ class Product extends Model
 
     public function getRatingCountAttribute(): int
     {
+        if (isset($this->attributes['approved_reviews_count'])) {
+            return (int) $this->attributes['approved_reviews_count'];
+        }
         if ($this->relationLoaded('approvedReviews')) {
             return $this->approvedReviews->count();
         }

@@ -206,23 +206,16 @@ class Order extends Model
         return $this->pushHistory($event, $detail);
     }
 
-    // ── Code generation ─────────────────────────────────
-
     /**
-     * Build the next friendly order code: NS0001, NS0002 ... NS9999, NS10000 ...
-     * Always at least 4 digits, but grows naturally as the sequence outpaces 9999.
+     * Build a secure, unpredictable public order reference: e.g. NS-9X7K2M.
+     * Prevents sequential enumeration attacks while remaining concise and customer-friendly.
      */
     public static function nextOrderCode(string $prefix = 'NS'): string
     {
-        $last = static::where('order_code', 'like', $prefix . '%')
-            ->orderByDesc('id')
-            ->value('order_code');
+        do {
+            $code = $prefix . '-' . strtoupper(Str::random(6));
+        } while (static::where('order_code', $code)->exists());
 
-        $lastNum = $last ? (int) preg_replace('/\D/', '', $last) : 0;
-        $next    = $lastNum + 1;
-
-        // Minimum 4 digits, expand to whatever's needed once we cross 9999.
-        $width = max(4, strlen((string) $next));
-        return $prefix . str_pad((string) $next, $width, '0', STR_PAD_LEFT);
+        return $code;
     }
 }

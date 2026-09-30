@@ -243,9 +243,14 @@ class CartController extends Controller
             }
         }
 
+        $currentDiscount = 0.00;
+        $discountSource  = null;
+        $futureBonusPercent = 0.0;
+        $futureBonusAmount  = 0.00;
+
         if ($coupon && !$couponErr) {
-            $discount       = $coupon->discountFor($subtotal);
-            $discountSource = 'coupon:' . $coupon->code;
+            $currentDiscount = (float) $coupon->discountFor($subtotal);
+            $discountSource  = 'coupon:' . $coupon->code;
         } else {
             $bonuses = Bonus::active()->get();
             $bestPct = 0.0;
@@ -254,17 +259,20 @@ class CartController extends Controller
                     $bestPct = (float) $b->bonus_percent;
                 }
             }
-            $discount       = round($subtotal * ($bestPct / 100), 2);
-            $discountSource = 'bonus:' . $bestPct;
+            if ($bestPct > 0) {
+                $futureBonusPercent = $bestPct;
+                $futureBonusAmount  = round($subtotal * ($bestPct / 100), 2);
+                $discountSource     = 'bonus:' . $bestPct;
+            }
+            // Bonus is a future credit/benefit, current order discount remains 0.00
+            $currentDiscount = 0.00;
         }
 
         if (!empty($couponErr)) {
             return back()->withErrors(['coupon_code' => $couponErr])->withInput();
         }
 
-        $total = ($coupon && !$couponErr)
-            ? round($subtotal - $discount, 2)
-            : round($subtotal, 2);
+        $total = round($subtotal - $currentDiscount, 2);
 
         $pendingPayload = [
             'customer_id' => $customerId,
@@ -285,13 +293,15 @@ class CartController extends Controller
                 'mobile_alternate' => $address->mobile_alternate,
                 'type'             => $address->type,
             ],
-            'items'           => $itemsPayload,
-            'subtotal'        => $subtotal,
-            'discount'        => $discount,
-            'shipping'        => 0,
-            'total'           => $total,
-            'coupon_code'     => $coupon?->code,
-            'discount_source' => $discountSource,
+            'items'                   => $itemsPayload,
+            'subtotal'                => $subtotal,
+            'discount'                => $currentDiscount,
+            'shipping'                => 0,
+            'total'                   => $total,
+            'coupon_code'             => $coupon?->code,
+            'discount_source'         => $discountSource,
+            'future_bonus_percentage' => $futureBonusPercent,
+            'future_bonus_amount'     => $futureBonusAmount,
         ];
 
         $paymentMethod = $request->input('payment_method', 'upi');

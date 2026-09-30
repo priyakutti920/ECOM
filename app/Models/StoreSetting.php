@@ -13,18 +13,20 @@ class StoreSetting extends Model
         'value',
     ];
 
-    protected static array $cache = [];
+    public static function getAllSettings(): array
+    {
+        return \Illuminate\Support\Facades\Cache::rememberForever(
+            'store_settings_all',
+            fn () => static::pluck('value', 'key')->all()
+        );
+    }
 
     public static function getValue(string $key, $default = null)
     {
-        if (!array_key_exists($key, static::$cache)) {
-            $setting = static::where('key', $key)->first();
-            static::$cache[$key] = $setting ? $setting->value : null;
-        }
+        $settings = static::getAllSettings();
+        $val = $settings[$key] ?? null;
 
-        return (static::$cache[$key] !== null && static::$cache[$key] !== '') 
-            ? static::$cache[$key] 
-            : $default;
+        return ($val !== null && $val !== '') ? $val : $default;
     }
 
     public static function setValue(string $key, $value): void
@@ -33,7 +35,7 @@ class StoreSetting extends Model
             ['key' => $key],
             ['value' => $value]
         );
-        static::$cache[$key] = $value;
+        \Illuminate\Support\Facades\Cache::forget('store_settings_all');
     }
 
     public static function getStoreName(): string

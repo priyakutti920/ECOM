@@ -56,9 +56,12 @@ class Banner extends Model
     {
         if (!$this->image) return '';
         $path = $this->image;
-        // The image is stored in public/banner/. Pass it through the trait
-        // which handles the /public/ prefix when the script is mounted in a
-        // sub-folder.
+        if (file_exists(public_path($path))) {
+            return self::getCustomAssetUrl($path);
+        }
+        if (!str_starts_with($path, 'storage/')) {
+            $path = 'storage/' . $path;
+        }
         return self::getCustomAssetUrl($path);
     }
 }
