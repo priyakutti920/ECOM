@@ -75,11 +75,11 @@
 
 | Token       | Value                                                  |
 |-------------|--------------------------------------------------------|
-| **Family**  | `Rubik` (Google Fonts), fallback `sans-serif`          |
-| **Weights** | 300 (light), 400 (regular), 500 (medium), 600 (semibold), 700 (bold) |
+| **Family**  | 'Rubik' (Google Fonts), fallback sans-serif            |
+| **Weights** | 300 light, 400 regular, 500 medium, 600 semibold, 700 bold |
 | **Style**   | Single sans family — no secondary fonts                |
 
-### Type Scale (recommended)
+### Type Scale
 
 | Use           | Size  | Weight | Line-height |
 |---------------|-------|--------|-------------|
@@ -124,6 +124,23 @@
 ---
 
 ## Voice & Tone
+
+### Brand Personality
+
+| **Trait**       | **Description**                                                |
+|-----------------|----------------------------------------------------------------|
+| Trustworthy     | Earn and keep customer confidence at every touchpoint          |
+| Modern          | Current aesthetics, contemporary patterns                      |
+| Approachable    | Warm and accessible, never intimidating                        |
+| Clean           | Simple, uncluttered, purposeful                                |
+
+### Prohibited Terms
+
+- Cheap
+- Guaranteed
+- Limited time only
+- Act now
+- Free (unqualified)
 
 | Do                                              | Don't                                         |
 |-------------------------------------------------|-----------------------------------------------|
