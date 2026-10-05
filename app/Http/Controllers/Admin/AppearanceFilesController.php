@@ -161,8 +161,11 @@ class AppearanceFilesController extends Controller
      */
     public function upload(Request $request)
     {
-        $rawFiles = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : []);
+        $rawFiles = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : ($request->file('image') ? [$request->file('image')] : []));
         if (empty($rawFiles)) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Please select at least one file to upload.'], 422);
+            }
             return back()->withErrors(['files' => 'Please select at least one file to upload.']);
         }
         if (!is_array($rawFiles)) {
@@ -173,16 +176,26 @@ class AppearanceFilesController extends Controller
         $folder = preg_replace('/[^a-zA-Z0-9_\-]/', '', $folder) ?: 'media';
 
         $uploaded = [];
+        $failed = [];
         $disk = Storage::disk('public');
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif', 'pdf', 'txt'];
 
         foreach ($rawFiles as $file) {
             $originalName = $file->getClientOriginalName();
             $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
 
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'pdf', 'txt', 'css', 'js'])) {
+            if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm'])) {
+                $failed[] = ['name' => $originalName, 'error' => 'Executable scripts are strictly forbidden.'];
                 continue;
             }
-            if ($file->getSize() > 20971520) {
+
+            if (!in_array($ext, $allowedExts)) {
+                $failed[] = ['name' => $originalName, 'error' => "Unsupported format (.{$ext})."];
+                continue;
+            }
+
+            if ($file->getSize() > 20971520) { // 20 MB limit
+                $failed[] = ['name' => $originalName, 'error' => 'File exceeds 20MB limit.'];
                 continue;
             }
 
@@ -199,12 +212,12 @@ class AppearanceFilesController extends Controller
                 @copy($disk->path($path), public_path('storage/' . $path));
             }
 
-            $mime = $file->getClientMimeType() ?: 'application/octet-stream';
+            $mime = $file->getClientMimeType() ?: 'image/jpeg';
             $size = $file->getSize() ?: 0;
 
             $width = null;
             $height = null;
-            if (str_starts_with($mime, 'image/')) {
+            if (str_starts_with($mime, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif'])) {
                 $info = @getimagesize($file->getRealPath());
                 if ($info) {
                     $width = $info[0] ?? null;
@@ -236,6 +249,14 @@ class AppearanceFilesController extends Controller
             ];
         }
 
+        if (empty($uploaded)) {
+            $msg = 'Upload failed: ' . (!empty($failed) ? implode('; ', array_column($failed, 'error')) : 'No valid files could be processed.');
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $msg, 'failed' => $failed], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -255,14 +276,14 @@ class AppearanceFilesController extends Controller
         $folder = trim($request->input('folder') ?: 'media');
         $folder = preg_replace('/[^a-zA-Z0-9_\-]/', '', $folder) ?: 'media';
 
-        if (!$request->hasFile('files')) {
+        $files = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : ($request->file('image') ? [$request->file('image')] : []));
+        if (empty($files)) {
             return response()->json([
                 'success' => false,
                 'message' => 'No files were provided for upload.',
             ], 422);
         }
 
-        $files = $request->file('files');
         if (!is_array($files)) {
             $files = [$files];
         }
@@ -270,12 +291,16 @@ class AppearanceFilesController extends Controller
         $uploaded = [];
         $failed = [];
         $disk = Storage::disk('public');
-        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon'];
-        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico'];
+        $allowedMimes = [
+            'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon',
+            'image/pjpeg', 'image/jfif', 'image/x-png', 'image/vnd.microsoft.icon', 'image/ico',
+            'image/svg', 'text/xml', 'text/plain', 'image/avif', 'application/octet-stream'
+        ];
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif'];
 
         foreach ($files as $file) {
             $origName = $file->getClientOriginalName();
-            $ext = strtolower($file->getClientOriginalExtension());
+            $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
             $size = $file->getSize();
 
             // 1. Extension & Executable check
@@ -303,12 +328,33 @@ class AppearanceFilesController extends Controller
                 continue;
             }
 
-            // 2. MIME check
-            $mime = $file->getClientMimeType() ?: 'application/octet-stream';
-            if (!in_array($mime, $allowedMimes)) {
+            // 2. MIME check & Image validation
+            $clientMime = strtolower($file->getClientMimeType() ?: '');
+            $realMime = '';
+            try {
+                $realMime = strtolower($file->getMimeType() ?: '');
+            } catch (\Throwable $e) {}
+
+            $isImageMime = str_starts_with($clientMime, 'image/') || str_starts_with($realMime, 'image/');
+            $isInAllowed = in_array($clientMime, $allowedMimes) || in_array($realMime, $allowedMimes);
+
+            $isImageFile = false;
+            if ($ext === 'svg') {
+                $content = @file_get_contents($file->getRealPath(), false, null, 0, 500);
+                if ($content && (str_contains($content, '<svg') || str_contains($content, '<?xml'))) {
+                    $isImageFile = true;
+                }
+            } else {
+                $info = @getimagesize($file->getRealPath());
+                if ($info && !empty($info[0]) && !empty($info[1])) {
+                    $isImageFile = true;
+                }
+            }
+
+            if (!$isImageMime && !$isInAllowed && !$isImageFile) {
                 $failed[] = [
                     'name' => $origName,
-                    'error' => 'File type verification failed: invalid image MIME.',
+                    'error' => 'File type verification failed: not a valid image format.',
                 ];
                 continue;
             }
@@ -330,12 +376,10 @@ class AppearanceFilesController extends Controller
             // Dimensions
             $width = null;
             $height = null;
-            if (str_starts_with($mime, 'image/')) {
-                $info = @getimagesize($file->getRealPath());
-                if ($info) {
-                    $width = $info[0] ?? null;
-                    $height = $info[1] ?? null;
-                }
+            $info = @getimagesize($file->getRealPath());
+            if ($info) {
+                $width = $info[0] ?? null;
+                $height = $info[1] ?? null;
             }
 
             $media = MediaFile::create([
@@ -343,7 +387,7 @@ class AppearanceFilesController extends Controller
                 'filename' => $filename,
                 'path' => $path,
                 'disk' => 'public',
-                'mime_type' => $mime,
+                'mime_type' => $clientMime ?: ($realMime ?: 'image/jpeg'),
                 'size' => $size,
                 'width' => $width,
                 'height' => $height,
@@ -403,10 +447,17 @@ class AppearanceFilesController extends Controller
         }
 
         $ext = strtolower($file->getClientOriginalExtension());
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico'])) {
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unsupported format. Allowed: JPG, PNG, WebP, GIF, SVG, ICO.',
+                'message' => 'Unsupported format. Allowed: JPG, PNG, WebP, GIF, SVG, ICO, AVIF.',
+            ], 422);
+        }
+
+        if ($file->getSize() > 20971520) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File exceeds 20MB limit.',
             ], 422);
         }
 

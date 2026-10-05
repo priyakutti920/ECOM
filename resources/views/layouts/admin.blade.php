@@ -1289,7 +1289,9 @@
         }
 
         var fd = new FormData();
+        fd.append('_token', $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}');
         fd.append('image', fileInput.files[0]);
+        fd.append('file', fileInput.files[0]);
 
         var $btn = $('#uniReplaceSubmitBtn');
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Replacing…');
@@ -1304,6 +1306,9 @@
             data: fd,
             processData: false,
             contentType: false,
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+            },
             success: function (res) {
                 adminToast(res.message || 'Image replaced successfully!');
                 $('#uniReplaceModal').modal('hide');
@@ -1321,12 +1326,28 @@
 
     /* Universal Image Assignment (Use As) */
     function executeUseAs(id, action, name) {
+        var token = $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}';
         $.ajax({
             url: '{{ route("admin.appearance.files.set-as") }}',
             method: 'POST',
-            data: { file_id: id, action: action },
+            data: { 
+                _token: token,
+                file_id: id, 
+                action: action 
+            },
+            headers: {
+                'X-CSRF-TOKEN': token
+            },
             success: function (res) {
                 adminToast(res.message || 'Asset applied successfully!');
+                if (action === 'logo' && res.url) {
+                    $('#active-logo-preview').attr('src', res.url);
+                    $('.admin-brand-logo').attr('src', res.url);
+                }
+                if (action === 'favicon' && res.url) {
+                    $('#active-fav-preview').attr('src', res.url);
+                    $('link[rel="shortcut icon"], link[rel="icon"], link[rel="apple-touch-icon"]').attr('href', res.url);
+                }
             },
             error: function (xhr) {
                 var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Failed to set asset.';

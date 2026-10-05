@@ -675,6 +675,7 @@ function startBulkUpload() {
 
     var folder = document.getElementById('bulkFolderSelect').value || 'media';
     var fd = new FormData();
+    fd.append('_token', $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}');
     fd.append('folder', folder);
 
     stagedFiles.forEach(function (f) {
@@ -687,6 +688,9 @@ function startBulkUpload() {
         data: fd,
         processData: false,
         contentType: false,
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+        },
         xhr: function () {
             var xhr = new window.XMLHttpRequest();
             xhr.upload.addEventListener('progress', function (e) {
@@ -701,13 +705,21 @@ function startBulkUpload() {
             pBar.style.width = '100%';
             adminToast(res.message || 'Files uploaded successfully!');
             clearBulkQueue();
-            setTimeout(function () { location.reload(); }, 600);
+            setTimeout(function () {
+                window.location.href = '{{ route("admin.appearance.files.index", ["status" => "active", "sort" => "latest"]) }}';
+            }, 600);
         },
         error: function (xhr) {
-            var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Upload failed.';
+            var res = xhr.responseJSON || {};
+            var msg = res.message || 'Upload failed.';
+            if (res.data && res.data.failed && res.data.failed.length) {
+                var details = res.data.failed.map(function(f) { return f.name + ': ' + f.error; }).join('\n');
+                msg += '\n' + details;
+            }
             adminToast(msg, 'error');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-upload"></i> Retry Upload';
+            pWrap.style.display = 'none';
         }
     });
 }

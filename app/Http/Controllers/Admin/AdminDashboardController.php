@@ -410,8 +410,8 @@ class AdminDashboardController extends Controller
     {
         $request->validate([
             'store_name' => 'required|string|max:255',
-            'logo'       => 'nullable|image|mimes:jpg,jpeg,png,webp,gif,svg|max:2048',
-            'favicon'    => 'nullable|mimes:ico,png,jpg,jpeg,webp,svg|max:1024',
+            'logo'       => 'nullable|image|mimes:jpg,jpeg,png,webp,gif,svg,avif|max:20480',
+            'favicon'    => 'nullable|mimes:ico,png,jpg,jpeg,webp,svg,avif|max:10240',
         ]);
 
         StoreSetting::setValue('store_name', $request->store_name);
