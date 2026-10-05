@@ -68,6 +68,20 @@ class CompressResponse
             }
         }
 
+        // Essential production security headers
+        if (!$response->headers->has('X-Frame-Options')) {
+            $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        }
+        if (!$response->headers->has('X-Content-Type-Options')) {
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+        }
+        if (!$response->headers->has('X-XSS-Protection')) {
+            $response->headers->set('X-XSS-Protection', '1; mode=block');
+        }
+        if (!$response->headers->has('Referrer-Policy')) {
+            $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        }
+
         return $response;
     }
 }
