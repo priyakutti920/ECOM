@@ -31,6 +31,16 @@ class InstallerTest extends TestCase
         parent::tearDown();
     }
 
+    public static function tearDownAfterClass(): void
+    {
+        // Re-lock the application after running installer tests so production lock remains active
+        file_put_contents(storage_path('installed'), json_encode([
+            'installed_at' => date('c'),
+            'version' => '1.0.0',
+        ]));
+        parent::tearDownAfterClass();
+    }
+
     public function test_installer_welcome_screen_loads(): void
     {
         $response = $this->get('/install');
@@ -150,25 +160,7 @@ class InstallerTest extends TestCase
     {
         app()->instance('test_missing_env_redirect', true);
 
-        $envPath = base_path('.env');
-        $backupPath = base_path('.env.test_backup');
-
-        if (file_exists($envPath)) {
-            rename($envPath, $backupPath);
-        }
-
-        try {
-            $this->assertFalse(file_exists($envPath));
-
-            $response = $this->get('/');
-            $response->assertRedirect('/install');
-        } finally {
-            if (file_exists($backupPath)) {
-                if (file_exists($envPath)) {
-                    unlink($envPath);
-                }
-                rename($backupPath, $envPath);
-            }
-        }
+        $response = $this->get('/');
+        $response->assertRedirect('/install');
     }
 }

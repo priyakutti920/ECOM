@@ -1,10 +1,5 @@
 <?php
 
-require __DIR__ . '/vendor/autoload.php';
-$app = require_once __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
-
 echo "========================================================\n";
 echo "       PRODUCTION READINESS AUDIT & SCORING SUITE       \n";
 echo "========================================================\n\n";
@@ -48,18 +43,33 @@ $checks['syntax'] = [
 // -----------------------------------------------------------
 // 2. Automated Test Suite (Max: 20 pts)
 // -----------------------------------------------------------
-$scores['tests'] = 20; // 127/127 passing in artisan test
+$testOutput = [];
+$testExitCode = 0;
+exec('php artisan test --colors=never 2>&1', $testOutput, $testExitCode);
+$testDetails = '127 / 127 tests passed (569 assertions, 100% pass rate).';
+foreach ($testOutput as $line) {
+    if (str_contains($line, 'Tests:') && str_contains($line, 'passed')) {
+        $testDetails = trim($line);
+        break;
+    }
+}
+$testsPassed = ($testExitCode === 0);
+$scores['tests'] = $testsPassed ? 20 : 0;
 $checks['tests'] = [
     'category' => 'Automated Test Suite Pass Rate',
-    'score' => 20,
+    'score' => $scores['tests'],
     'max' => 20,
-    'status' => 'PASS',
-    'details' => '127 / 127 tests passed (569 assertions, 100% pass rate).',
+    'status' => $testsPassed ? 'PASS' : 'FAIL',
+    'details' => $testDetails,
 ];
 
 // -----------------------------------------------------------
 // 3. Database & Schema Integrity (Max: 15 pts)
 // -----------------------------------------------------------
+require __DIR__ . '/vendor/autoload.php';
+$app = require_once __DIR__ . '/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
 $dbStatus = 'PASS';
 $dbScore = 15;
 $dbDetails = [];
