@@ -73,4 +73,45 @@ class ReviewController extends Controller
 
         return back()->with('success', 'Review auto-approval ' . ($new ? 'enabled' : 'disabled') . '.');
     }
+
+    /**
+     * Perform bulk actions on selected reviews.
+     */
+    public function bulkAction(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+            'action' => 'required|string|in:approve,reject,delete',
+        ]);
+
+        $ids = $request->input('ids', []);
+        $action = $request->input('action');
+        $affected = 0;
+
+        if ($action === 'approve') {
+            $affected = Review::whereIn('id', $ids)->update(['is_approved' => true]);
+            $msg = "{$affected} review(s) approved and published.";
+        } elseif ($action === 'reject') {
+            $affected = Review::whereIn('id', $ids)->update(['is_approved' => false]);
+            $msg = "{$affected} review(s) set to pending / unapproved.";
+        } elseif ($action === 'delete') {
+            $reviews = Review::whereIn('id', $ids)->get();
+            foreach ($reviews as $r) {
+                $r->delete();
+                $affected++;
+            }
+            $msg = "{$affected} review(s) deleted.";
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'affected' => $affected,
+            ]);
+        }
+
+        return back()->with('success', $msg);
+    }
 }

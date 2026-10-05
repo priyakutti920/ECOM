@@ -72,6 +72,7 @@
         <table class="table product-table" style="margin:0; font-size:13px;">
             <thead style="background:#f8f8f8;">
                 <tr style="border-bottom:2px solid #eee;">
+                    <th style="width:38px; padding:10px 12px; text-align:center;"><input type="checkbox" id="bulkMasterCheck"></th>
                     <th style="padding:10px 12px; font-weight:600; color:#555;">Image</th>
                     <th style="padding:10px 12px; font-weight:600; color:#555;">Product Name</th>
                     <th style="padding:10px 12px; font-weight:600; color:#555;">Code</th>
@@ -85,6 +86,9 @@
             <tbody>
                 @forelse($products as $product)
                 <tr id="product-row-{{ $product->id }}" style="border-bottom:1px solid #f0f0f0;" class="row-flash">
+                    <td style="padding:8px 12px; text-align:center; vertical-align:middle;">
+                        <input type="checkbox" class="bulk-item-check" value="{{ $product->id }}">
+                    </td>
                     <td style="padding:8px 12px; vertical-align:middle;">
                         @if($product->image_url)
                             <img src="{{ $product->image_url }}"
@@ -177,6 +181,30 @@
     @endif
 
 </div>
+
+{{-- ── BULK CATEGORY MODAL ── --}}
+<div class="modal fade" id="bulkCategoryModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content" style="border-radius:8px; overflow:hidden;">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" style="font-size:14px; font-weight:700;"><i class="fas fa-tags text-primary"></i> Assign Category</h4>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+                <label style="font-weight:600; font-size:12.5px; margin-bottom:6px; display:block;">Select Category:</label>
+                <select id="bulkCategorySelect" class="form-control input-sm">
+                    @foreach($categories as $cat)
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+                <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitBulkCategory()"><i class="fas fa-check"></i> Assign</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -192,6 +220,16 @@ $(function () {
         $('#toast-wrap').append(el);
         setTimeout(function () { el.fadeOut(300, function () { el.remove(); }); }, 3500);
     }
+
+    // Register Bulk Actions in Universal Bar
+    var html = '';
+    html += '<button type="button" class="bulk-action-btn btn-bulk-success" onclick="executeProductBulk(\'activate\')"><i class="fas fa-check-circle"></i> Set Active</button>';
+    html += '<button type="button" class="bulk-action-btn" onclick="executeProductBulk(\'deactivate\')"><i class="fas fa-pause-circle"></i> Set Inactive</button>';
+    html += '<button type="button" class="bulk-action-btn" onclick="executeProductBulk(\'in_stock\')"><i class="fas fa-box"></i> In Stock</button>';
+    html += '<button type="button" class="bulk-action-btn" onclick="executeProductBulk(\'out_of_stock\')"><i class="fas fa-box-open"></i> Out of Stock</button>';
+    html += '<button type="button" class="bulk-action-btn" onclick="openBulkCategoryModal()"><i class="fas fa-tags"></i> Change Category</button>';
+    html += '<button type="button" class="bulk-action-btn btn-bulk-danger" onclick="executeProductBulk(\'delete\', \'Move {count} selected product(s) to Trash?\')"><i class="fas fa-trash-alt"></i> Delete</button>';
+    $('#bulkBarActions').html(html);
 
     {{-- Delete --}}
     $(document).on('click', '.btn-delete-product', function () {
@@ -216,5 +254,24 @@ $(function () {
     });
 
 });
+
+function openBulkCategoryModal() {
+    var ids = getSelectedBulkIds();
+    if (!ids.length) {
+        adminToast('Please select at least one product.', 'error');
+        return;
+    }
+    $('#bulkCategoryModal').modal('show');
+}
+
+function submitBulkCategory() {
+    var catId = $('#bulkCategorySelect').val();
+    runBulkAction('{{ route("admin.products.bulk-action") }}', 'change_category', { category_id: catId });
+    $('#bulkCategoryModal').modal('hide');
+}
+
+function executeProductBulk(action, confirmMsg) {
+    runBulkAction('{{ route("admin.products.bulk-action") }}', action, {}, confirmMsg);
+}
 </script>
 @endpush

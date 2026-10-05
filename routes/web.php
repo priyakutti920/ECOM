@@ -3,6 +3,8 @@
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AppearanceFilesController;
+use App\Http\Controllers\Admin\HomepageSectionController;
+use App\Http\Controllers\Admin\ThemeCustomizationController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
@@ -34,8 +36,11 @@ Route::get('/deals', [ShopController::class, 'deals'])->name('shop.deals');
 Route::get('/wishlist', [ShopController::class, 'wishlist'])->name('shop.wishlist');
 Route::get('/category/{id}', [ShopController::class, 'category'])->name('shop.category');
 Route::get('/product/{slug}', [ShopController::class, 'product'])->name('shop.product');
-Route::get('/search', [ShopController::class, 'search'])->name('shop.search');
 Route::get('/track-order', [OrdersController::class, 'trackOrder'])->name('shop.track-order');
+Route::get('/help', [\App\Http\Controllers\Shop\SupportController::class, 'help'])->name('shop.help');
+Route::get('/search', [ShopController::class, 'search'])->name('shop.search');
+Route::get('/api/search/live', [ShopController::class, 'liveSearch'])->name('api.search.live');
+Route::get('/storage/{path}', [AppearanceFilesController::class, 'serveStorageFile'])->where('path', '.*')->name('storage.serve');
 
 // Cart (localStorage-backed; server only returns product details for IDs)
 Route::get('/cart', [CartController::class, 'show'])->name('shop.cart');
@@ -105,8 +110,7 @@ Route::middleware('customer')->group(function () {
  Route::post('/account/orders/{order}/return', [OrdersController::class, 'requestReturn'])->name('shop.orders.return');
  Route::get('/account/orders/{order}/invoice', [OrdersController::class, 'invoice'])->name('shop.orders.invoice');
 
- // Help & Support
- Route::get('/help',                                          [\App\Http\Controllers\Shop\SupportController::class, 'help'])->name('shop.help');
+ // Customer Support Tickets
  Route::get('/account/support',                               [\App\Http\Controllers\Shop\SupportController::class, 'index'])->name('shop.support.index');
  Route::post('/account/support',                              [\App\Http\Controllers\Shop\SupportController::class, 'store'])->name('shop.support.store');
  Route::get('/account/support/{ticket}',                      [\App\Http\Controllers\Shop\SupportController::class, 'show'])->name('shop.support.show');
@@ -226,13 +230,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
   Route::delete('/bonuses/{bonus}', [BonusController::class, 'destroy'])->name('bonuses.destroy');
 
   Route::get('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'index'])->name('banners.index');
+  Route::post('/banners/bulk-action', [\App\Http\Controllers\Admin\BannerController::class, 'bulkAction'])->name('banners.bulk-action');
   Route::post('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'store'])->name('banners.store');
+  Route::post('/banners/reorder', [\App\Http\Controllers\Admin\BannerController::class, 'reorder'])->name('banners.reorder');
   Route::post('/banners/{banner}', [\App\Http\Controllers\Admin\BannerController::class, 'update'])->name('banners.update');
+  Route::post('/banners/{banner}/toggle', [\App\Http\Controllers\Admin\BannerController::class, 'toggleActive'])->name('banners.toggle');
+  Route::post('/banners/{id}/restore', [\App\Http\Controllers\Admin\BannerController::class, 'restore'])->name('banners.restore');
+  Route::delete('/banners/{id}/force', [\App\Http\Controllers\Admin\BannerController::class, 'forceDelete'])->name('banners.force-delete');
   Route::delete('/banners/{banner}', [\App\Http\Controllers\Admin\BannerController::class, 'destroy'])->name('banners.destroy');
 
  Route::get('/coupons', [\App\Http\Controllers\Admin\CouponController::class, 'index'])->name('coupons.index');
 
  Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+ Route::post('/categories/bulk-action', [CategoryController::class, 'bulkAction'])->name('categories.bulk-action');
  Route::post('/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
  Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
  Route::post('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
@@ -245,11 +255,35 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
  // Appearance — Files & Media Manager
  Route::get   ('/appearance/files',        [AppearanceFilesController::class, 'index'])->name('appearance.files.index');
+ Route::post  ('/appearance/files/bulk-action', [AppearanceFilesController::class, 'bulkAction'])->name('appearance.files.bulk-action');
  Route::post  ('/appearance/files/upload', [AppearanceFilesController::class, 'upload'])->name('appearance.files.upload');
+ Route::post  ('/appearance/files/bulk-upload', [AppearanceFilesController::class, 'bulkUpload'])->name('appearance.files.bulk-upload');
  Route::post  ('/appearance/files/set-as', [AppearanceFilesController::class, 'setAs'])->name('appearance.files.set-as');
  Route::post  ('/appearance/files/sync',   [AppearanceFilesController::class, 'sync'])->name('appearance.files.sync');
+ Route::post  ('/appearance/files/{id}/replace', [AppearanceFilesController::class, 'replace'])->name('appearance.files.replace');
+ Route::post  ('/appearance/files/{id}/restore', [AppearanceFilesController::class, 'restore'])->name('appearance.files.restore');
+ Route::delete('/appearance/files/{id}/force',   [AppearanceFilesController::class, 'forceDelete'])->name('appearance.files.force-delete');
  Route::delete('/appearance/files/{id}',   [AppearanceFilesController::class, 'destroy'])->name('appearance.files.destroy');
  Route::get   ('/files',                   fn () => redirect()->route('admin.appearance.files.index'))->name('files.index');
+
+ // Appearance — Theme & Appearance Customization
+ Route::get   ('/appearance/theme',       [ThemeCustomizationController::class, 'index'])->name('appearance.theme.index');
+ Route::get   ('/appearance/theme/data',  [ThemeCustomizationController::class, 'getData'])->name('appearance.theme.data');
+ Route::post  ('/appearance/theme',       [ThemeCustomizationController::class, 'update'])->name('appearance.theme.update');
+ Route::post  ('/appearance/theme/reset', [ThemeCustomizationController::class, 'reset'])->name('appearance.theme.reset');
+ Route::get   ('/appearance',             fn () => redirect()->route('admin.appearance.theme.index'))->name('appearance.index');
+
+ // Appearance — Homepage Product Sections (Hot Deals, New Arrivals, Best Sellers, Featured)
+ Route::get   ('/appearance/sections',                 [HomepageSectionController::class, 'index'])->name('appearance.sections.index');
+ Route::post  ('/appearance/sections',                 [HomepageSectionController::class, 'update'])->name('appearance.sections.update');
+ Route::post  ('/appearance/sections/toggle/{key}',    [HomepageSectionController::class, 'toggle'])->name('appearance.sections.toggle');
+ Route::post  ('/appearance/sections/toggle-featured', [HomepageSectionController::class, 'toggleFeatured'])->name('appearance.sections.toggle-featured');
+ Route::get   ('/appearance/sections/search-products', [HomepageSectionController::class, 'searchProducts'])->name('appearance.sections.search-products');
+
+ // Appearance — Footer Settings (Columns, Links, Contacts, Copyright)
+ Route::get   ('/appearance/footer',       [\App\Http\Controllers\Admin\FooterSettingController::class, 'index'])->name('appearance.footer.index');
+ Route::post  ('/appearance/footer',       [\App\Http\Controllers\Admin\FooterSettingController::class, 'update'])->name('appearance.footer.update');
+ Route::post  ('/appearance/footer/reset', [\App\Http\Controllers\Admin\FooterSettingController::class, 'reset'])->name('appearance.footer.reset');
 
  Route::get('/settings', [AdminDashboardController::class, 'settingsStore'])->name('settings');
  Route::get('/settings/store', [AdminDashboardController::class, 'settingsStore'])->name('settings.store');
@@ -309,6 +343,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
  // Product Reviews Moderation
  Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+ Route::post('/reviews/bulk-action', [AdminReviewController::class, 'bulkAction'])->name('reviews.bulk-action');
  Route::post('/reviews/{review}/approve', [AdminReviewController::class, 'approve'])->name('reviews.approve');
  Route::post('/reviews/{review}/reject', [AdminReviewController::class, 'reject'])->name('reviews.reject');
  Route::delete('/reviews/{review}', [AdminReviewController::class, 'destroy'])->name('reviews.destroy');
@@ -322,6 +357,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::get  ('/tickets',                      fn () => redirect()->route('admin.support.index'))                       ->name('tickets.index');
 
  Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+ Route::post('/products/bulk-action', [ProductController::class, 'bulkAction'])->name('products.bulk-action');
  Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
  Route::post('/products', [ProductController::class, 'store'])->name('products.store');
  Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
@@ -338,6 +374,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
  // Orders
  Route::get  ('/orders',                                 [\App\Http\Controllers\Admin\OrderController::class, 'index'])         ->name('orders.index');
+ Route::post ('/orders/bulk-action',                     [\App\Http\Controllers\Admin\OrderController::class, 'bulkAction'])     ->name('orders.bulk-action');
  Route::get  ('/orders/{order}',                         [\App\Http\Controllers\Admin\OrderController::class, 'show'])          ->name('orders.show');
  Route::post ('/orders/{order}/status',                 [\App\Http\Controllers\Admin\OrderController::class, 'updateStatus'])   ->name('orders.status');
  Route::post ('/orders/{order}/custom-status',          [\App\Http\Controllers\Admin\OrderController::class, 'addCustomStatus']) ->name('orders.custom-status');
@@ -373,3 +410,33 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::get  ('/logs',       [AdminDashboardController::class, 'logs'])         ->name('logs.index');
  });
 });
+
+// ================================================================
+// PUBLIC STORAGE ASSET FALLBACK ROUTE
+// ================================================================
+Route::get('/storage/{path}', [\App\Http\Controllers\Admin\AppearanceFilesController::class, 'serveStorageFile'])->where('path', '.*')->name('storage.serve');
+
+// ================================================================
+// APPLICATION INSTALLER WIZARD
+// ================================================================
+Route::prefix('install')->name('install.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Install\InstallerController::class, 'index'])->name('index');
+    Route::get('/welcome', fn() => redirect()->route('install.index'));
+    Route::get('/requirements', [\App\Http\Controllers\Install\InstallerController::class, 'requirements'])->name('requirements');
+    Route::get('/database', [\App\Http\Controllers\Install\InstallerController::class, 'database'])->name('database');
+    Route::post('/database/test', [\App\Http\Controllers\Install\InstallerController::class, 'testDatabase'])->name('database.test');
+    Route::post('/database/create', [\App\Http\Controllers\Install\InstallerController::class, 'createDatabase'])->name('database.create');
+    Route::post('/database', [\App\Http\Controllers\Install\InstallerController::class, 'saveDatabase'])->name('database.save');
+    Route::get('/migrations', [\App\Http\Controllers\Install\InstallerController::class, 'migrations'])->name('migrations');
+    Route::post('/migrations', [\App\Http\Controllers\Install\InstallerController::class, 'runMigrations'])->name('migrations.run');
+    Route::get('/admin', [\App\Http\Controllers\Install\InstallerController::class, 'admin'])->name('admin');
+    Route::post('/admin', [\App\Http\Controllers\Install\InstallerController::class, 'saveAdmin'])->name('admin.save');
+    Route::get('/complete', [\App\Http\Controllers\Install\InstallerController::class, 'complete'])->name('complete');
+});
+
+// Common installer aliases to prevent 404 errors
+Route::get('/installer', fn() => redirect()->route('install.index'));
+Route::get('/installer/{any}', fn() => redirect()->route('install.index'))->where('any', '.*');
+Route::get('/setup', fn() => redirect()->route('install.index'));
+Route::get('/setup/{any}', fn() => redirect()->route('install.index'))->where('any', '.*');
+

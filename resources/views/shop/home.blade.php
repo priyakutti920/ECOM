@@ -505,68 +505,97 @@
     </section>
   @endif
 
-  <!-- 5. Featured Products Section (From DB) -->
-  @if($featured && $featured->count() > 0)
-    <section class="product-section">
-      <div class="section-header-wrap">
-        <h3><i class="las la-star" style="color:var(--color-primary);"></i> Featured Products</h3>
-        <a href="{{ url('/products') }}" class="view-all">View All <i class="las la-arrow-right"></i></a>
-      </div>
-      <div class="products-grid">
-        @foreach($featured as $product)
-          @include('shop.partials.product-card', ['product' => $product])
-        @endforeach
-      </div>
-    </section>
+  <!-- Dynamic Home Product Sections (Hot Deals, New Arrivals, Best Sellers, Featured Products) -->
+  @if(isset($homeSections) && count($homeSections) > 0)
+    @foreach($homeSections as $secKey => $section)
+      @if(!empty($section['enabled']) && isset($section['products']) && $section['products']->count() > 0)
+        <section class="product-section" id="section-{{ $secKey }}">
+          <div class="section-header-wrap">
+            <h3>
+              <i class="{{ $section['icon'] ?? 'las la-star' }}" style="color:{{ $section['icon_color'] ?? 'var(--color-primary)' }};"></i>
+              {{ $section['title'] }}
+            </h3>
+            @if(!empty($section['view_all_url']))
+              <a href="{{ url($section['view_all_url']) }}" class="view-all">
+                {{ $section['view_all_text'] ?: 'View All' }} <i class="las la-arrow-right"></i>
+              </a>
+            @endif
+          </div>
+          <div class="products-grid">
+            @foreach($section['products'] as $product)
+              @include('shop.partials.product-card', ['product' => $product])
+            @endforeach
+          </div>
+        </section>
+      @endif
+    @endforeach
+  @else
+    {{-- Fallback --}}
+    @if($featured && $featured->count() > 0)
+      <section class="product-section">
+        <div class="section-header-wrap">
+          <h3><i class="las la-star" style="color:var(--color-primary);"></i> Featured Products</h3>
+          <a href="{{ url('/products') }}" class="view-all">View All <i class="las la-arrow-right"></i></a>
+        </div>
+        <div class="products-grid">
+          @foreach($featured as $product)
+            @include('shop.partials.product-card', ['product' => $product])
+          @endforeach
+        </div>
+      </section>
+    @endif
+
+    @if($deals && $deals->count() > 0)
+      <section class="product-section">
+        <div class="section-header-wrap">
+          <h3><i class="las la-fire" style="color:#ff3366;"></i> Hot Deals</h3>
+          <a href="{{ url('/deals') }}" class="view-all">See All Deals <i class="las la-arrow-right"></i></a>
+        </div>
+        <div class="products-grid">
+          @foreach($deals as $product)
+            @include('shop.partials.product-card', ['product' => $product])
+          @endforeach
+        </div>
+      </section>
+    @endif
+
+    @if($bestSellers && $bestSellers->count() > 0)
+      <section class="product-section">
+        <div class="section-header-wrap">
+          <h3><i class="las la-award" style="color:var(--color-primary);"></i> Best Sellers</h3>
+          <a href="{{ url('/products') }}" class="view-all">View All <i class="las la-arrow-right"></i></a>
+        </div>
+        <div class="products-grid">
+          @foreach($bestSellers as $product)
+            @include('shop.partials.product-card', ['product' => $product])
+          @endforeach
+        </div>
+      </section>
+    @endif
+
+    @if($latest && $latest->count() > 0)
+      <section class="product-section">
+        <div class="section-header-wrap">
+          <h3><i class="las la-tshirt" style="color:var(--color-primary);"></i> New Arrivals</h3>
+          <a href="{{ url('/products') }}" class="view-all">Discover More <i class="las la-arrow-right"></i></a>
+        </div>
+        <div class="products-grid">
+          @foreach($latest as $product)
+            @include('shop.partials.product-card', ['product' => $product])
+          @endforeach
+        </div>
+      </section>
+    @endif
   @endif
 
-  <!-- 6. Today's Deals Section (From DB) -->
-  @if($deals && $deals->count() > 0)
-    <section class="product-section">
-      <div class="section-header-wrap">
-        <h3><i class="las la-fire" style="color:#ff3366;"></i> Hot Deals</h3>
-        <a href="{{ url('/deals') }}" class="view-all">See All Deals <i class="las la-arrow-right"></i></a>
-      </div>
-      <div class="products-grid">
-        @foreach($deals as $product)
-          @include('shop.partials.product-card', ['product' => $product])
-        @endforeach
-      </div>
-    </section>
-  @endif
-
-  <!-- 7. Best Sellers Section (From DB) -->
-  @if($bestSellers && $bestSellers->count() > 0)
-    <section class="product-section">
-      <div class="section-header-wrap">
-        <h3><i class="las la-award" style="color:var(--color-primary);"></i> Best Sellers</h3>
-        <a href="{{ url('/products') }}" class="view-all">View All <i class="las la-arrow-right"></i></a>
-      </div>
-      <div class="products-grid">
-        @foreach($bestSellers as $product)
-          @include('shop.partials.product-card', ['product' => $product])
-        @endforeach
-      </div>
-    </section>
-  @endif
-
-  <!-- 8. New Arrivals Section (From DB) -->
-  @if($latest && $latest->count() > 0)
-    <section class="product-section">
-      <div class="section-header-wrap">
-        <h3><i class="las la-tshirt" style="color:var(--color-primary);"></i> New Arrivals</h3>
-        <a href="{{ url('/products') }}" class="view-all">Discover More <i class="las la-arrow-right"></i></a>
-      </div>
-      <div class="products-grid">
-        @foreach($latest as $product)
-          @include('shop.partials.product-card', ['product' => $product])
-        @endforeach
-      </div>
-    </section>
-  @endif
+  @php
+    $totalVisibleProducts = isset($homeSections)
+      ? collect($homeSections)->filter(fn($s) => !empty($s['enabled']))->sum(fn($s) => isset($s['products']) ? $s['products']->count() : 0)
+      : (($featured ? $featured->count() : 0) + ($latest ? $latest->count() : 0));
+  @endphp
 
   <!-- Empty Catalog State (Only shown if DB has 0 active products) -->
-  @if((!$featured || $featured->count() === 0) && (!$latest || $latest->count() === 0))
+  @if($totalVisibleProducts === 0)
     <section class="product-section" style="text-align:center; padding:60px 20px; background:#fff; border-radius:var(--radius-md); border:1px solid var(--color-border); margin:20px 0;">
       <i class="las la-shopping-bag" style="font-size:60px; color:#cbd5e1; margin-bottom:16px; display:inline-block;"></i>
       <h3 style="font-size:20px; font-weight:700; color:var(--color-heading); margin-bottom:8px;">Welcome to {{ $storeName }}</h3>

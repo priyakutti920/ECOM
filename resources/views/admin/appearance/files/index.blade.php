@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Appearance — Files & Media Manager')
+@section('title', 'Files & Media Manager')
 
 @section('content')
 <div class="admin-content-wrap">
@@ -9,7 +9,7 @@
     <div class="media-page-header">
         <div class="media-header-left">
             <h1 class="media-title"><i class="fas fa-photo-video text-primary"></i> Files &amp; Media Manager</h1>
-            <p class="media-subtitle">Upload, manage, and use media assets for Store Logo, Favicon, Products, and Banners.</p>
+            <p class="media-subtitle">Upload, manage, and assign media assets for Store Logo, Favicon, Products, and Banners.</p>
         </div>
         <div class="media-header-actions">
             <form action="{{ route('admin.appearance.files.sync') }}" method="POST" style="display:inline;">
@@ -18,8 +18,8 @@
                     <i class="fas fa-sync-alt"></i> Sync Disk
                 </button>
             </form>
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('upload-zone-collapse').scrollIntoView({behavior: 'smooth'}); document.getElementById('files-input').click();">
-                <i class="fas fa-cloud-upload-alt"></i> Upload Files
+            <button type="button" class="btn btn-primary" onclick="toggleBulkUploadPanel()">
+                <i class="fas fa-cloud-upload-alt"></i> Bulk Image Import
             </button>
         </div>
     </div>
@@ -35,16 +35,6 @@
         <div class="alert alert-danger alert-dismissible" role="alert">
             <button type="button" class="close" data-dismiss="alert">&times;</button>
             <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
-        </div>
-    @endif
-    @if($errors->any())
-        <div class="alert alert-danger alert-dismissible" role="alert">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
-            <ul style="margin:0; padding-left:18px;">
-                @foreach($errors->all() as $err)
-                    <li>{{ $err }}</li>
-                @endforeach
-            </ul>
         </div>
     @endif
 
@@ -69,7 +59,7 @@
         <div class="media-stat-card media-brand-card">
             <div class="brand-preview-wrap">
                 @if($currentLogoUrl)
-                    <img src="{{ $currentLogoUrl }}" alt="Active Logo" class="brand-thumb-logo" id="active-logo-preview">
+                    <img src="{{ $currentLogoUrl }}" alt="Active Logo" class="brand-thumb-logo" id="active-logo-preview" onerror="this.onerror=null; this.src='{{ asset('assets/images/placeholder.svg') }}';">
                 @else
                     <span class="brand-none-badge">No Logo</span>
                 @endif
@@ -83,7 +73,7 @@
         <div class="media-stat-card media-brand-card">
             <div class="brand-preview-wrap">
                 @if($currentFaviconUrl)
-                    <img src="{{ $currentFaviconUrl }}" alt="Active Favicon" class="brand-thumb-fav" id="active-fav-preview">
+                    <img src="{{ $currentFaviconUrl }}" alt="Active Favicon" class="brand-thumb-fav" id="active-fav-preview" onerror="this.onerror=null; this.src='{{ asset('assets/images/placeholder.svg') }}';">
                 @else
                     <span class="brand-none-badge">Default</span>
                 @endif
@@ -95,58 +85,101 @@
         </div>
     </div>
 
-    {{-- Drag & Drop Upload Zone --}}
-    <div class="upload-zone-panel" id="upload-zone-collapse">
-        <form action="{{ route('admin.appearance.files.upload') }}" method="POST" enctype="multipart/form-data" id="media-upload-form">
-            @csrf
-            <div class="dropzone-box" id="dropzone-area" onclick="document.getElementById('files-input').click();">
-                <i class="fas fa-cloud-upload-alt dropzone-icon"></i>
-                <div class="dropzone-text">
-                    <h4>Drop files here or click to browse</h4>
-                    <p>Supports PNG, JPG, JPEG, WEBP, GIF, SVG, ICO (up to 20MB per file)</p>
+    {{-- Section 7: Bulk Image Import Dropzone Panel --}}
+    <div class="bulk-upload-card" id="bulkUploadPanel" style="display:none;">
+        <div class="bulk-card-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-cloud-upload-alt text-primary" style="font-size:18px;"></i>
+                <h3 style="margin:0; font-size:15px; font-weight:700; color:#0f172a;">Bulk Image Import</h3>
+            </div>
+            <button type="button" class="close" onclick="toggleBulkUploadPanel()">&times;</button>
+        </div>
+
+        <div class="bulk-card-body">
+            <div class="bulk-dropzone" id="bulkDropzone" onclick="document.getElementById('bulkFileInput').click()">
+                <input type="file" id="bulkFileInput" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" style="display:none;" onchange="handleBulkFilesSelected(this.files)">
+                <div class="dropzone-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
                 </div>
-                <input type="file" name="files[]" id="files-input" multiple accept="image/*,.ico,.svg,.pdf" style="display:none;" onchange="handleFileSelect(this);">
+                <h4 style="margin:0 0 6px; font-weight:700; font-size:16px; color:#0f172a;">Drag &amp; Drop Images Here</h4>
+                <p style="margin:0 0 14px; font-size:13px; color:#64748b;">or click to browse from your device</p>
+                <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); document.getElementById('bulkFileInput').click();">
+                    <i class="fas fa-folder-open"></i> Choose Images
+                </button>
+                <div class="dropzone-hint">
+                    Supported: JPG &bull; PNG &bull; WebP &bull; GIF &bull; SVG (Max 20MB per file)
+                </div>
             </div>
 
-            <div class="upload-options-bar">
-                <div class="folder-select-wrap">
-                    <label><i class="fas fa-folder"></i> Destination Folder:</label>
-                    <select name="folder" class="form-control input-sm" style="display:inline-block; width:auto;">
-                        <option value="appearance" selected>Appearance / Branding</option>
-                        <option value="settings">Settings / Logos</option>
-                        <option value="products">Products</option>
-                        <option value="banners">Banners</option>
-                        <option value="general">General Media</option>
-                    </select>
-                </div>
-                <div id="selected-files-summary" style="font-size:13px; font-weight:600; color:#3a7bd5;"></div>
-                <button type="submit" class="btn btn-success btn-sm" id="btn-submit-upload" style="display:none;">
-                    <i class="fas fa-upload"></i> Start Upload
-                </button>
+            {{-- Target Folder Selector --}}
+            <div class="bulk-folder-select-row" style="margin-top:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <label style="font-weight:600; font-size:12.5px; margin:0;"><i class="fas fa-folder"></i> Destination Folder:</label>
+                <select id="bulkFolderSelect" class="form-control" style="width:180px; display:inline-block; height:34px;">
+                    <option value="media">media (General)</option>
+                    <option value="banner">banner (Banners)</option>
+                    <option value="product">product (Products)</option>
+                    <option value="appearance">appearance (Theme)</option>
+                    <option value="settings">settings (Brand)</option>
+                </select>
+                <span class="text-muted" style="font-size:12px;">Images will be safely indexed and optimized.</span>
             </div>
-        </form>
+
+            {{-- Staged Files Queue --}}
+            <div id="bulkQueueWrap" style="display:none; margin-top:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h5 style="margin:0; font-weight:700; font-size:13px;">Selected Files Queue (<span id="bulkQueueCount">0</span>)</h5>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-default btn-xs" onclick="clearBulkQueue()"><i class="fas fa-trash-alt"></i> Clear All</button>
+                        <button type="button" class="btn btn-success btn-xs" id="startUploadBtn" onclick="startBulkUpload()"><i class="fas fa-upload"></i> Upload All</button>
+                    </div>
+                </div>
+
+                {{-- Overall Progress Bar --}}
+                <div class="progress" id="bulkProgressBarWrap" style="height:10px; display:none; margin-bottom:14px; border-radius:5px;">
+                    <div class="progress-bar progress-bar-striped active progress-bar-success" id="bulkProgressBar" style="width: 0%;"></div>
+                </div>
+
+                {{-- File Item List --}}
+                <div class="bulk-file-queue" id="bulkFileQueue"></div>
+            </div>
+        </div>
     </div>
 
-    {{-- Filters & Search Toolbar --}}
-    <div class="media-toolbar">
+    {{-- Filter, Search, and Status Tabs Bar --}}
+    <div class="media-filter-bar">
+        {{-- Tabs: Active vs Trashed --}}
+        <div class="media-tabs">
+            <a href="{{ route('admin.appearance.files.index', array_merge(request()->except('status', 'page'), ['status' => 'active'])) }}"
+               class="media-tab {{ $status !== 'trashed' ? 'active' : '' }}">
+                <i class="fas fa-images"></i> Active Files <span class="badge">{{ number_format($totalFiles) }}</span>
+            </a>
+            <a href="{{ route('admin.appearance.files.index', array_merge(request()->except('status', 'page'), ['status' => 'trashed'])) }}"
+               class="media-tab {{ $status === 'trashed' ? 'active' : '' }}">
+                <i class="fas fa-trash-alt"></i> Trash <span class="badge">{{ number_format($trashedCount) }}</span>
+            </a>
+        </div>
+
         <form action="{{ route('admin.appearance.files.index') }}" method="GET" class="media-filter-form">
-            <div class="search-input-wrap">
-                <i class="fas fa-search"></i>
-                <input type="text" name="q" value="{{ request('q') }}" placeholder="Search files by name..." class="form-control" autocomplete="off">
+            <input type="hidden" name="status" value="{{ $status }}">
+
+            <div class="filter-group">
+                <input type="text" name="q" value="{{ request('q') }}" placeholder="Search by name, filename..." class="form-control input-sm media-search-input">
             </div>
 
             <div class="filter-group">
-                <select name="folder" class="form-control" onchange="this.form.submit();">
-                    <option value="all" {{ request('folder') === 'all' || !request('folder') ? 'selected' : '' }}>All Folders ({{ $totalFiles }})</option>
+                <select name="folder" class="form-control input-sm" onchange="this.form.submit()">
+                    <option value="all">All Folders</option>
                     @foreach($folders as $fName => $fCount)
                         <option value="{{ $fName }}" {{ request('folder') === $fName ? 'selected' : '' }}>
                             {{ ucfirst($fName) }} ({{ $fCount }})
                         </option>
                     @endforeach
                 </select>
+            </div>
 
-                <select name="sort" class="form-control" onchange="this.form.submit();">
-                    <option value="latest" {{ request('sort') === 'latest' ? 'selected' : '' }}>Newest First</option>
+            <div class="filter-group">
+                <select name="sort" class="form-control input-sm" onchange="this.form.submit()">
+                    <option value="latest" {{ request('sort') === 'latest' || !request('sort') ? 'selected' : '' }}>Newest First</option>
                     <option value="oldest" {{ request('sort') === 'oldest' ? 'selected' : '' }}>Oldest First</option>
                     <option value="name_asc" {{ request('sort') === 'name_asc' ? 'selected' : '' }}>Name (A-Z)</option>
                     <option value="name_desc" {{ request('sort') === 'name_desc' ? 'selected' : '' }}>Name (Z-A)</option>
@@ -155,7 +188,7 @@
                 </select>
 
                 @if(request('q') || request('folder') || request('sort'))
-                    <a href="{{ route('admin.appearance.files.index') }}" class="btn btn-default" title="Reset Filters">
+                    <a href="{{ route('admin.appearance.files.index', ['status' => $status]) }}" class="btn btn-default btn-sm" title="Reset Filters">
                         <i class="fas fa-times"></i> Clear
                     </a>
                 @endif
@@ -163,212 +196,140 @@
         </form>
     </div>
 
-    {{-- Media Grid --}}
+    {{-- Section 9: Universal Media Grid --}}
     @if($files->count() > 0)
-        <div class="media-grid">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:8px 12px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
+            <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; font-size:13px; color:#334155; margin:0;">
+                <input type="checkbox" id="bulkMasterCheck"> Select All on Page
+            </label>
+            <span class="text-muted" style="font-size:12px;">Showing {{ $files->firstItem() }}-{{ $files->lastItem() }} of {{ $files->total() }}</span>
+        </div>
+
+        <div class="uni-media-grid" id="mainMediaGrid">
             @foreach($files as $file)
-                <div class="media-card" data-id="{{ $file->id }}" data-url="{{ $file->url }}" data-name="{{ $file->name }}">
-                    {{-- Thumbnail Container --}}
-                    <div class="media-card-thumb" onclick="openPreviewModal('{{ $file->url }}', '{{ addslashes($file->name) }}', '{{ $file->formatted_size }}', '{{ $file->width && $file->height ? ($file->width.'x'.$file->height) : '' }}', '{{ $file->folder }}');">
-                        @if($file->is_image)
-                            <img src="{{ $file->url }}" alt="{{ $file->name }}" loading="lazy">
-                        @else
-                            <div class="file-icon-placeholder">
-                                <i class="fas fa-file-alt"></i>
-                                <span>{{ strtoupper(pathinfo($file->filename, PATHINFO_EXTENSION)) }}</span>
-                            </div>
-                        @endif
-
-                        {{-- Hover overlay preview badge --}}
-                        <div class="thumb-overlay">
-                            <i class="fas fa-search-plus"></i> View Preview
-                        </div>
-
-                        {{-- Top Badge: Folder & Dimensions --}}
-                        <div class="thumb-badge-top">
-                            <span class="badge-folder">{{ ucfirst($file->folder) }}</span>
-                            @if($file->width && $file->height)
-                                <span class="badge-dim">{{ $file->width }}&times;{{ $file->height }}</span>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- Card Info --}}
-                    <div class="media-card-body">
-                        <div class="file-name" title="{{ $file->name }}">{{ Str::limit($file->name, 22) }}</div>
-                        <div class="file-meta">
-                            <span><i class="fas fa-weight-hanging"></i> {{ $file->formatted_size }}</span>
-                            <span><i class="far fa-clock"></i> {{ $file->created_at ? $file->created_at->format('d M') : '' }}</span>
-                        </div>
-                    </div>
-
-                    {{-- Quick Actions Toolbar --}}
-                    <div class="media-card-actions">
-                        {{-- Copy URL --}}
-                        <button type="button" class="action-btn action-copy" onclick="copyToClipboard('{{ $file->url }}', this);" title="Copy Public URL for use anywhere">
-                            <i class="fas fa-link"></i> <span class="btn-text">Copy URL</span>
-                        </button>
-
-                        {{-- Dropdown for Set As Logo, Favicon, Product --}}
-                        <div class="dropdown" style="display:inline-block;">
-                            <button type="button" class="action-btn action-menu dropdown-toggle" data-toggle="dropdown" title="Use as Logo / Favicon / Product">
-                                <i class="fas fa-magic"></i> Use As <span class="caret"></span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-right">
-                                <li>
-                                    <a href="javascript:void(0)" onclick="setAsStoreBranding({{ $file->id }}, 'logo');">
-                                        <i class="fas fa-crown text-warning"></i> Set as Store Logo
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="javascript:void(0)" onclick="setAsStoreBranding({{ $file->id }}, 'favicon');">
-                                        <i class="fas fa-star text-info"></i> Set as Store Favicon
-                                    </a>
-                                </li>
-                                <li class="divider"></li>
-                                <li>
-                                    <a href="javascript:void(0)" onclick="openProductAttachModal({{ $file->id }}, '{{ addslashes($file->name) }}', '{{ $file->url }}');">
-                                        <i class="fas fa-tshirt text-primary"></i> Attach to Product...
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
-
-                        {{-- Delete Button --}}
-                        <form action="{{ route('admin.appearance.files.destroy', $file->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this file from storage?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="action-btn action-delete" title="Delete File">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
-                    </div>
-                </div>
+                <x-media-card :file="$file" type="media" />
             @endforeach
         </div>
 
         {{-- Pagination --}}
-        <div class="media-pagination">
+        <div style="margin-top:24px; text-align:center;">
             {{ $files->links() }}
         </div>
     @else
         <div class="media-empty-state">
-            <i class="fas fa-images"></i>
-            <h3>No Media Files Found</h3>
-            <p>Upload new files above or click "Sync Disk" to detect existing images in storage.</p>
+            <i class="fas fa-photo-video" style="font-size:48px; color:#cbd5e1; margin-bottom:12px;"></i>
+            <h4 style="margin:0 0 6px; font-weight:700; color:#0f172a;">No files found</h4>
+            <p style="margin:0 0 16px; color:#64748b; font-size:13px;">
+                {{ $status === 'trashed' ? 'Trash is currently empty.' : 'No media files matched your query. Import images using the bulk uploader above.' }}
+            </p>
+            @if($status !== 'trashed')
+                <button type="button" class="btn btn-primary btn-sm" onclick="toggleBulkUploadPanel()">
+                    <i class="fas fa-cloud-upload-alt"></i> Import Images Now
+                </button>
+            @endif
         </div>
     @endif
 
 </div>
 
-{{-- Modal 1: Image Preview Modal --}}
-<div class="modal fade" id="previewModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title" id="previewModalTitle">File Preview</h4>
-            </div>
-            <div class="modal-body text-center" style="background:#f8fafc; padding:24px;">
-                <div style="max-height:65vh; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                    <img id="previewModalImg" src="" alt="" style="max-width:100%; max-height:60vh; object-fit:contain; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.1);">
-                </div>
-                <div class="preview-meta-details" style="margin-top:16px; display:flex; justify-content:center; gap:20px; font-size:13px; color:#64748b;">
-                    <span id="previewModalDim"></span>
-                    <span id="previewModalSize"></span>
-                    <span id="previewModalFolder"></span>
-                </div>
-                <div class="input-group" style="margin-top:16px; max-width:600px; margin-left:auto; margin-right:auto;">
-                    <input type="text" id="previewModalUrl" class="form-control" readonly>
-                    <span class="input-group-btn">
-                        <button class="btn btn-primary" type="button" onclick="copyToClipboard(document.getElementById('previewModalUrl').value, this);">
-                            <i class="fas fa-copy"></i> Copy Link
-                        </button>
-                    </span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- Modal 2: Attach to Product Modal --}}
-<div class="modal fade" id="productAttachModal" tabindex="-1" role="dialog">
+{{-- ── CATEGORY ATTACH MODAL ── --}}
+<div class="modal fade" id="categoryAttachModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="modal-content" style="border-radius:8px; overflow:hidden;">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title"><i class="fas fa-tshirt text-primary"></i> Attach Image to Product</h4>
+                <h4 class="modal-title" style="font-size:14px; font-weight:700;"><i class="fas fa-folder text-warning"></i> Assign Image to Category</h4>
             </div>
-            <form id="productAttachForm" onsubmit="submitProductAttach(event);">
-                <div class="modal-body">
-                    <input type="hidden" id="attach_file_id" name="file_id">
-                    <input type="hidden" name="action" value="product">
-
-                    <div style="display:flex; align-items:center; gap:16px; background:#f1f5f9; padding:12px; border-radius:8px; margin-bottom:16px;">
-                        <img id="attach_file_preview" src="" alt="" style="width:60px; height:60px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;">
+            <form id="categoryAttachForm" onsubmit="submitCategoryAttach(event);">
+                <div class="modal-body" style="padding:18px;">
+                    <input type="hidden" id="cat_attach_file_id">
+                    <div style="display:flex; align-items:center; gap:14px; background:#f8fafc; padding:12px; border-radius:6px; margin-bottom:16px; border:1px solid #e2e8f0;">
+                        <img id="cat_attach_preview" src="" alt="preview" style="width:54px; height:54px; object-fit:cover; border-radius:6px;">
                         <div>
-                            <strong id="attach_file_name" style="display:block; font-size:14px; color:#0f172a;"></strong>
-                            <small class="text-muted">This image will be linked to the selected product.</small>
+                            <strong id="cat_attach_name" style="font-size:13px; color:#0f172a; display:block;"></strong>
+                            <small class="text-muted">This image will appear as the category thumbnail across storefront carousels and lists.</small>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="product_select">Select Product <span class="text-danger">*</span></label>
-                        <select name="product_id" id="product_select" class="form-control" required style="width:100%;">
-                            <option value="">-- Choose a Product --</option>
-                            @foreach($products as $prod)
-                                <option value="{{ $prod->id }}">{{ $prod->name }} (Code: {{ $prod->code ?: $prod->id }})</option>
+                        <label for="category_select" style="font-weight:600; font-size:12px;">Select Category <span class="text-danger">*</span></label>
+                        <select id="category_select" class="form-control" required>
+                            <option value="">-- Choose Category --</option>
+                            @foreach($categories as $cat)
+                                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                             @endforeach
                         </select>
                     </div>
-
-                    <div class="checkbox">
-                        <label>
-                            <input type="checkbox" name="is_primary" value="1" checked> <strong>Make Primary Product Image</strong> (shown as main photo on shop &amp; home)
-                        </label>
-                    </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="btn-do-attach">
-                        <i class="fas fa-check"></i> Attach to Product
-                    </button>
+                    <button type="submit" class="btn btn-primary" id="btn-do-cat-attach"><i class="fas fa-check"></i> Assign to Category</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-{{-- Toast Notification container --}}
-<div id="media-toast" style="display:none; position:fixed; bottom:24px; right:24px; background:#0f172a; color:#fff; padding:12px 20px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.2); font-size:14px; z-index:99999; display:flex; align-items:center; gap:10px; transform:translateY(100px); opacity:0; transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
-    <i class="fas fa-check-circle text-success" id="toast-icon"></i>
-    <span id="toast-text">Message</span>
+{{-- ── PRODUCT ATTACH MODAL ── --}}
+<div class="modal fade" id="productAttachModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content" style="border-radius:8px; overflow:hidden;">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" style="font-size:14px; font-weight:700;"><i class="fas fa-tshirt text-primary"></i> Assign Image to Product</h4>
+            </div>
+            <form id="productAttachForm" onsubmit="submitProductAttach(event);">
+                <div class="modal-body" style="padding:18px;">
+                    <input type="hidden" id="prod_attach_file_id">
+                    <div style="display:flex; align-items:center; gap:14px; background:#f8fafc; padding:12px; border-radius:6px; margin-bottom:16px; border:1px solid #e2e8f0;">
+                        <img id="prod_attach_preview" src="" alt="preview" style="width:54px; height:54px; object-fit:cover; border-radius:6px;">
+                        <div>
+                            <strong id="prod_attach_name" style="font-size:13px; color:#0f172a; display:block;"></strong>
+                            <small class="text-muted">Link this image as primary photo or add to product gallery.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="product_select" style="font-weight:600; font-size:12px;">Select Product <span class="text-danger">*</span></label>
+                        <select id="product_select" class="form-control" required>
+                            <option value="">-- Choose Product --</option>
+                            @foreach($products as $prod)
+                                <option value="{{ $prod->id }}">{{ $prod->name }} (Code: {{ $prod->code ?: $prod->id }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="checkbox" style="margin:0;">
+                        <label style="font-size:12.5px;">
+                            <input type="checkbox" id="prod_is_primary" value="1" checked> <strong>Set as Primary Product Image</strong> (shown on catalog &amp; home)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-do-prod-attach"><i class="fas fa-check"></i> Assign to Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 @push('styles')
 <style>
-/* ── Appearance Files & Media Styles ── */
-.admin-content-wrap {
-    padding: 10px 5px 40px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
+/* Page Layout */
 .media-page-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--admin-card-border);
 }
 .media-title {
     margin: 0 0 4px;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     color: #0f172a;
     display: flex;
@@ -378,563 +339,517 @@
 .media-subtitle {
     margin: 0;
     color: #64748b;
-    font-size: 13.5px;
+    font-size: 13px;
 }
 .media-header-actions {
     display: flex;
-    gap: 10px;
-}
-
-/* Stat Cards Grid */
-.media-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-}
-.media-stat-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.media-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-}
-.stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    flex-shrink: 0;
-}
-.stat-icon-blue { background: #eff6ff; color: #3b82f6; }
-.stat-icon-purple { background: #faf5ff; color: #a855f7; }
-.stat-value {
-    display: block;
-    font-size: 20px;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1.2;
-}
-.stat-label {
-    display: block;
-    font-size: 12.5px;
-    color: #64748b;
-    margin-top: 2px;
-}
-
-/* Brand Cards */
-.media-brand-card {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-}
-.brand-preview-wrap {
-    width: 48px;
-    height: 48px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    flex-shrink: 0;
-}
-.brand-thumb-logo {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-}
-.brand-thumb-fav {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
-}
-.brand-none-badge {
-    font-size: 10px;
-    color: #94a3b8;
-    font-weight: 600;
-}
-
-/* Dropzone Panel */
-.upload-zone-panel {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
-.dropzone-box {
-    border: 2px dashed #3b82f6;
-    border-radius: 10px;
-    background: #f8fafc;
-    padding: 28px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-.dropzone-box:hover, .dropzone-box.dragover {
-    background: #eff6ff;
-    border-color: #2563eb;
-    transform: scale(0.998);
-}
-.dropzone-icon {
-    font-size: 40px;
-    color: #3b82f6;
-    margin-bottom: 10px;
-}
-.dropzone-text h4 {
-    margin: 0 0 6px;
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-}
-.dropzone-text p {
-    margin: 0;
-    font-size: 12.5px;
-    color: #64748b;
-}
-.upload-options-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid #f1f5f9;
-}
-.folder-select-wrap {
-    font-size: 13px;
-    color: #334155;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
     gap: 8px;
 }
 
-/* Toolbar */
-.media-toolbar {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 14px 18px;
+/* Stat Cards */
+.media-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
     margin-bottom: 20px;
 }
-.media-filter-form {
+.media-stat-card {
+    background: #ffffff;
+    border: 1px solid var(--admin-card-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.stat-icon-blue { background: #e0f2fe; color: #0284c7; }
+.stat-icon-purple { background: #f3e8ff; color: #9333ea; }
+.stat-info .stat-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    display: block;
+}
+.stat-info .stat-label {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.media-brand-card {
+    background: #fafbfc;
+}
+.brand-preview-wrap {
+    width: 50px;
+    height: 44px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.brand-thumb-logo, .brand-thumb-fav {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.brand-none-badge {
+    font-size: 9px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+/* Bulk Upload Panel */
+.bulk-upload-card {
+    background: #ffffff;
+    border: 1px solid var(--admin-card-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    margin-bottom: 22px;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+}
+.bulk-card-header {
+    padding: 12px 18px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--admin-card-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.bulk-card-body {
+    padding: 20px;
+}
+.bulk-dropzone {
+    border: 2px dashed #93c5fd;
+    background: #f0f7ff;
+    border-radius: 8px;
+    padding: 34px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.bulk-dropzone:hover, .bulk-dropzone.dragover {
+    background: #e0f2fe;
+    border-color: #3b82f6;
+    transform: scale(1.005);
+}
+.dropzone-icon {
+    font-size: 38px;
+    color: #3b82f6;
+    margin-bottom: 8px;
+}
+.dropzone-hint {
+    font-size: 11.5px;
+    color: #94a3b8;
+    margin-top: 10px;
+}
+
+/* Bulk File Queue */
+.bulk-file-queue {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+.bulk-queue-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+.bulk-queue-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.bulk-queue-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: #e2e8f0;
+    flex-shrink: 0;
+}
+.bulk-queue-title {
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 280px;
+}
+
+/* Filter Bar & Tabs */
+.media-filter-bar {
+    background: #ffffff;
+    border: 1px solid var(--admin-card-border);
+    border-radius: 8px;
+    padding: 10px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
+    margin-bottom: 16px;
 }
-.search-input-wrap {
-    position: relative;
-    flex: 1;
-    min-width: 240px;
-    max-width: 400px;
-}
-.search-input-wrap i {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-}
-.search-input-wrap input {
-    padding-left: 36px;
-    border-radius: 8px;
-    border-color: #cbd5e1;
-}
-.filter-group {
+.media-tabs {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-.filter-group select {
-    border-radius: 8px;
-    border-color: #cbd5e1;
-}
-
-/* Media Cards Grid */
-.media-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 18px;
-    margin-bottom: 24px;
-}
-.media-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.media-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-    border-color: #cbd5e1;
-}
-.media-card-thumb {
-    position: relative;
-    height: 160px;
-    background: #f8fafc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    cursor: pointer;
-    border-bottom: 1px solid #f1f5f9;
-}
-.media-card-thumb img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    transition: transform 0.3s ease;
-}
-.media-card:hover .media-card-thumb img {
-    transform: scale(1.04);
-}
-.file-icon-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     gap: 6px;
-    color: #94a3b8;
 }
-.file-icon-placeholder i { font-size: 40px; }
-.file-icon-placeholder span { font-size: 11px; font-weight: 700; }
-
-.thumb-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.45);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-.media-card-thumb:hover .thumb-overlay {
-    opacity: 1;
-}
-
-.thumb-badge-top {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    display: flex;
-    justify-content: space-between;
-    pointer-events: none;
-}
-.badge-folder {
-    background: rgba(15, 23, 42, 0.75);
-    color: #fff;
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 2px 7px;
-    border-radius: 4px;
-    backdrop-filter: blur(2px);
-}
-.badge-dim {
-    background: rgba(15, 23, 42, 0.75);
-    color: #cbd5e1;
-    font-size: 10.5px;
-    font-weight: 500;
-    padding: 2px 7px;
-    border-radius: 4px;
-}
-
-.media-card-body {
-    padding: 12px 14px 8px;
-    flex: 1;
-}
-.file-name {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.file-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 11.5px;
-    color: #64748b;
-}
-
-.media-card-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    background: #f8fafc;
-    border-top: 1px solid #f1f5f9;
-}
-.action-btn {
-    border: none;
-    background: transparent;
-    padding: 5px 8px;
+.media-tab {
+    padding: 6px 12px;
     border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #475569;
+    text-decoration: none !important;
+    background: #f1f5f9;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    transition: all 0.15s;
 }
-.action-copy {
-    color: #3b82f6;
-}
-.action-copy:hover {
-    background: #eff6ff;
-    color: #1d4ed8;
-}
-.action-menu {
-    color: #475569;
-}
-.action-menu:hover {
-    background: #f1f5f9;
+.media-tab:hover {
+    background: #e2e8f0;
     color: #0f172a;
 }
-.action-delete {
-    color: #ef4444;
+.media-tab.active {
+    background: #0f172a;
+    color: #ffffff;
 }
-.action-delete:hover {
-    background: #fee2e2;
-    color: #b91c1c;
+.media-tab .badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+    font-size: 10.5px;
+}
+.media-tab.active .badge {
+    background: #334155;
+    color: #ffffff;
 }
 
-/* Empty State */
+.media-filter-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.media-search-input {
+    width: 220px;
+}
+
 .media-empty-state {
     text-align: center;
-    padding: 60px 20px;
+    padding: 50px 20px;
     background: #ffffff;
-    border: 1px dashed #cbd5e1;
-    border-radius: 12px;
-    color: #64748b;
+    border: 1px dashed var(--admin-card-border);
+    border-radius: 8px;
+    margin-top: 16px;
 }
-.media-empty-state i {
-    font-size: 48px;
-    color: #94a3b8;
-    margin-bottom: 12px;
-}
-.media-empty-state h3 {
-    margin: 0 0 6px;
-    font-size: 18px;
-    font-weight: 700;
-    color: #0f172a;
-}
-.media-empty-state p { margin: 0; font-size: 14px; }
 </style>
 @endpush
 
 @push('scripts')
 <script>
-// File Dropzone Handling
-const dropzone = document.getElementById('dropzone-area');
-const filesInput = document.getElementById('files-input');
-const summaryDiv = document.getElementById('selected-files-summary');
-const submitBtn = document.getElementById('btn-submit-upload');
+var stagedFiles = [];
 
-if (dropzone) {
-    ['dragenter', 'dragover'].forEach(name => {
-        dropzone.addEventListener(name, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropzone.classList.add('dragover');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach(name => {
-        dropzone.addEventListener(name, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropzone.classList.remove('dragover');
-        });
-    });
-
-    dropzone.addEventListener('drop', (e) => {
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            filesInput.files = e.dataTransfer.files;
-            handleFileSelect(filesInput);
-        }
-    });
-}
-
-function handleFileSelect(input) {
-    if (input.files && input.files.length > 0) {
-        summaryDiv.textContent = `${input.files.length} file(s) selected: ` + Array.from(input.files).map(f => f.name).slice(0, 3).join(', ') + (input.files.length > 3 ? '...' : '');
-        submitBtn.style.display = 'inline-block';
-    } else {
-        summaryDiv.textContent = '';
-        submitBtn.style.display = 'none';
+function toggleBulkUploadPanel() {
+    var p = document.getElementById('bulkUploadPanel');
+    p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'block' : 'none';
+    if (p.style.display === 'block') {
+        p.scrollIntoView({ behavior: 'smooth' });
     }
 }
 
-// Copy URL to clipboard
-function copyToClipboard(text, btnElement) {
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('Link copied to clipboard!');
-        if (btnElement) {
-            const originalHtml = btnElement.innerHTML;
-            btnElement.innerHTML = '<i class="fas fa-check text-success"></i> Copied!';
-            setTimeout(() => { btnElement.innerHTML = originalHtml; }, 2000);
-        }
-    }).catch(err => {
-        // Fallback for non-https
-        const input = document.createElement('input');
-        input.value = text;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        showToast('Link copied to clipboard!');
+// Drag & drop handlers
+var dz = document.getElementById('bulkDropzone');
+['dragenter', 'dragover'].forEach(function (evt) {
+    dz.addEventListener(evt, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.add('dragover');
+    }, false);
+});
+['dragleave', 'drop'].forEach(function (evt) {
+    dz.addEventListener(evt, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dz.classList.remove('dragover');
+    }, false);
+});
+dz.addEventListener('drop', function (e) {
+    var dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length) {
+        handleBulkFilesSelected(dt.files);
+    }
+});
+
+function handleBulkFilesSelected(fileList) {
+    if (!fileList || !fileList.length) return;
+    for (var i = 0; i < fileList.length; i++) {
+        stagedFiles.push(fileList[i]);
+    }
+    renderBulkQueue();
+}
+
+function renderBulkQueue() {
+    var qWrap = document.getElementById('bulkQueueWrap');
+    var qList = document.getElementById('bulkFileQueue');
+    var countEl = document.getElementById('bulkQueueCount');
+
+    if (!stagedFiles.length) {
+        qWrap.style.display = 'none';
+        return;
+    }
+
+    qWrap.style.display = 'block';
+    countEl.innerText = stagedFiles.length;
+    qList.innerHTML = '';
+
+    stagedFiles.forEach(function (file, idx) {
+        var item = document.createElement('div');
+        item.className = 'bulk-queue-item';
+        item.id = 'queue-item-' + idx;
+
+        var sizeKb = (file.size / 1024).toFixed(0) + ' KB';
+        var objectUrl = URL.createObjectURL(file);
+
+        item.innerHTML =
+            '<div class="bulk-queue-left">' +
+                '<img src="' + objectUrl + '" class="bulk-queue-thumb" alt="thumb">' +
+                '<div>' +
+                    '<div class="bulk-queue-title" title="' + file.name + '">' + file.name + '</div>' +
+                    '<span class="text-muted" style="font-size:11px;">' + sizeKb + ' &bull; ' + file.type + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex; align-items:center; gap:8px;">' +
+                '<span class="badge" id="queue-status-' + idx + '" style="background:#cbd5e1; color:#0f172a;">Ready</span>' +
+                '<button type="button" class="btn btn-default btn-xs text-danger" onclick="removeFromQueue(' + idx + ')"><i class="fas fa-times"></i></button>' +
+            '</div>';
+
+        qList.appendChild(item);
     });
 }
 
-// Set as Store Logo or Favicon
-function setAsStoreBranding(fileId, action) {
-    const actionLabel = action === 'logo' ? 'Store Logo' : 'Store Favicon';
-    if (!confirm(`Set this image as active ${actionLabel}?`)) return;
+function removeFromQueue(idx) {
+    stagedFiles.splice(idx, 1);
+    renderBulkQueue();
+}
 
-    fetch("{{ route('admin.appearance.files.set-as') }}", {
+function clearBulkQueue() {
+    stagedFiles = [];
+    renderBulkQueue();
+}
+
+function startBulkUpload() {
+    if (!stagedFiles.length) return;
+
+    var btn = document.getElementById('startUploadBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading…';
+
+    var pWrap = document.getElementById('bulkProgressBarWrap');
+    var pBar = document.getElementById('bulkProgressBar');
+    pWrap.style.display = 'block';
+    pBar.style.width = '20%';
+
+    var folder = document.getElementById('bulkFolderSelect').value || 'media';
+    var fd = new FormData();
+    fd.append('folder', folder);
+
+    stagedFiles.forEach(function (f) {
+        fd.append('files[]', f);
+    });
+
+    $.ajax({
+        url: '{{ route("admin.appearance.files.bulk-upload") }}',
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'Accept': 'application/json'
+        data: fd,
+        processData: false,
+        contentType: false,
+        xhr: function () {
+            var xhr = new window.XMLHttpRequest();
+            xhr.upload.addEventListener('progress', function (e) {
+                if (e.lengthComputable) {
+                    var percent = Math.round((e.loaded / e.total) * 100);
+                    pBar.style.width = percent + '%';
+                }
+            }, false);
+            return xhr;
         },
-        body: JSON.stringify({ file_id: fileId, action: action })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast(data.message);
-            if (action === 'logo' && data.url) {
-                const el = document.getElementById('active-logo-preview');
-                if (el) el.src = data.url;
-            } else if (action === 'favicon' && data.url) {
-                const el = document.getElementById('active-fav-preview');
-                if (el) el.src = data.url;
-            }
-        } else {
-            alert(data.message || 'Action failed.');
+        success: function (res) {
+            pBar.style.width = '100%';
+            adminToast(res.message || 'Files uploaded successfully!');
+            clearBulkQueue();
+            setTimeout(function () { location.reload(); }, 600);
+        },
+        error: function (xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Upload failed.';
+            adminToast(msg, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-upload"></i> Retry Upload';
         }
-    })
-    .catch(err => {
-        alert('Request error. Please try again.');
+    });
+}
+
+// Category Attach Modal
+function openCategoryAttachModal(fileId, name, url) {
+    $('#cat_attach_file_id').val(fileId);
+    $('#cat_attach_name').text(name);
+    $('#cat_attach_preview').attr('src', url);
+    $('#categoryAttachModal').modal('show');
+}
+
+function submitCategoryAttach(e) {
+    e.preventDefault();
+    var fileId = $('#cat_attach_file_id').val();
+    var catId = $('#category_select').val();
+    if (!catId) {
+        adminToast('Please select a category.', 'error');
+        return;
+    }
+
+    var btn = $('#btn-do-cat-attach');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Assigning…');
+
+    $.ajax({
+        url: '{{ route("admin.appearance.files.set-as") }}',
+        method: 'POST',
+        data: { file_id: fileId, action: 'category', category_id: catId },
+        success: function (res) {
+            adminToast(res.message || 'Category image updated!');
+            $('#categoryAttachModal').modal('hide');
+        },
+        error: function (xhr) {
+            adminToast('Failed to assign image to category.', 'error');
+        },
+        complete: function () {
+            btn.prop('disabled', false).html('<i class="fas fa-check"></i> Assign to Category');
+        }
     });
 }
 
 // Product Attach Modal
-function openProductAttachModal(fileId, fileName, fileUrl) {
-    document.getElementById('attach_file_id').value = fileId;
-    document.getElementById('attach_file_name').textContent = fileName;
-    document.getElementById('attach_file_preview').src = fileUrl;
+function openProductAttachModal(fileId, name, url) {
+    $('#prod_attach_file_id').val(fileId);
+    $('#prod_attach_name').text(name);
+    $('#prod_attach_preview').attr('src', url);
     $('#productAttachModal').modal('show');
 }
 
-function submitProductAttach(event) {
-    event.preventDefault();
-    const form = document.getElementById('productAttachForm');
-    const fileId = document.getElementById('attach_file_id').value;
-    const productId = document.getElementById('product_select').value;
-    const isPrimary = form.querySelector('input[name="is_primary"]').checked ? 1 : 0;
+function submitProductAttach(e) {
+    e.preventDefault();
+    var fileId = $('#prod_attach_file_id').val();
+    var prodId = $('#product_select').val();
+    var isPrimary = $('#prod_is_primary').is(':checked') ? 1 : 0;
 
-    if (!productId) {
-        alert('Please choose a product.');
+    if (!prodId) {
+        adminToast('Please select a product.', 'error');
         return;
     }
 
-    const btn = document.getElementById('btn-do-attach');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Attaching...';
+    var btn = $('#btn-do-prod-attach');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Assigning…');
 
-    fetch("{{ route('admin.appearance.files.set-as') }}", {
+    $.ajax({
+        url: '{{ route("admin.appearance.files.set-as") }}',
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-            file_id: fileId,
-            action: 'product',
-            product_id: productId,
-            is_primary: isPrimary
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check"></i> Attach to Product';
-        if (data.success) {
+        data: { file_id: fileId, action: 'product', product_id: prodId, is_primary: isPrimary },
+        success: function (res) {
+            adminToast(res.message || 'Product image assigned!');
             $('#productAttachModal').modal('hide');
-            showToast(data.message);
-        } else {
-            alert(data.message || 'Attach failed.');
+        },
+        error: function (xhr) {
+            adminToast('Failed to assign image to product.', 'error');
+        },
+        complete: function () {
+            btn.prop('disabled', false).html('<i class="fas fa-check"></i> Assign to Product');
         }
-    })
-    .catch(err => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check"></i> Attach to Product';
-        alert('Request failed. Please try again.');
     });
 }
 
-// Preview Modal
-function openPreviewModal(url, name, size, dim, folder) {
-    document.getElementById('previewModalTitle').textContent = name;
-    document.getElementById('previewModalImg').src = url;
-    document.getElementById('previewModalUrl').value = url;
-    document.getElementById('previewModalDim').textContent = dim ? `Dimensions: ${dim}` : '';
-    document.getElementById('previewModalSize').textContent = `Size: ${size}`;
-    document.getElementById('previewModalFolder').textContent = `Folder: ${folder}`;
-    $('#previewModal').modal('show');
+// Register Bulk Actions in Universal Bar
+$(function () {
+    var isTrash = '{{ $status }}' === 'trashed';
+    var html = '';
+    if (!isTrash) {
+        html += '<button type="button" class="bulk-action-btn" onclick="openBulkMoveFolderModal()"><i class="fas fa-folder"></i> Move to Folder</button>';
+        html += '<button type="button" class="bulk-action-btn btn-bulk-danger" onclick="executeFilesBulkAction(\'delete\', \'Move {count} selected file(s) to Trash?\')"><i class="fas fa-trash-alt"></i> Move to Trash</button>';
+    } else {
+        html += '<button type="button" class="bulk-action-btn btn-bulk-success" onclick="executeFilesBulkAction(\'restore\')"><i class="fas fa-undo"></i> Restore</button>';
+        html += '<button type="button" class="bulk-action-btn btn-bulk-danger" onclick="executeFilesBulkAction(\'force_delete\', \'PERMANENT DELETION: Are you sure you want to permanently delete {count} selected file(s)? This cannot be undone!\')"><i class="fas fa-trash"></i> Permanently Delete</button>';
+    }
+    $('#bulkBarActions').html(html);
+});
+
+function openBulkMoveFolderModal() {
+    var ids = getSelectedBulkIds();
+    if (!ids.length) {
+        adminToast('Please select at least one file.', 'error');
+        return;
+    }
+    $('#bulkMoveFolderModal').modal('show');
 }
 
-// Toast notification helper
-function showToast(msg) {
-    const toast = document.getElementById('media-toast');
-    const toastText = document.getElementById('toast-text');
-    if (!toast) return;
-    toastText.textContent = msg;
-    toast.style.display = 'flex';
-    requestAnimationFrame(() => {
-        toast.style.transform = 'translateY(0)';
-        toast.style.opacity = '1';
-    });
-    setTimeout(() => {
-        toast.style.transform = 'translateY(100px)';
-        toast.style.opacity = '0';
-        setTimeout(() => { toast.style.display = 'none'; }, 300);
-    }, 3500);
+function submitBulkMoveFolder() {
+    var folder = $('#bulkMoveFolderSelect').val();
+    runBulkAction('{{ route("admin.appearance.files.bulk-action") }}', 'move_folder', { folder: folder });
+    $('#bulkMoveFolderModal').modal('hide');
+}
+
+function executeFilesBulkAction(action, confirmMsg) {
+    var extra = {};
+    if (action === 'force_delete') {
+        extra.force = 1;
+    }
+    runBulkAction('{{ route("admin.appearance.files.bulk-action") }}', action, extra, confirmMsg);
 }
 </script>
 @endpush
+
+{{-- ── BULK MOVE FOLDER MODAL ── --}}
+<div class="modal fade" id="bulkMoveFolderModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content" style="border-radius:8px; overflow:hidden;">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title" style="font-size:14px; font-weight:700;"><i class="fas fa-folder text-primary"></i> Move to Folder</h4>
+            </div>
+            <div class="modal-body" style="padding:16px;">
+                <label style="font-weight:600; font-size:12.5px; margin-bottom:6px; display:block;">Target Folder:</label>
+                <select id="bulkMoveFolderSelect" class="form-control input-sm">
+                    <option value="media">media (General)</option>
+                    <option value="banner">banner (Banners)</option>
+                    <option value="product">product (Products)</option>
+                    <option value="appearance">appearance (Theme)</option>
+                    <option value="settings">settings (Brand)</option>
+                </select>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+                <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitBulkMoveFolder()"><i class="fas fa-check"></i> Move</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection

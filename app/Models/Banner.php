@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasCustomAsset;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Banner extends Model
 {
-    use \App\Traits\HasCustomAsset;
+    use HasCustomAsset;
+    use SoftDeletes;
 
     protected $fillable = [
         'image',
@@ -32,9 +36,39 @@ class Banner extends Model
             'start_date' => 'datetime',
             'end_date' => 'datetime',
             'is_flash_sale' => 'boolean',
+            'deleted_at' => 'datetime',
         ];
     }
 
+    /**
+     * Clear all cached storefront banner lists whenever any banner changes.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            Cache::forget('home_banners_list');
+            Cache::forget('home_flash_sale_banner');
+        });
+
+        static::deleted(function () {
+            Cache::forget('home_banners_list');
+            Cache::forget('home_flash_sale_banner');
+        });
+
+        static::restored(function () {
+            Cache::forget('home_banners_list');
+            Cache::forget('home_flash_sale_banner');
+        });
+
+        static::forceDeleted(function () {
+            Cache::forget('home_banners_list');
+            Cache::forget('home_flash_sale_banner');
+        });
+    }
+
+    /**
+     * Scope for strictly active and scheduled banners on the storefront.
+     */
     public function scopeActive(Builder $query): Builder
     {
         $now = now();
@@ -47,14 +81,18 @@ class Banner extends Model
             });
     }
 
+    /**
+     * Scope for active flash sale banners.
+     */
     public function scopeFlashSale(Builder $query): Builder
     {
-        return $this->scopeActive($query)->where('is_flash_sale', true);
+        return $query->active()->where('is_flash_sale', true);
     }
 
     public function getImageUrlAttribute(): string
     {
-        if (!$this->image) return '';
-        return self::resolveMediaUrl($this->image) ?? '';
+        $placeholder = asset('assets/images/placeholder.svg');
+        if (!$this->image) return $placeholder;
+        return self::resolveMediaUrl($this->image, $placeholder) ?: $placeholder;
     }
 }

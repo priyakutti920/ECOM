@@ -177,10 +177,22 @@ class AppearanceFilesAndAvatarTest extends TestCase
         $this->assertNotNull($favUrl);
         $this->assertStringContainsString('settings/brand_favicon.ico', $favUrl);
 
-        // Verify layout head contains favicon
+        // Verify storefront head contains favicon
         $homePage = $this->get(route('shop.home'));
         $homePage->assertStatus(200);
         $homePage->assertSee($favUrl, false);
+
+        // Verify admin side head contains favicon
+        $adminDashboard = $this->get('/admin/dashboard');
+        $adminDashboard->assertStatus(200);
+        $adminDashboard->assertSee($favUrl, false);
+
+        // Verify admin guest auth pages contain favicon
+        auth()->logout();
+        $this->flushSession();
+        $adminLogin = $this->get(route('admin.login'));
+        $adminLogin->assertStatus(200);
+        $adminLogin->assertSee($favUrl, false);
     }
 
     public function test_admin_can_attach_media_to_product()

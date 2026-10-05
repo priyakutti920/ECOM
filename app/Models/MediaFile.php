@@ -4,14 +4,17 @@ namespace App\Models;
 
 use App\Traits\HasCustomAsset;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class MediaFile extends Model
 {
     use HasCustomAsset;
+    use SoftDeletes;
 
     protected $fillable = [
         'name',
+        'alt_text',
         'filename',
         'path',
         'disk',
@@ -30,7 +33,112 @@ class MediaFile extends Model
             'width' => 'integer',
             'height' => 'integer',
             'is_favorite' => 'boolean',
+            'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Check if this media file is referenced by active store resources.
+     * Returns an array of human-readable usage descriptions.
+     */
+    public function getReferences(): array
+    {
+        $references = [];
+        $p = $this->path;
+        $storagePath = 'storage/' . ltrim($p, '/');
+
+        // Check Store Settings (logo, favicon, etc.)
+        $settings = StoreSetting::where(function ($q) use ($p, $storagePath) {
+            $q->where('value', $p)->orWhere('value', $storagePath);
+        })->get();
+
+        foreach ($settings as $setting) {
+            $references[] = "Store Setting: " . ucfirst(str_replace('_', ' ', $setting->key));
+        }
+
+        // Check Banners
+        $bannerCount = Banner::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->count();
+        if ($bannerCount > 0) {
+            $references[] = "Banner ({$bannerCount} banner(s))";
+        }
+
+        // Check Products (primary image)
+        $productCount = Product::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->count();
+        if ($productCount > 0) {
+            $references[] = "Product Primary Image ({$productCount} product(s))";
+        }
+
+        // Check Product Gallery Images
+        $prodImgCount = ProductImage::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->count();
+        if ($prodImgCount > 0) {
+            $references[] = "Product Gallery ({$prodImgCount} image(s))";
+        }
+
+        // Check Categories
+        $catCount = Category::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->count();
+        if ($catCount > 0) {
+            $references[] = "Category ({$catCount} category(ies))";
+        }
+
+        return $references;
+    }
+
+    /**
+     * Cleanly detach or nullify all references to this media file.
+     * Removes associated gallery images and resets orphaned image columns to null.
+     */
+    public function detachReferences(): int
+    {
+        $detached = 0;
+        $p = $this->path;
+        if (empty($p)) {
+            return 0;
+        }
+
+        $storagePath = 'storage/' . ltrim($p, '/');
+
+        // Detach product gallery images
+        $detached += ProductImage::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->delete();
+
+        // Nullify product primary image
+        $detached += Product::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->update(['image' => null]);
+
+        // Nullify category images
+        $detached += Category::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->update(['image' => null]);
+
+        // Reset banner images to placeholder (banners.image column is not nullable)
+        $detached += Banner::where(function ($q) use ($p, $storagePath) {
+            $q->where('image', $p)->orWhere('image', $storagePath);
+        })->update(['image' => 'assets/images/placeholder.svg']);
+
+        // Nullify store settings
+        $detached += StoreSetting::where(function ($q) use ($p, $storagePath) {
+            $q->where('value', $p)->orWhere('value', $storagePath);
+        })->update(['value' => null]);
+
+        return $detached;
+    }
+
+    /**
+     * Determine if this file is referenced anywhere.
+     */
+    public function isReferenced(): bool
+    {
+        return !empty($this->getReferences());
     }
 
     /**
@@ -38,7 +146,8 @@ class MediaFile extends Model
      */
     public function getUrlAttribute(): string
     {
-        return static::resolveMediaUrl($this->path) ?? asset('storage/' . ltrim($this->path, '/'));
+        $placeholder = asset('assets/images/placeholder.svg');
+        return static::resolveMediaUrl($this->path, $placeholder) ?: $placeholder;
     }
 
     /**
@@ -84,8 +193,11 @@ class MediaFile extends Model
                 continue;
             }
 
-            $exists = static::where('path', $filePath)
-                ->orWhere('path', 'storage/' . $filePath)
+            $exists = static::withTrashed()
+                ->where(function ($q) use ($filePath) {
+                    $q->where('path', $filePath)
+                      ->orWhere('path', 'storage/' . $filePath);
+                })
                 ->exists();
 
             if (!$exists) {

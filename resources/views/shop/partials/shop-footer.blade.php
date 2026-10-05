@@ -1,10 +1,39 @@
 @php
-  $storeAddress = \App\Models\StoreSetting::getValue('address');
+  $footerSettings = \App\Models\StoreSetting::getFooterSettings();
   $storeName = \App\Models\StoreSetting::getStoreName();
-  $storePhone = \App\Models\StoreSetting::getValue('phone');
-  $storeEmail = \App\Models\StoreSetting::getValue('email');
-  $instagramUrl = \App\Models\StoreSetting::getValue('instagram_url') ?: \App\Models\StoreSetting::getValue('social_instagram');
-  $waNumber = \App\Models\StoreSetting::getValue('whatsapp_number') ?: \App\Models\StoreSetting::getValue('wa_number');
+
+  // Col 1: Contact Us
+  $col1Title     = $footerSettings['col1_title'] ?? 'Contact Us';
+  $storePhone    = $footerSettings['col1_phone'] ?? \App\Models\StoreSetting::getValue('phone', '+91 80560 81594');
+  $storeEmail    = $footerSettings['col1_email'] ?? \App\Models\StoreSetting::getValue('email', 'noolcrop@gmail.com');
+  $storeAddress  = $footerSettings['col1_address'] ?? \App\Models\StoreSetting::getValue('address', 'Tirunelveli, Tamil Nadu, India');
+  $instagramUrl  = $footerSettings['col1_instagram'] ?? (\App\Models\StoreSetting::getValue('instagram_url') ?: \App\Models\StoreSetting::getValue('social_instagram'));
+  $waNumber      = $footerSettings['col1_whatsapp'] ?? (\App\Models\StoreSetting::getValue('whatsapp_number') ?: \App\Models\StoreSetting::getValue('wa_number'));
+  $col1ShowSocial= !empty($footerSettings['col1_show_social']);
+
+  // Col 2: My Account
+  $col2Title   = $footerSettings['col2_title'] ?? 'My Account';
+  $col2Enabled = !empty($footerSettings['col2_enabled']);
+  $col2Links   = $footerSettings['col2_links'] ?? [];
+
+  // Col 3: Information
+  $col3Title   = $footerSettings['col3_title'] ?? 'Information';
+  $col3Enabled = !empty($footerSettings['col3_enabled']);
+  $col3Links   = $footerSettings['col3_links'] ?? [];
+
+  // Col 4: Customer Service
+  $col4Title   = $footerSettings['col4_title'] ?? 'Customer Service';
+  $col4Enabled = !empty($footerSettings['col4_enabled']);
+  $col4Links   = $footerSettings['col4_links'] ?? [];
+
+  // Bottom
+  $copyrightRaw = $footerSettings['copyright_text'] ?? "Copyright © {store_name} {year}. All rights reserved.";
+  $copyright = strip_tags(str_replace(
+      ['{store_name}', '{year}', '{date}'],
+      [$storeName, date('Y'), date('Y')],
+      $copyrightRaw
+  ), '<a><span><strong><b><em>');
+  $showPaymentBadges = !empty($footerSettings['show_payment_badges']);
 @endphp
 
 <footer class="footer-wrap">
@@ -14,7 +43,7 @@
         <div class="footer-grid">
           <!-- Col 1: Contact Us (Fully Dynamic from DB) -->
           <div class="footer-col contact-col">
-            <h4 class="title">Contact Us</h4>
+            <h4 class="title">{{ $col1Title }}</h4>
             <ul class="contact-info">
               @if(!empty($storePhone))
                 <li>
@@ -36,7 +65,7 @@
               @endif
             </ul>
 
-            @if(!empty($instagramUrl) || !empty($waNumber))
+            @if($col1ShowSocial && (!empty($instagramUrl) || !empty($waNumber)))
               <div style="margin-top: 16px;">
                 <ul style="display:flex; gap:12px; list-style:none; padding:0;">
                   @if(!empty($instagramUrl))
@@ -58,64 +87,73 @@
             @endif
           </div>
 
-          <!-- Col 2: My Account -->
-          <div class="footer-col">
-            <h4 class="title">My Account</h4>
-            <ul>
-              <li><a href="{{ route('shop.account') }}"><i class="las la-angle-right"></i> Dashboard</a></li>
-              <li><a href="{{ route('shop.orders.index') }}"><i class="las la-angle-right"></i> My Orders</a></li>
-              <li><a href="{{ route('shop.wishlist') }}"><i class="las la-angle-right"></i> My Wishlist</a></li>
-              <li><a href="{{ route('shop.account') }}"><i class="las la-angle-right"></i> My Profile</a></li>
-              @auth('customer')
-                <li>
-                  <a href="{{ route('shop.logout') }}" onclick="event.preventDefault(); document.getElementById('footer-logout-form').submit();" style="color:#ef4444;">
-                    <i class="las la-sign-out-alt"></i> Logout
-                  </a>
-                  <form id="footer-logout-form" action="{{ route('shop.logout') }}" method="POST" style="display:none;">@csrf</form>
-                </li>
-              @else
-                <li><a href="{{ route('shop.login.email') }}"><i class="las la-sign-in-alt"></i> Login / Register</a></li>
-              @endauth
-            </ul>
-          </div>
+          <!-- Col 2: My Account (Dynamic from DB) -->
+          @if($col2Enabled)
+            <div class="footer-col">
+              <h4 class="title">{{ $col2Title }}</h4>
+              <ul>
+                @foreach($col2Links as $l)
+                  @if(!empty($l['title']) && !empty($l['url']))
+                    <li><a href="{{ url($l['url']) }}"><i class="las la-angle-right"></i> {{ $l['title'] }}</a></li>
+                  @endif
+                @endforeach
+                @auth('customer')
+                  <li>
+                    <a href="{{ route('shop.logout') }}" onclick="event.preventDefault(); document.getElementById('footer-logout-form').submit();" style="color:#ef4444;">
+                      <i class="las la-sign-out-alt"></i> Logout
+                    </a>
+                    <form id="footer-logout-form" action="{{ route('shop.logout') }}" method="POST" style="display:none;">@csrf</form>
+                  </li>
+                @else
+                  <li><a href="{{ route('shop.login.email') }}"><i class="las la-sign-in-alt"></i> Login / Register</a></li>
+                @endauth
+              </ul>
+            </div>
+          @endif
 
-          <!-- Col 3: Information -->
-          <div class="footer-col">
-            <h4 class="title">Information</h4>
-            <ul>
-              <li><a href="{{ url('/') }}"><i class="las la-angle-right"></i> Home</a></li>
-              <li><a href="{{ url('/products') }}"><i class="las la-angle-right"></i> All Products</a></li>
-              <li><a href="{{ url('/deals') }}"><i class="las la-angle-right"></i> Flash Deals</a></li>
-              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Help & Support</a></li>
-              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Contact Us</a></li>
-            </ul>
-          </div>
+          <!-- Col 3: Information (Dynamic from DB) -->
+          @if($col3Enabled)
+            <div class="footer-col">
+              <h4 class="title">{{ $col3Title }}</h4>
+              <ul>
+                @foreach($col3Links as $l)
+                  @if(!empty($l['title']) && !empty($l['url']))
+                    <li><a href="{{ url($l['url']) }}"><i class="las la-angle-right"></i> {{ $l['title'] }}</a></li>
+                  @endif
+                @endforeach
+              </ul>
+            </div>
+          @endif
 
-          <!-- Col 4: Customer Service & Policies -->
-          <div class="footer-col">
-            <h4 class="title">Customer Service</h4>
-            <ul>
-              <li><a href="{{ url('/track-order') }}"><i class="las la-angle-right"></i> Track Order</a></li>
-              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Shipping & Delivery</a></li>
-              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Easy Returns</a></li>
-              <li><a href="{{ route('shop.help') }}"><i class="las la-angle-right"></i> Secure Payment</a></li>
-            </ul>
-          </div>
+          <!-- Col 4: Customer Service & Policies (Dynamic from DB) -->
+          @if($col4Enabled)
+            <div class="footer-col">
+              <h4 class="title">{{ $col4Title }}</h4>
+              <ul>
+                @foreach($col4Links as $l)
+                  @if(!empty($l['title']) && !empty($l['url']))
+                    <li><a href="{{ url($l['url']) }}"><i class="las la-angle-right"></i> {{ $l['title'] }}</a></li>
+                  @endif
+                @endforeach
+              </ul>
+            </div>
+          @endif
         </div>
       </div>
 
-      <!-- Footer Bottom Bar -->
+      <!-- Footer Bottom Bar (Dynamic from DB) -->
       <div class="footer-bottom">
         <div class="footer-bottom-inner">
           <div class="footer-text">
-            Copyright © <a href="{{ url('/') }}">{{ $storeName }}</a> {{ date('Y') }}. All rights reserved.
+            {!! $copyright !!}
           </div>
-          <div class="footer-payment-badges">
-            <span style="font-size:12px; color:var(--color-muted); margin-right:6px;">Guaranteed Safe Checkout:</span>
-            <i class="lab la-cc-visa" style="font-size:24px; color:#1a1f71;" title="Visa"></i>
-            <i class="lab la-cc-mastercard" style="font-size:24px; color:#eb001b;" title="Mastercard"></i>
-            <i class="las la-shield-alt" style="font-size:22px; color:#10b981;" title="SSL Secured"></i>
-          </div>
+          @if($showPaymentBadges)
+            <div class="footer-payment-badges">
+              <i class="lab la-cc-visa" style="font-size:24px; color:#1a1f71;" title="Visa"></i>
+              <i class="lab la-cc-mastercard" style="font-size:24px; color:#eb001b;" title="Mastercard"></i>
+              <i class="las la-shield-alt" style="font-size:22px; color:#10b981;" title="SSL Secured"></i>
+            </div>
+          @endif
         </div>
       </div>
     </div>

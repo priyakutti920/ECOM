@@ -34,8 +34,9 @@ class ProductController extends Controller
         }
 
         $products = $query->orderByDesc('id')->paginate(20)->withQueryString();
+        $categories = Category::active()->orderBy('name')->get(['id', 'name']);
 
-        return view('admin.products.index', compact('products'));
+        return view('admin.products.index', compact('products', 'categories'));
     }
 
     public function create()
@@ -628,5 +629,63 @@ class ProductController extends Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * Perform bulk actions on selected products.
+     */
+    public function bulkAction(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+            'action' => 'required|string|in:activate,deactivate,in_stock,out_of_stock,delete,change_category',
+            'category_id' => 'nullable|required_if:action,change_category|exists:categories,id',
+        ]);
+
+        $ids = $request->input('ids', []);
+        $action = $request->input('action');
+        $affected = 0;
+
+        if ($action === 'activate') {
+            $affected = Product::whereIn('id', $ids)->update(['is_active' => true]);
+            $msg = "{$affected} product(s) marked as Active.";
+        } elseif ($action === 'deactivate') {
+            $affected = Product::whereIn('id', $ids)->update(['is_active' => false]);
+            $msg = "{$affected} product(s) marked as Inactive.";
+        } elseif ($action === 'in_stock') {
+            $affected = Product::whereIn('id', $ids)->update(['stock_status' => 'in_stock']);
+            $msg = "{$affected} product(s) marked In Stock.";
+        } elseif ($action === 'out_of_stock') {
+            $affected = Product::whereIn('id', $ids)->update(['stock_status' => 'out_of_stock']);
+            $msg = "{$affected} product(s) marked Out of Stock.";
+        } elseif ($action === 'delete') {
+            $products = Product::whereIn('id', $ids)->get();
+            foreach ($products as $p) {
+                $p->delete();
+                $affected++;
+            }
+            $msg = "{$affected} product(s) moved to Trash.";
+        } elseif ($action === 'change_category') {
+            $catId = (int) $request->input('category_id');
+            $category = Category::findOrFail($catId);
+            $products = Product::whereIn('id', $ids)->get();
+            foreach ($products as $p) {
+                $p->update(['category_id' => $catId]);
+                $p->categories()->sync([$catId]);
+                $affected++;
+            }
+            $msg = "{$affected} product(s) assigned to '{$category->name}'.";
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'affected' => $affected,
+            ]);
+        }
+
+        return back()->with('success', $msg);
     }
 }

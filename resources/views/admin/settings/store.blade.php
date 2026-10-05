@@ -193,25 +193,39 @@
 
         {{-- Theme & Appearance Customization --}}
         <div style="margin: 22px 0 18px; padding: 18px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;">
-            <label class="settings-form-label" style="font-size: 14px; font-weight: 700; color: #222; margin-bottom: 14px;">
-                <i class="fas fa-palette" style="color: #7b1fa2; margin-right: 6px;"></i> Theme &amp; Appearance Customization
-            </label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+                <label class="settings-form-label" style="font-size: 14px; font-weight: 700; color: #222; margin: 0;">
+                    <i class="fas fa-palette" style="color: #7b1fa2; margin-right: 6px;"></i> Theme &amp; Appearance Customization
+                </label>
+                <a href="{{ route('admin.appearance.theme.index') }}" class="btn btn-default btn-xs" style="font-weight:600; font-size:12px; border-color:#cbd5e1;">
+                    <i class="fas fa-magic text-warning"></i> Open Full Theme Customizer &rarr;
+                </a>
+            </div>
 
             <div class="settings-row">
                 <div class="settings-form-group">
                     <label class="settings-form-label">Primary Brand Color <span class="hint">Header, Main Elements</span></label>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <input type="color" id="ss-primary-color-picker" value="#131921" style="width:40px; height:38px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;" onchange="$('#ss-primary-color').val(this.value)">
-                        <input type="text" id="ss-primary-color" class="settings-input" style="max-width:140px; font-family:monospace;" placeholder="#131921" onchange="$('#ss-primary-color-picker').val(this.value)">
+                        <input type="color" id="ss-primary-color-picker" value="#0068e1" style="width:40px; height:38px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;">
+                        <input type="text" id="ss-primary-color" class="settings-input" style="max-width:140px; font-family:monospace;" placeholder="#0068e1">
                     </div>
                 </div>
 
                 <div class="settings-form-group">
                     <label class="settings-form-label">Secondary / Accent Color <span class="hint">Buttons, Badges</span></label>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <input type="color" id="ss-secondary-color-picker" value="#febd69" style="width:40px; height:38px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;" onchange="$('#ss-secondary-color').val(this.value)">
-                        <input type="text" id="ss-secondary-color" class="settings-input" style="max-width:140px; font-family:monospace;" placeholder="#febd69" onchange="$('#ss-secondary-color-picker').val(this.value)">
+                        <input type="color" id="ss-secondary-color-picker" value="#0f172a" style="width:40px; height:38px; padding:0; border:1px solid #ccc; border-radius:4px; cursor:pointer;">
+                        <input type="text" id="ss-secondary-color" class="settings-input" style="max-width:140px; font-family:monospace;" placeholder="#0f172a">
                     </div>
+                </div>
+
+                <div class="settings-form-group">
+                    <label class="settings-form-label">Header Style <span class="hint">Storefront Look</span></label>
+                    <select id="ss-header-style" class="settings-input" style="max-width:260px;">
+                        <option value="primary">Bold Brand Primary Header (Recommended)</option>
+                        <option value="light">Crisp Light (White Header + Brand Accents)</option>
+                        <option value="dark">Modern Dark Charcoal Header</option>
+                    </select>
                 </div>
 
                 <div class="settings-form-group">
@@ -424,11 +438,12 @@ $(function () {
                 $('#ss-map-iframe').val(d.map_iframe || '');
                 renderMapPreview(d.map_embed_url);
 
-                // Theme and Currency
-                $('#ss-primary-color').val(d.primary_color || '#131921');
-                $('#ss-primary-color-picker').val(d.primary_color || '#131921');
-                $('#ss-secondary-color').val(d.secondary_color || '#febd69');
-                $('#ss-secondary-color-picker').val(d.secondary_color || '#febd69');
+                // Theme, Header Style, and Currency
+                $('#ss-primary-color').val(d.primary_color || '#0068e1');
+                $('#ss-primary-color-picker').val(d.primary_color || '#0068e1');
+                $('#ss-secondary-color').val(d.secondary_color || '#0f172a');
+                $('#ss-secondary-color-picker').val(d.secondary_color || '#0f172a');
+                $('#ss-header-style').val(d.header_style || 'primary');
                 $('#ss-currency-symbol').val(d.currency_symbol || '₹');
 
                 // Logo
@@ -488,6 +503,24 @@ $(function () {
         renderMapPreview();
     });
 
+    // Theme Color Syncing
+    $(document).on('input change', '#ss-primary-color-picker', function () {
+        $('#ss-primary-color').val(this.value.toUpperCase());
+    });
+    $(document).on('input change', '#ss-primary-color', function () {
+        var v = this.value.trim();
+        if (v && !v.startsWith('#')) v = '#' + v;
+        if (/^#[0-9A-Fa-f]{6}$/i.test(v)) $('#ss-primary-color-picker').val(v);
+    });
+    $(document).on('input change', '#ss-secondary-color-picker', function () {
+        $('#ss-secondary-color').val(this.value.toUpperCase());
+    });
+    $(document).on('input change', '#ss-secondary-color', function () {
+        var v = this.value.trim();
+        if (v && !v.startsWith('#')) v = '#' + v;
+        if (/^#[0-9A-Fa-f]{6}$/i.test(v)) $('#ss-secondary-color-picker').val(v);
+    });
+
     loadStoreSettings();
 
     // Submit
@@ -520,6 +553,7 @@ $(function () {
 
         fd.append('primary_color', $('#ss-primary-color').val().trim());
         fd.append('secondary_color', $('#ss-secondary-color').val().trim());
+        fd.append('header_style', $('#ss-header-style').val());
         fd.append('currency_symbol', $('#ss-currency-symbol').val().trim());
 
         var $logoInput = $('#ss-logo-input')[0];

@@ -50,7 +50,7 @@ class CancellationReturnController extends Controller
             ->when(in_array($request->status, array_keys(OrderReturn::STATUSES), true), function ($q) use ($request) {
                 $q->where('status', $request->status);
             })
-            ->orderByRaw("FIELD(status, 'requested','accepted','pickup_scheduled','picked_up','completed','rejected')")
+            ->orderByRaw("CASE status WHEN 'requested' THEN 1 WHEN 'accepted' THEN 2 WHEN 'pickup_scheduled' THEN 3 WHEN 'picked_up' THEN 4 WHEN 'completed' THEN 5 WHEN 'rejected' THEN 6 ELSE 7 END")
             ->orderByDesc('requested_at')
             ->paginate(20, ['*'], 'r_page')
             ->withQueryString();

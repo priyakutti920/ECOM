@@ -19,7 +19,8 @@ class ProductImage extends Model
 
     public function getUrlAttribute(): string
     {
-        if (!$this->image) return '';
-        return self::resolveMediaUrl($this->image) ?? '';
+        $placeholder = asset('assets/images/placeholder.svg');
+        if (!$this->image) return $placeholder;
+        return self::resolveMediaUrl($this->image, $placeholder) ?: $placeholder;
     }
 }

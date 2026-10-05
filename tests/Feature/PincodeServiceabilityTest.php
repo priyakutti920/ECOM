@@ -19,8 +19,7 @@ class PincodeServiceabilityTest extends TestCase
         parent::setUp();
     }
 
-    /** @test */
-    public function it_rejects_invalid_pincode_format_with_422(): void
+    public function test_it_rejects_invalid_pincode_format_with_422(): void
     {
         // Single digit, letters, too short, too long — all invalid
         $invalidPincodes = ['0', 'ABCDEF', '12345', '1234567', '012345', ''];
@@ -35,8 +34,7 @@ class PincodeServiceabilityTest extends TestCase
         }
     }
 
-    /** @test */
-    public function it_returns_cached_result_from_serviceable_pincodes_table(): void
+    public function test_it_returns_cached_result_from_serviceable_pincodes_table(): void
     {
         // Seed a fresh cached entry (last checked 1 day ago — within the 7-day TTL)
         ServiceablePincode::create([
@@ -71,8 +69,7 @@ class PincodeServiceabilityTest extends TestCase
         $res->assertJsonStructure(['eta_date', 'message']);
     }
 
-    /** @test */
-    public function it_falls_back_gracefully_when_courier_api_is_unreachable(): void
+    public function test_it_falls_back_gracefully_when_courier_api_is_unreachable(): void
     {
         // No cached entry, courier API throws an exception
         $mockCourier = Mockery::mock(CourierServiceInterface::class);
@@ -93,8 +90,7 @@ class PincodeServiceabilityTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function it_returns_cod_availability_toggle_from_courier_api(): void
+    public function test_it_returns_cod_availability_toggle_from_courier_api(): void
     {
         $mockCourier = Mockery::mock(CourierServiceInterface::class);
         $mockCourier->shouldReceive('checkServiceability')

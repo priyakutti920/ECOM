@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Setup</title>
+    @php $setupFavicon = \App\Models\StoreSetting::getFaviconUrl(); @endphp
+    <link rel="shortcut icon" href="{{ $setupFavicon }}">
+    <link rel="icon" href="{{ $setupFavicon }}">
+    <link rel="apple-touch-icon" href="{{ $setupFavicon }}">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-indigo-900 flex items-center justify-center px-4">

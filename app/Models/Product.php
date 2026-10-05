@@ -135,17 +135,18 @@ class Product extends Model
     // Backward compat: single image field
     public function getImageUrlAttribute(): string
     {
+        if ($this->relationLoaded('primaryImage') && $this->primaryImage && $this->primaryImage->image) {
+            return self::resolveMediaUrl($this->primaryImage->image) ?? '';
+        }
+        if ($this->relationLoaded('images') && $this->images->isNotEmpty() && $this->images->first()->image) {
+            return self::resolveMediaUrl($this->images->first()->image) ?? '';
+        }
+        if (! empty($this->attributes['image'])) {
+            return self::resolveMediaUrl($this->attributes['image']) ?? '';
+        }
         $primary = $this->primaryImage;
         if ($primary && $primary->image) {
             return self::resolveMediaUrl($primary->image) ?? '';
-        }
-        $first = $this->images->first();
-        if ($first && $first->image) {
-            return self::resolveMediaUrl($first->image) ?? '';
-        }
-        // Legacy single image column
-        if (! empty($this->attributes['image'])) {
-            return self::resolveMediaUrl($this->attributes['image']) ?? '';
         }
 
         return '';
@@ -202,8 +203,9 @@ class Product extends Model
 
     public function getAverageRatingAttribute(): float
     {
-        if (isset($this->attributes['approved_reviews_avg_rating'])) {
-            return round((float) $this->attributes['approved_reviews_avg_rating'], 1);
+        if (array_key_exists('approved_reviews_avg_rating', $this->attributes)) {
+            $avg = $this->attributes['approved_reviews_avg_rating'];
+            return $avg !== null ? round((float) $avg, 1) : 0.0;
         }
         if ($this->relationLoaded('approvedReviews')) {
             $avg = $this->approvedReviews->avg('rating');
@@ -217,8 +219,8 @@ class Product extends Model
 
     public function getRatingCountAttribute(): int
     {
-        if (isset($this->attributes['approved_reviews_count'])) {
-            return (int) $this->attributes['approved_reviews_count'];
+        if (array_key_exists('approved_reviews_count', $this->attributes)) {
+            return (int) ($this->attributes['approved_reviews_count'] ?? 0);
         }
         if ($this->relationLoaded('approvedReviews')) {
             return $this->approvedReviews->count();

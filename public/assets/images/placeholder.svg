@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#edf2f7" />
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#bgGrad)" />
+  <rect x="1" y="1" width="598" height="398" fill="none" stroke="#e2e8f0" stroke-width="2" rx="8" />
+  
+  <g transform="translate(300, 180)">
+    <!-- Photo Frame Icon -->
+    <rect x="-42" y="-36" width="84" height="66" rx="8" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2.5" />
+    <!-- Sun / Circle -->
+    <circle cx="16" cy="-14" r="7" fill="#94a3b8" />
+    <!-- Mountains -->
+    <path d="M-36 24 L-12 -6 L6 14 L18 2 L36 24 Z" fill="#94a3b8" opacity="0.85" />
+    <!-- Slanted broken indicator slash -->
+    <line x1="-36" y1="-30" x2="36" y2="24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" opacity="0.6" />
+    <!-- Subtitle text -->
+    <text y="64" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#64748b" text-anchor="middle" letter-spacing="0.3">Image unavailable</text>
+  </g>
+</svg>

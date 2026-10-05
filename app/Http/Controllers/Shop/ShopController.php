@@ -142,69 +142,134 @@ class ShopController extends Controller
         $storeName = StoreSetting::getStoreName();
         $storeTagline = StoreSetting::getValue('store_tagline', '');
 
-        $categories = Category::active()
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->limit(20)
-            ->get();
-
-        $banners = Banner::active()->orderBy('sort_order')->get();
-
-        $featured = Product::active()
-            ->where('is_featured', true)
-            ->with(['primaryImage', 'categories'])
-            ->withAvg('approvedReviews', 'rating')
-            ->withCount('approvedReviews')
-            ->orderByDesc('id')
-            ->limit(10)
-            ->get();
-
-        $latest = Product::active()
-            ->with(['primaryImage', 'categories'])
-            ->withAvg('approvedReviews', 'rating')
-            ->withCount('approvedReviews')
-            ->orderByDesc('id')
-            ->limit(10)
-            ->get();
-
-        $deals = Product::active()
-            ->whereNotNull('special_price')
-            ->with(['primaryImage', 'categories'])
-            ->withAvg('approvedReviews', 'rating')
-            ->withCount('approvedReviews')
-            ->orderByDesc('id')
-            ->limit(8)
-            ->get();
-
-        $bestSellerIds = Cache::remember('home_bestseller_ids', 1800, function () {
-            $ids = OrderItem::select('product_id')
-                ->selectRaw('SUM(quantity) as total_sold')
-                ->groupBy('product_id')
-                ->orderByDesc('total_sold')
-                ->limit(10)
-                ->pluck('product_id')
-                ->all();
-
-            if (empty($ids)) {
-                $ids = Product::active()
-                    ->orderByDesc('id')
-                    ->limit(10)
-                    ->pluck('id')
-                    ->all();
-            }
-
-            return $ids;
+        $categories = Cache::remember('home_categories_list', 1800, function () {
+            return Category::active()
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->limit(20)
+                ->get();
         });
 
-        $bestSellers = Product::active()
-            ->whereIn('id', $bestSellerIds)
-            ->with(['primaryImage', 'categories'])
-            ->withAvg('approvedReviews', 'rating')
-            ->withCount('approvedReviews')
-            ->get();
+        $banners = Cache::remember('home_banners_list', 1800, function () {
+            return Banner::active()->orderBy('sort_order')->orderByDesc('id')->get();
+        });
+
+        $sectionsConfig = StoreSetting::getHomepageSectionsConfig();
+
+        $homeSections = Cache::remember('homepage_sections_prods', 300, function () use ($sectionsConfig) {
+            $bestSellerIds = Cache::remember('home_bestseller_ids', 1800, function () {
+                $ids = OrderItem::select('product_id')
+                    ->selectRaw('SUM(quantity) as total_sold')
+                    ->groupBy('product_id')
+                    ->orderByDesc('total_sold')
+                    ->limit(20)
+                    ->pluck('product_id')
+                    ->all();
+
+                if (empty($ids)) {
+                    $ids = Product::active()
+                        ->orderByDesc('id')
+                        ->limit(20)
+                        ->pluck('id')
+                        ->all();
+                }
+
+                return $ids;
+            });
+
+            $sections = [];
+            foreach ($sectionsConfig as $secKey => $secData) {
+                $limit = max(1, (int)($secData['limit'] ?? 10));
+                $mode = $secData['mode'] ?? 'auto';
+                $manualIds = $secData['product_ids'] ?? [];
+
+                if (!$secData['enabled']) {
+                    $secData['products'] = collect();
+                    $sections[$secKey] = $secData;
+                    continue;
+                }
+
+                if ($mode === 'manual' && !empty($manualIds)) {
+                    $cases = [];
+                    $bindings = [];
+                    foreach ($manualIds as $idx => $mid) {
+                        $cases[] = "WHEN id = ? THEN ?";
+                        $bindings[] = (int)$mid;
+                        $bindings[] = (int)$idx;
+                    }
+                    $caseSql = "CASE " . implode(' ', $cases) . " ELSE 999999 END";
+
+                    $prods = Product::active()
+                        ->whereIn('id', $manualIds)
+                        ->with(['primaryImage', 'categories'])
+                        ->withAvg('approvedReviews', 'rating')
+                        ->withCount('approvedReviews')
+                        ->orderByRaw($caseSql, $bindings)
+                        ->limit($limit)
+                        ->get();
+                } else {
+                    switch ($secKey) {
+                        case 'featured':
+                            $prods = Product::active()
+                                ->where('is_featured', true)
+                                ->with(['primaryImage', 'categories'])
+                                ->withAvg('approvedReviews', 'rating')
+                                ->withCount('approvedReviews')
+                                ->orderByDesc('id')
+                                ->limit($limit)
+                                ->get();
+                            break;
+
+                        case 'deals':
+                            $prods = Product::active()
+                                ->whereNotNull('special_price')
+                                ->with(['primaryImage', 'categories'])
+                                ->withAvg('approvedReviews', 'rating')
+                                ->withCount('approvedReviews')
+                                ->orderByDesc('id')
+                                ->limit($limit)
+                                ->get();
+                            break;
+
+                        case 'bestsellers':
+                            $prods = Product::active()
+                                ->whereIn('id', array_slice($bestSellerIds, 0, $limit))
+                                ->with(['primaryImage', 'categories'])
+                                ->withAvg('approvedReviews', 'rating')
+                                ->withCount('approvedReviews')
+                                ->get();
+                            break;
+
+                        case 'latest':
+                        default:
+                            $prods = Product::active()
+                                ->with(['primaryImage', 'categories'])
+                                ->withAvg('approvedReviews', 'rating')
+                                ->withCount('approvedReviews')
+                                ->orderByDesc('id')
+                                ->limit($limit)
+                                ->get();
+                            break;
+                    }
+                }
+
+                $secData['products'] = $prods;
+                $sections[$secKey] = $secData;
+            }
+
+            return $sections;
+        });
+
+        // Backward compatibility variables
+        $featured = $homeSections['featured']['products'] ?? collect();
+        $deals = $homeSections['deals']['products'] ?? collect();
+        $bestSellers = $homeSections['bestsellers']['products'] ?? collect();
+        $latest = $homeSections['latest']['products'] ?? collect();
 
         $bonuses = Bonus::active()->get();
-        $flashSaleBanner = Banner::flashSale()->first();
+        $flashSaleBanner = Cache::remember('home_flash_sale_banner', 1800, function () {
+            return Banner::flashSale()->first();
+        });
 
         return view('shop.home', compact(
             'storeName',
@@ -212,6 +277,7 @@ class ShopController extends Controller
             'categories',
             'banners',
             'flashSaleBanner',
+            'homeSections',
             'featured',
             'latest',
             'deals',
@@ -341,20 +407,40 @@ class ShopController extends Controller
      */
     public function search(Request $request)
     {
-        $q = trim($request->get('q', ''));
+        $q = trim((string) $request->get('q', ''));
+        $categoryId = $request->get('category');
 
         $products = collect();
-        if ($q !== '') {
-            $products = Product::active()
+        if ($q !== '' || !empty($categoryId)) {
+            $query = Product::active()
                 ->with(['primaryImage', 'categories'])
                 ->withAvg('approvedReviews', 'rating')
-                ->withCount('approvedReviews')
-                ->where(function ($query) use ($q) {
+                ->withCount('approvedReviews');
+
+            if ($q !== '') {
+                $query->where(function ($query) use ($q) {
                     $query->where('name', 'like', "%{$q}%")
                         ->orWhere('description', 'like', "%{$q}%")
-                        ->orWhere('code', 'like', "%{$q}%");
-                })
-                ->orderByDesc('id')
+                        ->orWhere('code', 'like', "%{$q}%")
+                        ->orWhereHas('categories', function ($catQuery) use ($q) {
+                            $catQuery->where('name', 'like', "%{$q}%");
+                        });
+                });
+            }
+
+            if (!empty($categoryId) && is_numeric($categoryId)) {
+                $cat = Category::active()->find($categoryId);
+                if ($cat) {
+                    $subIds = Category::active()->where('parent_id', $cat->id)->pluck('id')->all();
+                    $ids = collect([$cat->id])->merge($subIds)->unique()->all();
+                    $query->where(function ($cq) use ($ids) {
+                        $cq->whereIn('category_id', $ids)
+                           ->orWhereHas('categories', fn ($c) => $c->whereIn('categories.id', $ids));
+                    });
+                }
+            }
+
+            $products = $query->orderByDesc('id')
                 ->paginate(24)
                 ->withQueryString();
         }
@@ -362,5 +448,108 @@ class ShopController extends Controller
         $storeName = StoreSetting::getStoreName();
 
         return view('shop.search', compact('products', 'q', 'storeName'));
+    }
+
+    /**
+     * Live search endpoint returning instant JSON product suggestions.
+     * URL: /api/search/live
+     */
+    public function liveSearch(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        $categoryId = $request->get('category');
+
+        if ($q === '' || mb_strlen($q) < 1) {
+            return response()->json([
+                'success' => true,
+                'count' => 0,
+                'total' => 0,
+                'products' => [],
+                'query' => '',
+                'view_all_url' => url('/search'),
+            ]);
+        }
+
+        $cacheKey = 'live_srch_' . md5(mb_strtolower($q) . '_' . ($categoryId ?: 'all'));
+
+        $data = Cache::remember($cacheKey, 180, function () use ($q, $categoryId) {
+            $baseQuery = Product::active()
+                ->select([
+                    'id', 'name', 'code', 'slug', 'price', 'special_price',
+                    'special_price_start', 'special_price_end',
+                    'stock_status', 'qty', 'manage_inventory', 'image', 'category_id'
+                ])
+                ->with([
+                    'primaryImage:id,product_id,image',
+                    'categories:id,name,slug'
+                ])
+                ->where(function ($query) use ($q) {
+                    $query->where('name', 'like', "%{$q}%")
+                        ->orWhere('code', 'like', "%{$q}%")
+                        ->orWhereHas('categories', function ($catQuery) use ($q) {
+                            $catQuery->where('name', 'like', "%{$q}%");
+                        });
+                });
+
+            if (!empty($categoryId) && is_numeric($categoryId)) {
+                $cat = Category::active()->select('id', 'parent_id')->find($categoryId);
+                if ($cat) {
+                    $subIds = Category::active()->where('parent_id', $cat->id)->pluck('id')->all();
+                    $ids = collect([$cat->id])->merge($subIds)->unique()->all();
+                    $baseQuery->where(function ($cq) use ($ids) {
+                        $cq->whereIn('category_id', $ids)
+                           ->orWhereHas('categories', fn ($c) => $c->whereIn('categories.id', $ids));
+                    });
+                }
+            }
+
+            // Fetch up to 8 products prioritizing starts-with
+            $products = $baseQuery
+                ->orderByRaw("CASE WHEN LOWER(name) LIKE ? THEN 1 WHEN LOWER(name) LIKE ? THEN 2 ELSE 3 END", [
+                    strtolower($q) . '%',
+                    '%' . strtolower($q) . '%',
+                ])
+                ->orderByDesc('id')
+                ->limit(8)
+                ->get();
+
+            $items = $products->map(function ($product) {
+                $category = $product->categories->first();
+                $inStock = $product->stock_status === 'in_stock' && (!$product->manage_inventory || $product->qty > 0);
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'slug' => $product->slug ?: (string) $product->id,
+                    'url' => route('shop.product', $product->slug ?: $product->id),
+                    'image' => $product->image_url ?: asset('assets/images/placeholder.png'),
+                    'price' => (float) $product->price,
+                    'formatted_price' => '₹' . number_format($product->price, 2),
+                    'effective_price' => (float) $product->effective_price,
+                    'formatted_effective_price' => '₹' . number_format($product->effective_price, 2),
+                    'is_on_sale' => (bool) $product->is_on_sale,
+                    'discount_percent' => (int) $product->discount_percent,
+                    'category_name' => $category ? $category->name : null,
+                    'category_url' => $category ? route('shop.category', $category->slug ?: $category->id) : null,
+                    'in_stock' => $inStock,
+                ];
+            });
+
+            $queryParams = array_filter([
+                'q' => $q,
+                'category' => $categoryId ?: null,
+            ]);
+
+            return [
+                'success' => true,
+                'count' => $items->count(),
+                'total' => $items->count(),
+                'query' => $q,
+                'products' => $items->all(),
+                'view_all_url' => url('/search') . (empty($queryParams) ? '' : '?' . http_build_query($queryParams)),
+            ];
+        });
+
+        return response()->json($data);
     }
 }

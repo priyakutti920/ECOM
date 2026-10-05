@@ -627,6 +627,10 @@
                 <i class="far fa-heart"></i> Add to Wishlist
             </button>
 
+            <button type="button" class="pdp-btn-wish" onclick="shareProduct()" title="Share this product">
+                <i class="fas fa-share-alt"></i> Share
+            </button>
+
             <!-- Pincode Serviceability & Delivery ETA Widget -->
             <div class="pdp-pincode-box" style="margin-top:14px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
                 <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
@@ -816,6 +820,43 @@
     </div>
 
 </div>
+
+<!-- Share Modal -->
+<div id="shareModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+    <div style="background:#fff; border-radius:14px; max-width:420px; width:100%; padding:24px; box-shadow:0 20px 50px rgba(15,23,42,0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h3 style="margin:0; font-size:17px; font-weight:700; color:#0f172a;">Share this product</h3>
+            <button type="button" onclick="closeShareModal()" style="background:none; border:none; font-size:22px; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <p style="font-size:13px; color:#64748b; margin:0 0 14px;">Share <strong>{{ $product->name }}</strong> with friends and family</p>
+
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:100px; margin-bottom:14px;">
+            <i class="fas fa-link" style="color:#64748b;"></i>
+            <input type="text" id="shareLinkInput" value="{{ $productUrl }}" readonly style="flex:1; border:none; background:transparent; outline:none; font-size:12.5px; color:#0f172a;">
+            <button type="button" id="copyShareLinkBtn" onclick="copyShareLink()" style="background:#0f172a; color:#fff; border:none; padding:6px 14px; border-radius:100px; font-size:12px; font-weight:700; cursor:pointer;">Copy</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;">
+            <a href="#" onclick="shareOn('whatsapp'); return false;" class="share-icon-btn" style="background:#25D366;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+            <a href="#" onclick="shareOn('facebook'); return false;" class="share-icon-btn" style="background:#1877F2;" title="Facebook"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" onclick="shareOn('twitter'); return false;" class="share-icon-btn" style="background:#000;" title="X (Twitter)"><i class="fab fa-twitter"></i></a>
+            <a href="#" onclick="shareOn('telegram'); return false;" class="share-icon-btn" style="background:#0088cc;" title="Telegram"><i class="fab fa-telegram-plane"></i></a>
+            <a href="#" onclick="shareOn('email'); return false;" class="share-icon-btn" style="background:#EA4335;" title="Email"><i class="fas fa-envelope"></i></a>
+            <a href="#" onclick="shareOn('linkedin'); return false;" class="share-icon-btn" style="background:#0A66C2;" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+            <a href="#" onclick="shareOn('pinterest'); return false;" class="share-icon-btn" style="background:#E60023;" title="Pinterest"><i class="fab fa-pinterest-p"></i></a>
+            <a href="#" onclick="shareOn('sms'); return false;" class="share-icon-btn" style="background:#34C759;" title="SMS"><i class="fas fa-comment-dots"></i></a>
+        </div>
+    </div>
+</div>
+
+<style>
+.share-icon-btn {
+    display:flex; align-items:center; justify-content:center;
+    height:48px; border-radius:10px; color:#fff; font-size:18px;
+    text-decoration:none; transition:transform 0.15s ease, box-shadow 0.15s ease;
+}
+.share-icon-btn:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,0.18); color:#fff; }
+</style>
 @endsection
 
 @push('scripts')

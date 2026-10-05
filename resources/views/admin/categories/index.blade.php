@@ -261,6 +261,10 @@ $catJson = $categories->map(function($c){
 
     {{-- Tree controls --}}
     <div class="tree-controls" id="tree-controls" style="{{ $categories->isEmpty() ? 'display:none;' : '' }}">
+        <label style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; margin:0 8px 0 0; color:#334155; font-weight:600;">
+            <input type="checkbox" id="bulkMasterCheck" style="margin:0;"> Select All
+        </label>
+        <span class="sep">|</span>
         <a href="#" id="btn-collapse">Collapse All</a>
         <span class="sep">|</span>
         <a href="#" id="btn-expand">Expand All</a>
@@ -737,6 +741,7 @@ $(function () {
                     ' data-parent-id="' + (cat.parent_id || '') + '">' +
                     '<div class="tree-vline' + lastClass + '"></div>' +
                     linesHtml +
+                    '<input type="checkbox" class="bulk-item-check" value="' + cat.id + '" style="margin:0 6px 0 2px; cursor:pointer;" onclick="event.stopPropagation();" onchange="updateBulkBar();">' +
                     '<i class="fas fa-folder tree-folder"></i>' +
                     '<span class="tree-name">' + esc(cat.name) + countHtml + inactiveBadge + '</span>' +
                     actionsHtml +
@@ -758,7 +763,7 @@ $(function () {
     function getChildren(parentId) {
         var children = [];
         ALL_CATS.forEach(function (c) {
-            if ((c.parent_id || null) === (parentId || null)) {
+            if ((c.parent_id || null) == (parentId || null)) {
                 children.push(c);
             }
         });
@@ -766,7 +771,12 @@ $(function () {
     }
 
     function getRootCats() {
-        return getChildren(null);
+        var idMap = {};
+        ALL_CATS.forEach(function (c) { idMap[c.id] = true; });
+
+        return ALL_CATS.filter(function (c) {
+            return !c.parent_id || !idMap[c.parent_id];
+        });
     }
 
     function rebuildTree() {
@@ -827,8 +837,8 @@ $(function () {
         sortableInstances.forEach(function (inst) { inst.destroy(); });
         sortableInstances = [];
 
-        // Make each level sortable
-        $('.tree-children').each(function () {
+        // Make each level sortable (roots and children)
+        $('#category-tree, .tree-children').each(function () {
             var inst = new Sortable(this, {
                 group       : 'tree',
                 animation   : 150,
@@ -894,6 +904,17 @@ $(function () {
     $('#categoryModal').on('hidden.bs.modal', resetModal);
     $('#cat-name').on('keydown', function (e) { if (e.key === 'Enter') $('#btn-save').trigger('click'); });
 
+    // Register Bulk Actions in Universal Bar
+    var html = '';
+    html += '<button type="button" class="bulk-action-btn btn-bulk-success" onclick="executeCategoryBulk(\'activate\')"><i class="fas fa-check-circle"></i> Activate</button>';
+    html += '<button type="button" class="bulk-action-btn" onclick="executeCategoryBulk(\'deactivate\')"><i class="fas fa-pause-circle"></i> Deactivate</button>';
+    html += '<button type="button" class="bulk-action-btn btn-bulk-danger" onclick="executeCategoryBulk(\'delete\', \'Delete {count} selected category/categories and their subcategories?\')"><i class="fas fa-trash"></i> Delete</button>';
+    $('#bulkBarActions').html(html);
+
 });
+
+function executeCategoryBulk(action, confirmMsg) {
+    runBulkAction('{{ route("admin.categories.bulk-action") }}', action, {}, confirmMsg);
+}
 </script>
 @endpush

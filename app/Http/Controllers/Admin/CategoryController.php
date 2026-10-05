@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\StoreSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -12,6 +14,13 @@ class CategoryController extends Controller
 {
     public function index()
     {
+        // Auto-heal any orphaned categories whose parent has status != 0 or no longer exists
+        $activeParentIds = Category::where('status', 0)->pluck('id')->all();
+        Category::where('status', 0)
+            ->whereNotNull('parent_id')
+            ->whereNotIn('parent_id', $activeParentIds)
+            ->update(['parent_id' => null]);
+
         $categories = Category::where('status', 0)
             ->with('parent')
             ->orderBy('sort_order')
@@ -154,6 +163,11 @@ class CategoryController extends Controller
     public function destroy(Category $category)
     {
         $category->update(['status' => 1]);
+        Category::where('parent_id', $category->id)->update(['status' => 1]);
+
+        Cache::forget('home_categories_list');
+        Cache::forget('shop_header_categories_v2');
+        StoreSetting::clearCache();
 
         return response()->json(['success' => true, 'message' => 'Category deleted.']);
     }
@@ -166,7 +180,53 @@ class CategoryController extends Controller
             Category::where('id', $id)->update(['sort_order' => $index + 1]);
         }
 
+        Cache::forget('home_categories_list');
+        Cache::forget('shop_header_categories_v2');
+        StoreSetting::clearCache();
+
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Perform bulk actions on selected categories.
+     */
+    public function bulkAction(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+            'action' => 'required|string|in:activate,deactivate,delete',
+        ]);
+
+        $ids = $request->input('ids', []);
+        $action = $request->input('action');
+        $affected = 0;
+
+        if ($action === 'activate') {
+            $affected = Category::whereIn('id', $ids)->where('status', 0)->update(['is_active' => true]);
+            $msg = "{$affected} category/categories activated.";
+        } elseif ($action === 'deactivate') {
+            $affected = Category::whereIn('id', $ids)->where('status', 0)->update(['is_active' => false]);
+            $msg = "{$affected} category/categories deactivated.";
+        } elseif ($action === 'delete') {
+            $affected = Category::whereIn('id', $ids)->update(['status' => 1]);
+            Category::whereIn('parent_id', $ids)->update(['status' => 1]);
+            $msg = "{$affected} category/categories deleted.";
+        }
+
+        Cache::forget('home_categories_list');
+        Cache::forget('shop_header_categories_v2');
+        StoreSetting::clearCache();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'affected' => $affected,
+            ]);
+        }
+
+        return back()->with('success', $msg);
     }
 
     private function formatCategory(Category $category): array

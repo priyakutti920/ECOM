@@ -395,5 +395,67 @@ class OrderController extends Controller
         $status = $result['success'] ? 200 : 400;
         return response()->json($result, $status);
     }
+
+    /**
+     * Perform bulk actions on selected orders.
+     */
+    public function bulkAction(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+            'action' => 'required|string|in:update_status,mark_paid',
+            'status' => 'nullable|required_if:action,update_status|string|in:' . implode(',', self::LIFECYCLE_STATES),
+        ]);
+
+        $ids = $request->input('ids', []);
+        $action = $request->input('action');
+        $user = Auth::user();
+        $affected = 0;
+
+        if ($action === 'update_status') {
+            $newStatus = $request->input('status');
+            $orders = Order::whereIn('id', $ids)->get();
+            foreach ($orders as $o) {
+                $from = $o->status;
+                if ($from === $newStatus) continue;
+
+                $o->status = $newStatus;
+                if ($newStatus === 'delivered' && !$o->delivered_at) {
+                    $o->delivered_at = now();
+                }
+                if ($newStatus === 'dispatched' && !$o->dispatched_at) {
+                    $o->dispatched_at = now();
+                }
+                $o->pushHistory('status_change', "Bulk updated status from '{$from}' to '{$newStatus}'", $user?->id, $user?->name);
+                $o->save();
+                $affected++;
+            }
+            $msg = "{$affected} order(s) updated to '{$newStatus}'.";
+        } elseif ($action === 'mark_paid') {
+            $orders = Order::whereIn('id', $ids)->get();
+            foreach ($orders as $o) {
+                if ($o->payment_status === 'paid') continue;
+                $o->payment_status = 'paid';
+                $o->paid_at = $o->paid_at ?: now();
+                $o->marked_paid_at = now();
+                $o->marked_paid_by = $user?->id;
+                $o->pushHistory('mark_paid', "Bulk marked as paid", $user?->id, $user?->name);
+                $o->save();
+                $affected++;
+            }
+            $msg = "{$affected} order(s) marked as paid.";
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'affected' => $affected,
+            ]);
+        }
+
+        return back()->with('success', $msg);
+    }
 }
 

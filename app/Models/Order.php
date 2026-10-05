@@ -209,9 +209,10 @@ class Order extends Model
             }
 
             // 4. Mark invoice as cancelled if exists
-            Invoice::where('order_id', $this->id)
-                ->orWhere('invoice_json', 'like', '%"order_code":"'.$this->order_code.'"%')
-                ->update(['status' => 2]);
+            Invoice::where(function ($q) {
+                $q->where('order_id', $this->id)
+                  ->orWhere('invoice_json', 'like', '%"order_code":"'.$this->order_code.'"%');
+            })->update(['status' => 2]);
         });
     }
 

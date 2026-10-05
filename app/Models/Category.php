@@ -21,6 +21,18 @@ class Category extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('home_categories_list');
+            \Illuminate\Support\Facades\Cache::forget('shop_header_categories_v2');
+        });
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('home_categories_list');
+            \Illuminate\Support\Facades\Cache::forget('shop_header_categories_v2');
+        });
+    }
+
     // status 0 = not deleted, is_active = 1 means visible
     public function scopeActive(Builder $query): Builder
     {
@@ -51,7 +63,8 @@ class Category extends Model
 
     public function getImageUrlAttribute(): string
     {
-        if (!$this->image) return '';
-        return self::resolveMediaUrl($this->image) ?? '';
+        $placeholder = asset('assets/images/placeholder.svg');
+        if (!$this->image) return $placeholder;
+        return self::resolveMediaUrl($this->image, $placeholder) ?: $placeholder;
     }
 }

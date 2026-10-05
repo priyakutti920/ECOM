@@ -391,8 +391,10 @@ class AdminDashboardController extends Controller
             'emails'          => json_decode(StoreSetting::getValue('emails', '[]'), true),
             'logo_url'        => $this->getSettingImageUrl('logo'),
             'favicon_url'     => $this->getSettingImageUrl('favicon'),
-            'primary_color'   => StoreSetting::getValue('primary_color', '#131921'),
-            'secondary_color' => StoreSetting::getValue('secondary_color', '#febd69'),
+            'primary_color'   => StoreSetting::getPrimaryColor(),
+            'secondary_color' => StoreSetting::getSecondaryColor(),
+            'header_style'    => StoreSetting::getHeaderStyle(),
+            'theme_font'      => StoreSetting::getValue('theme_font', 'Rubik'),
             'currency_symbol' => StoreSetting::getValue('currency_symbol', '₹'),
             'show_map'        => StoreSetting::getValue('show_map', '1'),
             'map_location'    => StoreSetting::getValue('map_location', ''),
@@ -420,11 +422,24 @@ class AdminDashboardController extends Controller
         StoreSetting::setValue('emails', $request->emails ?? '[]');
 
         if ($request->filled('primary_color')) {
-            StoreSetting::setValue('primary_color', $request->primary_color);
+            $p = trim($request->primary_color);
+            StoreSetting::setValue('primary_color', str_starts_with($p, '#') ? $p : ('#' . $p));
         }
         if ($request->filled('secondary_color')) {
-            StoreSetting::setValue('secondary_color', $request->secondary_color);
+            $s = trim($request->secondary_color);
+            StoreSetting::setValue('secondary_color', str_starts_with($s, '#') ? $s : ('#' . $s));
         }
+        if ($request->filled('header_style')) {
+            StoreSetting::setValue('header_style', $request->header_style);
+        }
+        if ($request->filled('theme_font')) {
+            StoreSetting::setValue('theme_font', $request->theme_font);
+        }
+        \Illuminate\Support\Facades\Cache::forget('store_settings_all');
+        \Illuminate\Support\Facades\Cache::forget('store_primary_color');
+        \Illuminate\Support\Facades\Cache::forget('store_secondary_color');
+        \Illuminate\Support\Facades\Cache::forget('store_header_style');
+        \Illuminate\Support\Facades\Cache::forget('store_theme_font');
         if ($request->filled('currency_symbol')) {
             StoreSetting::setValue('currency_symbol', $request->currency_symbol);
         }

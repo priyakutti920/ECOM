@@ -87,6 +87,7 @@
             <table class="rv-table">
                 <thead>
                     <tr>
+                        <th style="width:36px; text-align:center;"><input type="checkbox" id="bulkMasterCheck"></th>
                         <th style="width:60px;">ID</th>
                         <th style="width:180px;">Product</th>
                         <th style="width:160px;">Customer</th>
@@ -100,6 +101,9 @@
                 <tbody>
                     @forelse($reviews as $rv)
                         <tr>
+                            <td style="vertical-align:middle; text-align:center;">
+                                <input type="checkbox" class="bulk-item-check" value="{{ $rv->id }}">
+                            </td>
                             <td>#{{ $rv->id }}</td>
                             <td>
                                 @if($rv->product)
@@ -161,7 +165,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" style="text-align:center; padding:40px; color:#94a3b8;">
+                            <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8;">
                                 <i class="fas fa-star" style="font-size:32px; margin-bottom:10px; display:block;"></i>
                                 No reviews found.
                             </td>
@@ -179,3 +183,19 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+$(function () {
+    var html = '';
+    html += '<button type="button" class="bulk-action-btn btn-bulk-success" onclick="executeReviewBulk(\'approve\')"><i class="fas fa-check-circle"></i> Approve</button>';
+    html += '<button type="button" class="bulk-action-btn" onclick="executeReviewBulk(\'reject\')"><i class="fas fa-ban"></i> Reject / Unapprove</button>';
+    html += '<button type="button" class="bulk-action-btn btn-bulk-danger" onclick="executeReviewBulk(\'delete\', \'Delete {count} selected review(s)?\')"><i class="fas fa-trash"></i> Delete</button>';
+    $('#bulkBarActions').html(html);
+});
+
+function executeReviewBulk(action, confirmMsg) {
+    runBulkAction('{{ route("admin.reviews.bulk-action") }}', action, {}, confirmMsg);
+}
+</script>
+@endpush

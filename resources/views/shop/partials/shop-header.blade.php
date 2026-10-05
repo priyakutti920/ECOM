@@ -4,7 +4,9 @@
   $storePhone = \App\Models\StoreSetting::getValue('phone');
   $storeEmail = \App\Models\StoreSetting::getValue('email');
   $freeShippingMin = \App\Models\StoreSetting::getValue('free_shipping_min_amount');
-  $categories = \App\Models\Category::active()->orderBy('sort_order')->take(12)->get();
+  $categories = \Illuminate\Support\Facades\Cache::remember('shop_header_categories_v2', 1800, function () {
+      return \App\Models\Category::active()->orderBy('sort_order')->take(12)->get();
+  });
 @endphp
 
 <!-- 1. Main Header (Logo, Category Search, Actions) -->
@@ -28,21 +30,37 @@
         </a>
       </div>
 
-      <!-- Center: Search with Category Dropdown from DB -->
-      <form class="header-search" action="{{ url('/search') }}" method="GET" role="search">
-        @if($categories->count() > 0)
-          <select name="category" class="header-search-cat-select" aria-label="Select Category">
-            <option value="">All Categories</option>
-            @foreach($categories as $cat)
-              <option value="{{ $cat->id }}" {{ request('category') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
-            @endforeach
-          </select>
-        @endif
-        <input type="text" name="q" class="header-search-input" placeholder="Search for products, brands and more…" value="{{ request('q') }}" autocomplete="off" aria-label="Search products">
-        <button type="submit" class="header-search-btn" aria-label="Search">
-          <i class="las la-search" style="font-size: 18px;"></i>
-        </button>
-      </form>
+      <!-- Center: Search with Category Dropdown from DB & Live Search -->
+      <div class="header-search-container" id="desktopSearchContainer">
+        <form class="header-search" action="{{ url('/search') }}" method="GET" role="search" id="desktopSearchForm">
+          @if($categories->count() > 0)
+            <select name="category" class="header-search-cat-select" id="desktopSearchCat" aria-label="Select Category">
+              <option value="">All Categories</option>
+              @foreach($categories as $cat)
+                <option value="{{ $cat->id }}" {{ request('category') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+              @endforeach
+            </select>
+          @endif
+          <div class="header-search-input-wrap">
+            <input type="text" name="q" class="header-search-input live-search-input" id="desktopSearchInput" placeholder="Search for products, brands and more…" value="{{ request('q') }}" autocomplete="off" spellcheck="false" aria-label="Search products" aria-expanded="false" aria-haspopup="listbox" aria-autocomplete="list">
+            <button type="button" class="live-search-clear-btn" id="desktopSearchClear" aria-label="Clear search" style="display: none;">
+              <i class="las la-times"></i>
+            </button>
+            <div class="live-search-spinner" id="desktopSearchSpinner" aria-hidden="true" style="display: none;">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="live-search-spinner-svg">
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+                <path d="M12 2 a 10 10 0 0 1 10 10"></path>
+              </svg>
+            </div>
+          </div>
+          <button type="submit" class="header-search-btn" aria-label="Search">
+            <i class="las la-search" style="font-size: 18px;"></i>
+          </button>
+        </form>
+
+        <!-- Live Search Dropdown Panel -->
+        <div class="live-search-dropdown" id="desktopSearchDropdown" role="listbox" aria-label="Search Results"></div>
+      </div>
 
       <!-- Right: Compare, Wishlist, Cart -->
       <div class="header-actions">
@@ -121,102 +139,26 @@
 
   <!-- Mobile Search Bar -->
   <div class="container d-block d-lg-none" style="padding-bottom: 12px;">
-    <form class="mobile-search-form" action="{{ url('/search') }}" method="GET" style="display:flex; border:1.5px solid var(--color-primary); border-radius:var(--radius-sm); overflow:hidden; background:#fff; height:40px;">
-      <input type="text" name="q" value="{{ request('q') }}" placeholder="Search products..." style="flex:1; border:none; padding:0 12px; outline:none; font-size:13px; font-family:var(--font-base);">
-      <button type="submit" style="background:var(--color-primary); color:#fff; border:none; padding:0 16px; cursor:pointer;"><i class="las la-search"></i></button>
-    </form>
-  </div>
-</header>
-
-<!-- 3. Navigation Bar (All Categories Dropdown + Menu Links - Controlled by Admin NavigationController) -->
-@php
-  $navShowAllCategories  = \App\Models\StoreSetting::getValue('nav_show_all_categories', '1') === '1';
-  $navAllCategoriesLabel = \App\Models\StoreSetting::getValue('nav_all_categories_label', 'All Categories');
-  $navShowHome           = \App\Models\StoreSetting::getValue('nav_show_home', '1') === '1';
-  $navHomeLabel          = \App\Models\StoreSetting::getValue('nav_home_label', 'Home');
-  $navShowShop           = \App\Models\StoreSetting::getValue('nav_show_shop', '1') === '1';
-  $navShopLabel          = \App\Models\StoreSetting::getValue('nav_shop_label', 'Shop');
-  $navShowDeals          = \App\Models\StoreSetting::getValue('nav_show_deals', '1') === '1';
-  $navDealsLabel         = \App\Models\StoreSetting::getValue('nav_deals_label', 'Flash Deals');
-
-  $selectedNavCatIds = json_decode(\App\Models\StoreSetting::getValue('nav_category_ids', '[]'), true) ?: [];
-  if (!empty($selectedNavCatIds) && is_array($selectedNavCatIds)) {
-      $navCategories = \App\Models\Category::active()->whereIn('id', $selectedNavCatIds)->get()->sortBy(function($c) use ($selectedNavCatIds) {
-          return array_search($c->id, $selectedNavCatIds);
-      });
-  } else {
-      $navCategories = $categories->take(5);
-  }
-
-  $navCustomLinks = json_decode(\App\Models\StoreSetting::getValue('nav_custom_links', '[]'), true) ?: [];
-  $navPromoEnabled = \App\Models\StoreSetting::getValue('nav_promo_enabled', '1') === '1';
-  $navPromoText = \App\Models\StoreSetting::getValue('nav_promo_text') ?: (!empty($freeShippingMin) ? ('Free shipping on all orders over ₹' . number_format((float)$freeShippingMin, 0)) : null);
-@endphp
-
-<section class="navigation-wrap">
-  <div class="container">
-    <div class="navigation-inner">
-      <div style="display: flex; align-items: center; gap: 24px;">
-        @if($navShowAllCategories)
-          <!-- All Categories Button -->
-          <button type="button" class="category-nav-btn" onclick="toggleSidebarMenu()">
-            <span>{{ $navAllCategoriesLabel }}</span>
-            <i class="las la-bars"></i>
+    <div class="mobile-search-container" id="mobileSearchContainer">
+      <form class="mobile-search-form" action="{{ url('/search') }}" method="GET" id="mobileSearchForm" style="display:flex; border:1.5px solid var(--color-primary); border-radius:var(--radius-sm); overflow:hidden; background:#fff; height:42px;">
+        <div class="header-search-input-wrap mobile-search-input-wrap" style="flex:1; position:relative; display:flex; align-items:center;">
+          <input type="text" name="q" class="live-search-input" id="mobileSearchInput" value="{{ request('q') }}" placeholder="Search products, brands and more…" autocomplete="off" spellcheck="false" aria-label="Search products" aria-expanded="false" aria-haspopup="listbox" aria-autocomplete="list" style="flex:1; border:none; padding:0 36px 0 12px; outline:none; font-size:13.5px; font-family:var(--font-base); width:100%; height:100%;">
+          <button type="button" class="live-search-clear-btn" id="mobileSearchClear" aria-label="Clear search" style="display: none;">
+            <i class="las la-times"></i>
           </button>
-        @endif
-
-        <!-- Horizontal Links -->
-        <ul class="nav-menu-links">
-          @if($navShowHome)
-            <li>
-              <a href="{{ url('/') }}" class="nav-menu-link {{ request()->is('/') ? 'active' : '' }}">
-                <i class="las la-home"></i> {{ $navHomeLabel }}
-              </a>
-            </li>
-          @endif
-          @if($navShowShop)
-            <li>
-              <a href="{{ url('/products') }}" class="nav-menu-link {{ request()->is('products') || request()->is('shop') ? 'active' : '' }}">
-                {{ $navShopLabel }}
-              </a>
-            </li>
-          @endif
-          @foreach($navCategories as $navCat)
-            <li>
-              <a href="{{ url('/shop?category=' . $navCat->id) }}" class="nav-menu-link {{ request('category') == $navCat->id ? 'active' : '' }}">
-                {{ $navCat->name }}
-              </a>
-            </li>
-          @endforeach
-          @foreach($navCustomLinks as $cLink)
-            @if(!empty($cLink['title']) && !empty($cLink['url']))
-              <li>
-                <a href="{{ url($cLink['url']) }}" class="nav-menu-link" target="{{ $cLink['target'] ?? '_self' }}">
-                  {{ $cLink['title'] }}
-                </a>
-              </li>
-            @endif
-          @endforeach
-          @if($navShowDeals)
-            <li>
-              <a href="{{ url('/deals') }}" class="nav-menu-link" style="color: #ff3366;">
-                <i class="las la-fire"></i> {{ $navDealsLabel }}
-              </a>
-            </li>
-          @endif
-        </ul>
-      </div>
-
-      <!-- Right Promo Text (Controlled by Admin NavigationController) -->
-      @if($navPromoEnabled && !empty($navPromoText))
-        <div class="nav-promo-text d-none d-xl-flex">
-          <i class="las la-shipping-fast"></i>
-          <span>{{ $navPromoText }}</span>
+          <div class="live-search-spinner" id="mobileSearchSpinner" aria-hidden="true" style="display: none;">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="live-search-spinner-svg">
+              <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+              <path d="M12 2 a 10 10 0 0 1 10 10"></path>
+            </svg>
+          </div>
         </div>
-      @endif
+        <button type="submit" style="background:var(--color-primary); color:#fff; border:none; padding:0 18px; cursor:pointer; display:flex; align-items:center; justify-content:center;" aria-label="Search"><i class="las la-search" style="font-size: 16px;"></i></button>
+      </form>
+      <div class="live-search-dropdown mobile-live-search-dropdown" id="mobileSearchDropdown" role="listbox" aria-label="Search Results"></div>
     </div>
   </div>
-</section>
+</header>
 
 <!-- 4. Mobile Bottom Navigation Bar -->
 <section class="bottom-navigation-wrap d-lg-none">

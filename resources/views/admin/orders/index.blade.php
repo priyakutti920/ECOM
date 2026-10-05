@@ -146,6 +146,7 @@
             <table class="ord-table">
                 <thead>
                     <tr>
+                        <th style="width:36px; text-align:center;"><input type="checkbox" id="bulkMasterCheck"></th>
                         <th style="width:50px;">S.No</th>
                         <th style="width:120px;">Order ID</th>
                         <th style="width:240px;">Customer</th>
@@ -163,6 +164,9 @@
                         $payStyle = $payBadge[$o->payment_status] ?? 'background:#fff8e1;color:#946a00;';
                     @endphp
                     <tr>
+                        <td style="vertical-align:middle; text-align:center;">
+                            <input type="checkbox" class="bulk-item-check" value="{{ $o->id }}">
+                        </td>
                         <td>{{ $row }}</td>
                         <td>
                             <div class="ord-id">
@@ -413,6 +417,39 @@
         m.action = routeRefund.replace('__ORDER__', code);
         document.getElementById('ordRefundAmount').value = total;
         openModal(m);
+    }
+
+    // Register Bulk Actions in Universal Bar
+    $(function () {
+        var html = '';
+        html += '<div style="display:inline-flex; align-items:center; gap:6px;">';
+        html += '  <select id="bulkOrderStatusSelect" class="form-control input-sm" style="display:inline-block; width:135px; height:32px; background:#1e293b; color:#fff; border-color:#334155; font-size:12px;">';
+        html += '    <option value="">Update Status...</option>';
+        html += '    <option value="confirmed">Confirmed</option>';
+        html += '    <option value="processing">Processing</option>';
+        html += '    <option value="packed">Packed</option>';
+        html += '    <option value="dispatched">Dispatched</option>';
+        html += '    <option value="shipped">Shipped</option>';
+        html += '    <option value="delivered">Delivered</option>';
+        html += '    <option value="cancelled">Cancelled</option>';
+        html += '  </select>';
+        html += '  <button type="button" class="bulk-action-btn" onclick="executeBulkOrderStatus()"><i class="fas fa-arrow-right"></i> Apply</button>';
+        html += '</div>';
+        html += '<button type="button" class="bulk-action-btn btn-bulk-success" onclick="executeOrderBulk(\'mark_paid\', \'Mark {count} selected order(s) as Paid?\')"><i class="fas fa-check-double"></i> Mark Paid</button>';
+        $('#bulkBarActions').html(html);
+    });
+
+    function executeBulkOrderStatus() {
+        var status = $('#bulkOrderStatusSelect').val();
+        if (!status) {
+            adminToast('Please select a status to apply.', 'error');
+            return;
+        }
+        runBulkAction('{{ route("admin.orders.bulk-action") }}', 'update_status', { status: status }, 'Change status to "' + status + '" for {count} selected order(s)?');
+    }
+
+    function executeOrderBulk(action, confirmMsg) {
+        runBulkAction('{{ route("admin.orders.bulk-action") }}', action, {}, confirmMsg);
     }
 </script>
 @endpush
