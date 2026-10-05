@@ -1440,9 +1440,17 @@
 
     /* ── Universal Bulk Action Framework ── */
     function updateBulkBar() {
-        var checked = $('.bulk-item-check:checked');
-        var count = checked.length;
-        var total = $('.bulk-item-check').length;
+        var uniqueChecked = {};
+        $('.bulk-item-check:checked').each(function () {
+            uniqueChecked[$(this).val()] = true;
+        });
+        var count = Object.keys(uniqueChecked).length;
+
+        var uniqueTotal = {};
+        $('.bulk-item-check').each(function () {
+            uniqueTotal[$(this).val()] = true;
+        });
+        var total = Object.keys(uniqueTotal).length;
 
         $('#bulkSelectedCount').text(count);
 
@@ -1464,11 +1472,15 @@
             }
         }
 
-        // Toggle card selected class if in card view
+        // Toggle card & row selected classes
         $('.bulk-item-check').each(function () {
             var $card = $(this).closest('.uni-media-card');
             if ($card.length) {
                 $card.toggleClass('is-selected', this.checked);
+            }
+            var $row = $(this).closest('tr');
+            if ($row.length) {
+                $row.toggleClass('active-selected-row', this.checked);
             }
         });
     }
@@ -1476,7 +1488,10 @@
     function getSelectedBulkIds() {
         var ids = [];
         $('.bulk-item-check:checked').each(function () {
-            ids.push($(this).val());
+            var val = $(this).val();
+            if (ids.indexOf(val) === -1) {
+                ids.push(val);
+            }
         });
         return ids;
     }
@@ -1494,8 +1509,11 @@
         updateBulkBar();
     });
 
-    // Single checkbox click handler
+    // Single checkbox click handler with cross-view synchronization
     $(document).on('change', '.bulk-item-check', function () {
+        var val = $(this).val();
+        var checked = this.checked;
+        $('.bulk-item-check[value="' + val + '"]').prop('checked', checked);
         updateBulkBar();
     });
 

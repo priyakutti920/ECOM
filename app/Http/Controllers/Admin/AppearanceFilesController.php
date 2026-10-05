@@ -89,7 +89,15 @@ class AppearanceFilesController extends Controller
                 break;
         }
 
-        $files = $query->paginate(24)->withQueryString();
+        // Per-page handling: default to 'all' so all images load on a single page as requested
+        $perPageParam = $request->input('per_page', 'all');
+        if ($perPageParam === 'all' || $perPageParam === 'all_images') {
+            $perPage = 5000;
+        } else {
+            $perPage = max(12, min(5000, (int) $perPageParam));
+        }
+
+        $files = $query->paginate($perPage)->withQueryString();
 
         // If requested via AJAX or JSON, return lightweight JSON response for Media Picker
         if ($request->wantsJson() || $request->ajax() || $request->has('json')) {
@@ -152,7 +160,8 @@ class AppearanceFilesController extends Controller
             'currentLogoUrl',
             'currentFaviconUrl',
             'products',
-            'categories'
+            'categories',
+            'perPageParam'
         ));
     }
 

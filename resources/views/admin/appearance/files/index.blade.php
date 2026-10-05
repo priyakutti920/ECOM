@@ -209,34 +209,200 @@
                     <option value="size_asc" {{ request('sort') === 'size_asc' ? 'selected' : '' }}>Size (Smallest)</option>
                 </select>
 
-                @if(request('q') || request('folder') || request('sort'))
+                @if(request('q') || request('folder') || request('sort') || request('per_page'))
                     <a href="{{ route('admin.appearance.files.index', ['status' => $status]) }}" class="btn btn-default btn-sm" title="Reset Filters">
                         <i class="fas fa-times"></i> Clear
                     </a>
                 @endif
             </div>
+
+            <div class="filter-group">
+                <select name="per_page" class="form-control input-sm" onchange="this.form.submit()" title="Images Per Page">
+                    <option value="all" {{ ($perPageParam ?? 'all') === 'all' ? 'selected' : '' }}>All (Single Page)</option>
+                    <option value="24" {{ ($perPageParam ?? '') == '24' ? 'selected' : '' }}>24 / page</option>
+                    <option value="48" {{ ($perPageParam ?? '') == '48' ? 'selected' : '' }}>48 / page</option>
+                    <option value="100" {{ ($perPageParam ?? '') == '100' ? 'selected' : '' }}>100 / page</option>
+                </select>
+            </div>
+
+            <div class="btn-group btn-group-sm view-mode-btn-group" role="group" aria-label="View Mode">
+                <button type="button" class="btn btn-default active" id="viewGridBtn" onclick="setMediaViewMode('grid')" title="Grid View">
+                    <i class="fas fa-th-large"></i> <span class="hidden-xs">Grid</span>
+                </button>
+                <button type="button" class="btn btn-default" id="viewListBtn" onclick="setMediaViewMode('list')" title="List View">
+                    <i class="fas fa-list"></i> <span class="hidden-xs">List</span>
+                </button>
+            </div>
         </form>
     </div>
 
-    {{-- Section 9: Universal Media Grid --}}
+    {{-- Section 9: Universal Media Display (Grid & List View) --}}
     @if($files->count() > 0)
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:8px 12px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:10px 14px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
             <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; font-size:13px; color:#334155; margin:0;">
-                <input type="checkbox" id="bulkMasterCheck"> Select All on Page
+                <input type="checkbox" id="bulkMasterCheck"> Select All (<span id="bulkMasterCheckCount">{{ $files->count() }}</span>)
             </label>
-            <span class="text-muted" style="font-size:12px;">Showing {{ $files->firstItem() }}-{{ $files->lastItem() }} of {{ $files->total() }}</span>
+            <span class="text-muted" style="font-size:12px;">
+                @if(($perPageParam ?? 'all') === 'all')
+                    Showing all <strong>{{ $files->total() }}</strong> files on a single page
+                @else
+                    Showing {{ $files->firstItem() }}-{{ $files->lastItem() }} of {{ $files->total() }}
+                @endif
+            </span>
         </div>
 
+        {{-- 1. Grid View --}}
         <div class="uni-media-grid" id="mainMediaGrid">
             @foreach($files as $file)
                 <x-media-card :file="$file" type="media" />
             @endforeach
         </div>
 
-        {{-- Pagination --}}
-        <div style="margin-top:24px; text-align:center;">
-            {{ $files->links() }}
+        {{-- 2. List View --}}
+        <div class="table-responsive media-list-table-wrap" id="mainMediaListTable" style="display:none;">
+            <table class="table media-list-table">
+                <thead>
+                    <tr>
+                        <th style="width:36px; text-align:center;">
+                            <input type="checkbox" onchange="$('#bulkMasterCheck').prop('checked', this.checked).trigger('change');">
+                        </th>
+                        <th style="width:68px; text-align:center;">Thumb</th>
+                        <th>File Name &amp; Key</th>
+                        <th>Folder</th>
+                        <th>Dimensions</th>
+                        <th>Size</th>
+                        <th>Uploaded</th>
+                        <th style="width:160px; text-align:right; padding-right:16px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($files as $file)
+                        @php
+                            $isLogo = ($currentLogoUrl && str_contains($currentLogoUrl, $file->filename));
+                            $isFavicon = ($currentFaviconUrl && str_contains($currentFaviconUrl, $file->filename));
+                            $ext = strtoupper(pathinfo($file->filename, PATHINFO_EXTENSION));
+                        @endphp
+                        <tr class="uni-media-row {{ $file->trashed() ? 'is-trashed' : '' }}" id="media-row-media-{{ $file->id }}" data-id="{{ $file->id }}">
+                            <td style="text-align:center;">
+                                <input type="checkbox" class="bulk-item-check" value="{{ $file->id }}" data-type="media">
+                            </td>
+                            <td style="text-align:center;">
+                                <div class="list-thumb-wrap" onclick="openUniversalPreview('{{ $file->url }}', '{{ addslashes($file->name) }}', '{{ $file->formatted_size }}', '{{ $file->width }}×{{ $file->height }}', '{{ $file->folder }}');" title="Click to preview">
+                                    <img src="{{ $file->url }}" alt="{{ $file->name }}" loading="lazy" class="list-thumb-img" onerror="this.onerror=null; this.src='{{ asset('assets/images/placeholder.svg') }}';">
+                                    <div class="list-thumb-overlay"><i class="fas fa-search-plus"></i></div>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="list-file-name" onclick="openUniversalPreview('{{ $file->url }}', '{{ addslashes($file->name) }}', '{{ $file->formatted_size }}', '{{ $file->width }}×{{ $file->height }}', '{{ $file->folder }}');" title="{{ $file->name }}">
+                                        {{ Str::limit($file->name, 40) }}
+                                    </span>
+                                    @if($ext)
+                                        <span class="badge" style="background:#e2e8f0; color:#475569; font-size:10px; font-weight:700;">{{ $ext }}</span>
+                                    @endif
+                                    @if($isLogo)
+                                        <span class="badge" style="background:#fef3c7; color:#b45309; font-size:10px;"><i class="fas fa-crown"></i> Logo</span>
+                                    @endif
+                                    @if($isFavicon)
+                                        <span class="badge" style="background:#e0e7ff; color:#4338ca; font-size:10px;"><i class="fas fa-star"></i> Favicon</span>
+                                    @endif
+                                </div>
+                                <div class="text-muted" style="font-size:11.5px; margin-top:2px; font-family:monospace; color:#64748b;">
+                                    {{ $file->filename }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background:#f1f5f9; color:#334155; font-size:11px; font-weight:600; padding:4px 8px;">
+                                    <i class="fas fa-folder text-warning"></i> {{ ucfirst($file->folder ?? 'media') }}
+                                </span>
+                            </td>
+                            <td style="color:#475569; font-size:12px;">
+                                @if($file->width && $file->height)
+                                    <span>{{ $file->width }} × {{ $file->height }}</span>
+                                @else
+                                    <span class="text-muted">&mdash;</span>
+                                @endif
+                            </td>
+                            <td style="font-weight:600; color:#334155; font-size:12px;">
+                                {{ $file->formatted_size ?: '—' }}
+                            </td>
+                            <td style="color:#64748b; font-size:12px;">
+                                {{ $file->created_at ? $file->created_at->format('d M Y, h:i A') : '—' }}
+                            </td>
+                            <td style="text-align:right; padding-right:16px;">
+                                @if(!$file->trashed())
+                                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                                        <button type="button" class="btn btn-default btn-xs" onclick="copyMediaUrl('{{ $file->url }}', this);" title="Copy Public URL">
+                                            <i class="fas fa-link text-primary"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-default btn-xs" onclick="openUniversalPreview('{{ $file->url }}', '{{ addslashes($file->name) }}', '{{ $file->formatted_size }}', '{{ $file->width }}×{{ $file->height }}', '{{ $file->folder }}');" title="Preview image">
+                                            <i class="fas fa-eye text-info"></i>
+                                        </button>
+                                        <div class="dropdown" style="display:inline-block;">
+                                            <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" title="Use as / Attach">
+                                                <i class="fas fa-magic text-warning"></i> <span class="caret"></span>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-right uni-dropdown-menu">
+                                                <li class="dropdown-header">Brand Identity</li>
+                                                <li>
+                                                    <a href="javascript:void(0)" onclick="executeUseAs({{ $file->id }}, 'logo', '{{ addslashes($file->name) }}');">
+                                                        <i class="fas fa-crown text-warning"></i> Set as Store Logo
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="javascript:void(0)" onclick="executeUseAs({{ $file->id }}, 'favicon', '{{ addslashes($file->name) }}');">
+                                                        <i class="fas fa-star text-info"></i> Set as Store Favicon
+                                                    </a>
+                                                </li>
+                                                <li class="divider"></li>
+                                                <li class="dropdown-header">Marketing & Catalog</li>
+                                                <li>
+                                                    <a href="javascript:void(0)" onclick="executeUseAs({{ $file->id }}, 'banner', '{{ addslashes($file->name) }}');">
+                                                        <i class="fas fa-image text-success"></i> Create Homepage Banner
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="javascript:void(0)" onclick="openCategoryAttachModal({{ $file->id }}, '{{ addslashes($file->name) }}', '{{ $file->url }}');">
+                                                        <i class="fas fa-folder text-warning"></i> Assign to Category...
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a href="javascript:void(0)" onclick="openProductAttachModal({{ $file->id }}, '{{ addslashes($file->name) }}', '{{ $file->url }}');">
+                                                        <i class="fas fa-tshirt text-primary"></i> Assign to Product...
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <button type="button" class="btn btn-default btn-xs" onclick="openReplaceModal({{ $file->id }}, '{{ addslashes($file->name) }}', '{{ $file->url }}', 'media');" title="Replace File">
+                                            <i class="fas fa-exchange-alt text-muted"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-default btn-xs text-danger" onclick="deleteMediaItem({{ $file->id }}, 'media', '{{ addslashes($file->name) }}');" title="Move to Trash">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                @else
+                                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                                        <button type="button" class="btn btn-success btn-xs" onclick="restoreMediaItem({{ $file->id }}, 'media', '{{ addslashes($file->name) }}');" title="Restore file">
+                                            <i class="fas fa-trash-restore"></i> Restore
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-xs" onclick="forceDeleteMediaItem({{ $file->id }}, 'media', '{{ addslashes($file->name) }}');" title="Permanently Delete">
+                                            <i class="fas fa-ban"></i> Delete
+                                        </button>
+                                    </div>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
+
+        {{-- Pagination (only shown if not 'all') --}}
+        @if(($perPageParam ?? 'all') !== 'all')
+            <div style="margin-top:24px; text-align:center;">
+                {{ $files->links() }}
+            </div>
+        @endif
     @else
         <div class="media-empty-state">
             <i class="fas fa-photo-video" style="font-size:48px; color:#cbd5e1; margin-bottom:12px;"></i>
@@ -581,6 +747,104 @@
 .status-badge-error {
     background: #fee2e2;
     color: #b91c1c;
+}
+
+/* List View Styles */
+.media-list-table-wrap {
+    margin-top: 14px;
+    background: #ffffff;
+    border: 1px solid var(--admin-card-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    overflow: hidden;
+}
+.media-list-table {
+    margin-bottom: 0;
+    width: 100%;
+}
+.media-list-table thead th {
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 14px;
+    vertical-align: middle;
+}
+.media-list-table tbody tr {
+    transition: background-color 0.15s ease;
+    border-bottom: 1px solid #f1f5f9;
+}
+.media-list-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+.media-list-table tbody tr.active-selected-row {
+    background-color: #eff6ff !important;
+}
+.media-list-table tbody tr.is-trashed {
+    opacity: 0.65;
+    background-color: #fff1f2;
+}
+.media-list-table tbody td {
+    padding: 10px 14px;
+    vertical-align: middle;
+}
+.list-thumb-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.list-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s ease;
+}
+.list-thumb-wrap:hover .list-thumb-img {
+    transform: scale(1.1);
+}
+.list-thumb-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.list-thumb-wrap:hover .list-thumb-overlay {
+    opacity: 1;
+}
+.list-file-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    transition: color 0.15s;
+    cursor: pointer;
+}
+.list-file-name:hover {
+    color: #2563eb;
+    text-decoration: underline;
+}
+.view-mode-btn-group .btn.active {
+    background-color: #0f172a;
+    color: #ffffff;
+    border-color: #0f172a;
 }
 
 /* Filter Bar & Tabs */
@@ -1095,6 +1359,40 @@ function executeFilesBulkAction(action, confirmMsg) {
     }
     runBulkAction('{{ route("admin.appearance.files.bulk-action") }}', action, extra, confirmMsg);
 }
+
+/* View Mode Management (Grid vs List) */
+function setMediaViewMode(mode) {
+    var gridEl = document.getElementById('mainMediaGrid');
+    var listEl = document.getElementById('mainMediaListTable');
+    var gridBtn = document.getElementById('viewGridBtn');
+    var listBtn = document.getElementById('viewListBtn');
+
+    if (mode === 'list') {
+        if (gridEl) gridEl.style.display = 'none';
+        if (listEl) listEl.style.display = 'block';
+        if (gridBtn) gridBtn.classList.remove('active');
+        if (listBtn) listBtn.classList.add('active');
+        try { localStorage.setItem('nool_media_view_mode', 'list'); } catch (e) {}
+    } else {
+        if (gridEl) gridEl.style.display = 'grid';
+        if (listEl) listEl.style.display = 'none';
+        if (gridBtn) gridBtn.classList.add('active');
+        if (listBtn) listBtn.classList.remove('active');
+        try { localStorage.setItem('nool_media_view_mode', 'grid'); } catch (e) {}
+    }
+}
+
+$(document).ready(function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var viewParam = urlParams.get('view');
+    var savedView = 'grid';
+    try {
+        savedView = viewParam || localStorage.getItem('nool_media_view_mode') || 'grid';
+    } catch (e) {
+        savedView = viewParam || 'grid';
+    }
+    setMediaViewMode(savedView);
+});
 </script>
 @endpush
 
