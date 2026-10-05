@@ -129,14 +129,36 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h5 style="margin:0; font-weight:700; font-size:13px;">Selected Files Queue (<span id="bulkQueueCount">0</span>)</h5>
                     <div style="display:flex; gap:8px;">
-                        <button type="button" class="btn btn-default btn-xs" onclick="clearBulkQueue()"><i class="fas fa-trash-alt"></i> Clear All</button>
+                        <button type="button" class="btn btn-default btn-xs" id="clearBulkQueueBtn" onclick="clearBulkQueue()"><i class="fas fa-trash-alt"></i> Clear All</button>
                         <button type="button" class="btn btn-success btn-xs" id="startUploadBtn" onclick="startBulkUpload()"><i class="fas fa-upload"></i> Upload All</button>
                     </div>
                 </div>
 
-                {{-- Overall Progress Bar --}}
-                <div class="progress" id="bulkProgressBarWrap" style="height:10px; display:none; margin-bottom:14px; border-radius:5px;">
-                    <div class="progress-bar progress-bar-striped active progress-bar-success" id="bulkProgressBar" style="width: 0%;"></div>
+                {{-- Overall Progress Bar Card with Percentage Animation --}}
+                <div class="bulk-progress-panel" id="bulkProgressBarWrap" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="bulkProgressSpinner" class="upload-pulse-icon">
+                                <i class="fas fa-cloud-upload-alt text-primary" style="font-size:16px;"></i>
+                            </span>
+                            <strong id="bulkProgressTitle" style="font-size:13px; color:#0f172a;">Uploading files...</strong>
+                            <span id="bulkProgressRatio" class="text-muted" style="font-size:12px;">(0 / 0)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span id="bulkProgressPercent" style="font-size:15px; font-weight:800; color:#2563eb; min-width:48px; text-align:right;">0%</span>
+                        </div>
+                    </div>
+
+                    <div class="progress" style="height:20px; margin-bottom:6px; border-radius:10px; background:#e2e8f0; overflow:hidden; box-shadow:inset 0 1px 3px rgba(0,0,0,0.08);">
+                        <div class="progress-bar progress-bar-striped active bulk-animated-bar" id="bulkProgressBar" style="width: 0%; line-height:20px; font-size:11.5px; font-weight:700; background-color:#2563eb;">
+                            <span id="bulkProgressBarLabel" style="display:inline-block;">0%</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:#64748b;">
+                        <span id="bulkProgressDetail">Processing upload queue...</span>
+                        <span id="bulkProgressStats"></span>
+                    </div>
                 </div>
 
                 {{-- File Item List --}}
@@ -500,6 +522,67 @@
     max-width: 280px;
 }
 
+/* Bulk Progress & Percentage Animation */
+@keyframes progressStripesMove {
+    0% { background-position: 40px 0; }
+    100% { background-position: 0 0; }
+}
+@keyframes pulseUploadGlow {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+.bulk-progress-panel {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    animation: fadeIn 0.25s ease;
+}
+.bulk-animated-bar {
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.25) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.25) 50%,
+        rgba(255, 255, 255, 0.25) 75%,
+        transparent 75%,
+        transparent
+    ) !important;
+    background-size: 32px 32px !important;
+    animation: progressStripesMove 0.8s linear infinite !important;
+    transition: width 0.25s ease-out !important;
+}
+.bulk-queue-status-badge {
+    padding: 4px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+}
+.status-badge-ready {
+    background: #e2e8f0;
+    color: #475569;
+}
+.status-badge-uploading {
+    background: #dbeafe;
+    color: #1d4ed8;
+    animation: pulseUploadGlow 1.5s infinite;
+}
+.status-badge-done {
+    background: #dcfce7;
+    color: #15803d;
+}
+.status-badge-error {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
 /* Filter Bar & Tabs */
 .media-filter-bar {
     background: #ffffff;
@@ -572,6 +655,7 @@
 @push('scripts')
 <script>
 var stagedFiles = [];
+var isBulkUploading = false;
 
 function toggleBulkUploadPanel() {
     var p = document.getElementById('bulkUploadPanel');
@@ -604,11 +688,24 @@ dz.addEventListener('drop', function (e) {
     }
 });
 
+var fileSeq = 0;
 function handleBulkFilesSelected(fileList) {
     if (!fileList || !fileList.length) return;
     for (var i = 0; i < fileList.length; i++) {
-        stagedFiles.push(fileList[i]);
+        var f = fileList[i];
+        fileSeq++;
+        stagedFiles.push({
+            id: 'f_' + Date.now() + '_' + fileSeq,
+            file: f,
+            name: f.name,
+            size: f.size,
+            type: f.type || 'image/jpeg',
+            status: 'ready',
+            errorMsg: ''
+        });
     }
+    var inputEl = document.getElementById('bulkFileInput');
+    if (inputEl) inputEl.value = '';
     renderBulkQueue();
 }
 
@@ -626,102 +723,264 @@ function renderBulkQueue() {
     countEl.innerText = stagedFiles.length;
     qList.innerHTML = '';
 
-    stagedFiles.forEach(function (file, idx) {
-        var item = document.createElement('div');
-        item.className = 'bulk-queue-item';
-        item.id = 'queue-item-' + idx;
+    stagedFiles.forEach(function (item, idx) {
+        var el = document.createElement('div');
+        el.className = 'bulk-queue-item';
+        el.id = 'queue-item-' + item.id;
 
-        var sizeKb = (file.size / 1024).toFixed(0) + ' KB';
-        var objectUrl = URL.createObjectURL(file);
+        var sizeKb = (item.size / 1024).toFixed(0) + ' KB';
+        var objectUrl = '';
+        try {
+            objectUrl = URL.createObjectURL(item.file);
+        } catch (e) {}
 
-        item.innerHTML =
+        var badgeHtml = '';
+        if (item.status === 'uploading') {
+            badgeHtml = '<span class="bulk-queue-status-badge status-badge-uploading" id="queue-status-' + item.id + '"><i class="fas fa-spinner fa-spin"></i> Uploading</span>';
+        } else if (item.status === 'done') {
+            badgeHtml = '<span class="bulk-queue-status-badge status-badge-done" id="queue-status-' + item.id + '"><i class="fas fa-check-circle"></i> Uploaded</span>';
+        } else if (item.status === 'error') {
+            badgeHtml = '<span class="bulk-queue-status-badge status-badge-error" id="queue-status-' + item.id + '" title="' + (item.errorMsg || 'Upload failed') + '"><i class="fas fa-exclamation-triangle"></i> Failed</span>';
+        } else {
+            badgeHtml = '<span class="bulk-queue-status-badge status-badge-ready" id="queue-status-' + item.id + '">Ready</span>';
+        }
+
+        var removeBtn = isBulkUploading
+            ? ''
+            : '<button type="button" class="btn btn-default btn-xs text-danger" onclick="removeFromQueue(' + idx + ')"><i class="fas fa-times"></i></button>';
+
+        el.innerHTML =
             '<div class="bulk-queue-left">' +
-                '<img src="' + objectUrl + '" class="bulk-queue-thumb" alt="thumb">' +
+                '<img src="' + (objectUrl || '{{ asset("assets/images/placeholder.svg") }}') + '" class="bulk-queue-thumb" alt="thumb" onerror="this.onerror=null; this.src=\'{{ asset("assets/images/placeholder.svg") }}\';">' +
                 '<div>' +
-                    '<div class="bulk-queue-title" title="' + file.name + '">' + file.name + '</div>' +
-                    '<span class="text-muted" style="font-size:11px;">' + sizeKb + ' &bull; ' + file.type + '</span>' +
+                    '<div class="bulk-queue-title" title="' + item.name + '">' + item.name + '</div>' +
+                    '<span class="text-muted" style="font-size:11px;">' + sizeKb + ' &bull; ' + item.type + '</span>' +
                 '</div>' +
             '</div>' +
             '<div style="display:flex; align-items:center; gap:8px;">' +
-                '<span class="badge" id="queue-status-' + idx + '" style="background:#cbd5e1; color:#0f172a;">Ready</span>' +
-                '<button type="button" class="btn btn-default btn-xs text-danger" onclick="removeFromQueue(' + idx + ')"><i class="fas fa-times"></i></button>' +
+                badgeHtml +
+                removeBtn +
             '</div>';
 
-        qList.appendChild(item);
+        qList.appendChild(el);
     });
 }
 
 function removeFromQueue(idx) {
+    if (isBulkUploading) return;
     stagedFiles.splice(idx, 1);
     renderBulkQueue();
 }
 
 function clearBulkQueue() {
+    if (isBulkUploading) return;
     stagedFiles = [];
+    var pWrap = document.getElementById('bulkProgressBarWrap');
+    if (pWrap) pWrap.style.display = 'none';
     renderBulkQueue();
 }
 
+function updateProgressDisplay(percent, completed, total, detailText) {
+    var pBar = document.getElementById('bulkProgressBar');
+    var pLabel = document.getElementById('bulkProgressBarLabel');
+    var pPercent = document.getElementById('bulkProgressPercent');
+    var pRatio = document.getElementById('bulkProgressRatio');
+    var pDetail = document.getElementById('bulkProgressDetail');
+
+    percent = Math.max(0, Math.min(100, Math.round(percent)));
+
+    if (pBar) {
+        pBar.style.width = percent + '%';
+        if (percent >= 100) {
+            pBar.style.backgroundColor = '#10b981';
+        } else {
+            pBar.style.backgroundColor = '#2563eb';
+        }
+    }
+    if (pLabel) pLabel.innerText = percent + '%';
+    if (pPercent) pPercent.innerText = percent + '%';
+    if (pRatio) pRatio.innerText = '(' + completed + ' / ' + total + ' completed)';
+    if (pDetail && detailText) pDetail.innerText = detailText;
+}
+
 function startBulkUpload() {
+    if (isBulkUploading) return;
     if (!stagedFiles.length) return;
 
+    var pendingItems = stagedFiles.filter(function (item) {
+        return item.status !== 'done';
+    });
+
+    if (!pendingItems.length) {
+        adminToast('All staged files have already been uploaded.', 'info');
+        return;
+    }
+
+    isBulkUploading = true;
+
     var btn = document.getElementById('startUploadBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading…';
+    var clearBtn = document.getElementById('clearBulkQueueBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading…';
+    }
+    if (clearBtn) clearBtn.disabled = true;
 
     var pWrap = document.getElementById('bulkProgressBarWrap');
-    var pBar = document.getElementById('bulkProgressBar');
-    pWrap.style.display = 'block';
-    pBar.style.width = '20%';
+    if (pWrap) pWrap.style.display = 'block';
+
+    var totalFiles = pendingItems.length;
+    var completedFiles = 0;
+    var failedFiles = 0;
+
+    // Calculate total bytes across all pending files
+    var totalBytes = pendingItems.reduce(function (acc, item) {
+        return acc + (item.size || 0);
+    }, 0);
+    var uploadedBytesCompletedBatches = 0;
+
+    updateProgressDisplay(0, 0, totalFiles, 'Starting upload queue for ' + totalFiles + ' file(s)...');
+
+    // Group into safe batches: Max 2 files per batch OR 1 file if > 3.5MB, batch max 8MB
+    var batches = [];
+    var currentBatch = [];
+    var currentBatchSize = 0;
+
+    pendingItems.forEach(function (item) {
+        var itemSize = item.size || 0;
+        if (currentBatch.length >= 2 || (currentBatchSize + itemSize > 8388608 && currentBatch.length > 0)) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentBatchSize = 0;
+        }
+        currentBatch.push(item);
+        currentBatchSize += itemSize;
+    });
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+    }
 
     var folder = document.getElementById('bulkFolderSelect').value || 'media';
-    var fd = new FormData();
-    fd.append('_token', $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}');
-    fd.append('folder', folder);
+    var csrfToken = $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}';
+    var batchIndex = 0;
 
-    stagedFiles.forEach(function (f) {
-        fd.append('files[]', f);
-    });
-
-    $.ajax({
-        url: '{{ route("admin.appearance.files.bulk-upload") }}',
-        method: 'POST',
-        data: fd,
-        processData: false,
-        contentType: false,
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
-        },
-        xhr: function () {
-            var xhr = new window.XMLHttpRequest();
-            xhr.upload.addEventListener('progress', function (e) {
-                if (e.lengthComputable) {
-                    var percent = Math.round((e.loaded / e.total) * 100);
-                    pBar.style.width = percent + '%';
-                }
-            }, false);
-            return xhr;
-        },
-        success: function (res) {
-            pBar.style.width = '100%';
-            adminToast(res.message || 'Files uploaded successfully!');
-            clearBulkQueue();
-            setTimeout(function () {
-                window.location.href = '{{ route("admin.appearance.files.index", ["status" => "active", "sort" => "latest"]) }}';
-            }, 600);
-        },
-        error: function (xhr) {
-            var res = xhr.responseJSON || {};
-            var msg = res.message || 'Upload failed.';
-            if (res.data && res.data.failed && res.data.failed.length) {
-                var details = res.data.failed.map(function(f) { return f.name + ': ' + f.error; }).join('\n');
-                msg += '\n' + details;
+    function processNextBatch() {
+        if (batchIndex >= batches.length) {
+            // All batches processed!
+            isBulkUploading = false;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> Upload Complete';
             }
-            adminToast(msg, 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-upload"></i> Retry Upload';
-            pWrap.style.display = 'none';
+            if (clearBtn) clearBtn.disabled = false;
+
+            updateProgressDisplay(100, completedFiles, totalFiles, 'Completed! ' + completedFiles + ' uploaded' + (failedFiles > 0 ? ', ' + failedFiles + ' failed' : '') + '.');
+
+            var msg = completedFiles + ' of ' + totalFiles + ' files imported successfully!';
+            if (failedFiles > 0) {
+                msg += ' (' + failedFiles + ' failed)';
+                adminToast(msg, 'warning');
+            } else {
+                adminToast(msg, 'success');
+            }
+
+            if (completedFiles > 0) {
+                setTimeout(function () {
+                    window.location.href = '{{ route("admin.appearance.files.index", ["status" => "active", "sort" => "latest"]) }}';
+                }, 1200);
+            }
+            return;
         }
-    });
+
+        var batch = batches[batchIndex];
+        var batchBytesTotal = batch.reduce(function (acc, item) {
+            return acc + (item.size || 0);
+        }, 0);
+
+        // Mark current batch items as uploading in UI
+        batch.forEach(function (item) {
+            item.status = 'uploading';
+            var badge = document.getElementById('queue-status-' + item.id);
+            if (badge) {
+                badge.className = 'bulk-queue-status-badge status-badge-uploading';
+                badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading';
+            }
+            var row = document.getElementById('queue-item-' + item.id);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+
+        var fd = new FormData();
+        fd.append('_token', csrfToken);
+        fd.append('folder', folder);
+        batch.forEach(function (item) {
+            fd.append('files[]', item.file);
+        });
+
+        $.ajax({
+            url: '{{ route("admin.appearance.files.bulk-upload") }}',
+            method: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRF-TOKEN': csrfToken
+            },
+            xhr: function () {
+                var xhr = new window.XMLHttpRequest();
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (e.lengthComputable && totalBytes > 0) {
+                        var currentBatchLoaded = Math.min(e.loaded, batchBytesTotal);
+                        var totalLoadedNow = uploadedBytesCompletedBatches + currentBatchLoaded;
+                        var pct = Math.min(99, Math.round((totalLoadedNow / totalBytes) * 100));
+                        updateProgressDisplay(pct, completedFiles, totalFiles, 'Uploading: batch ' + (batchIndex + 1) + ' of ' + batches.length + ' (' + pct + '%)');
+                    }
+                }, false);
+                return xhr;
+            },
+            success: function (res) {
+                uploadedBytesCompletedBatches += batchBytesTotal;
+                batch.forEach(function (item) {
+                    item.status = 'done';
+                    completedFiles++;
+                    var badge = document.getElementById('queue-status-' + item.id);
+                    if (badge) {
+                        badge.className = 'bulk-queue-status-badge status-badge-done';
+                        badge.innerHTML = '<i class="fas fa-check-circle"></i> Uploaded';
+                    }
+                });
+
+                var pct = Math.round((completedFiles / totalFiles) * 100);
+                updateProgressDisplay(pct, completedFiles, totalFiles, 'Uploaded ' + completedFiles + ' of ' + totalFiles + ' files...');
+
+                batchIndex++;
+                processNextBatch();
+            },
+            error: function (xhr) {
+                uploadedBytesCompletedBatches += batchBytesTotal;
+                var res = xhr.responseJSON || {};
+                var errDetail = res.message || 'Upload failed.';
+
+                batch.forEach(function (item) {
+                    item.status = 'error';
+                    item.errorMsg = errDetail;
+                    failedFiles++;
+                    var badge = document.getElementById('queue-status-' + item.id);
+                    if (badge) {
+                        badge.className = 'bulk-queue-status-badge status-badge-error';
+                        badge.title = errDetail;
+                        badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
+                    }
+                });
+
+                batchIndex++;
+                processNextBatch();
+            }
+        });
+    }
+
+    processNextBatch();
 }
 
 // Category Attach Modal

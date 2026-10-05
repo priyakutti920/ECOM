@@ -278,6 +278,12 @@ class AppearanceFilesController extends Controller
 
         $files = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : ($request->file('image') ? [$request->file('image')] : []));
         if (empty($files)) {
+            if (isset($_SERVER['CONTENT_LENGTH']) && (int)$_SERVER['CONTENT_LENGTH'] > 0 && empty($request->all())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Upload batch exceeds server limit (' . ini_get('post_max_size') . '). Please upload files in smaller batches.',
+                ], 422);
+            }
             return response()->json([
                 'success' => false,
                 'message' => 'No files were provided for upload.',
