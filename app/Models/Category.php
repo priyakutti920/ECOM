@@ -26,10 +26,12 @@ class Category extends Model
         static::saved(function () {
             \Illuminate\Support\Facades\Cache::forget('home_categories_list');
             \Illuminate\Support\Facades\Cache::forget('shop_header_categories_v2');
+            \Illuminate\Support\Facades\Cache::forget('shop_active_categories_bar');
         });
         static::deleted(function () {
             \Illuminate\Support\Facades\Cache::forget('home_categories_list');
             \Illuminate\Support\Facades\Cache::forget('shop_header_categories_v2');
+            \Illuminate\Support\Facades\Cache::forget('shop_active_categories_bar');
         });
     }
 

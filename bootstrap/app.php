@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Prepend installer redirect so that missing .env files automatically redirect to /install
         $middleware->web(prepend: [
             \App\Http\Middleware\RedirectIfNotInstalled::class,
+        ], append: [
+            \App\Http\Middleware\CompressResponse::class,
         ]);
 
         $middleware->alias([

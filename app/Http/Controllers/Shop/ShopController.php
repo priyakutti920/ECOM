@@ -25,11 +25,13 @@ class ShopController extends Controller
     {
         $storeName = StoreSetting::getStoreName();
 
-        // All categories (used to render the round-icon bar at the top)
-        $categories = Category::active()
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        // All categories (used to render the round-icon bar at the top, cached for speed)
+        $categories = Cache::remember('shop_active_categories_bar', 1800, function () {
+            return Category::active()
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+        });
 
         // Determine which category (if any) the user is filtering by
         $activeCategory = null;
@@ -86,10 +88,12 @@ class ShopController extends Controller
     {
         $storeName = StoreSetting::getStoreName();
 
-        $categories = Category::active()
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $categories = Cache::remember('shop_active_categories_bar', 1800, function () {
+            return Category::active()
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+        });
 
         $activeCategory = null;
         $categoryId = $request->get('category');

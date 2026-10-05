@@ -97,7 +97,9 @@ class AppearanceFilesController extends Controller
             $perPage = max(12, min(5000, (int) $perPageParam));
         }
 
-        $files = $query->paginate($perPage)->withQueryString();
+        $files = $query->select(['id', 'name', 'filename', 'path', 'size', 'width', 'height', 'folder', 'disk', 'mime_type', 'created_at', 'deleted_at'])
+            ->paginate($perPage)
+            ->withQueryString();
 
         // If requested via AJAX or JSON, return lightweight JSON response for Media Picker
         if ($request->wantsJson() || $request->ajax() || $request->has('json')) {
@@ -123,32 +125,44 @@ class AppearanceFilesController extends Controller
             ]);
         }
 
-        // Statistics
-        $totalFiles = MediaFile::count();
-        $trashedCount = MediaFile::onlyTrashed()->count();
-        $totalBytes = (int) MediaFile::sum('size');
-        if ($totalBytes >= 1048576) {
-            $totalStorage = number_format($totalBytes / 1048576, 1) . ' MB';
-        } elseif ($totalBytes >= 1024) {
-            $totalStorage = number_format($totalBytes / 1024, 0) . ' KB';
-        } else {
-            $totalStorage = $totalBytes . ' B';
-        }
+        // Statistics: Cached for 30s for lightning-fast page responsiveness
+        $stats = Cache::remember('media_files_stats_summary', 30, function () {
+            $totalFiles = MediaFile::count();
+            $trashedCount = MediaFile::onlyTrashed()->count();
+            $totalBytes = (int) MediaFile::sum('size');
+            if ($totalBytes >= 1048576) {
+                $totalStorage = number_format($totalBytes / 1048576, 1) . ' MB';
+            } elseif ($totalBytes >= 1024) {
+                $totalStorage = number_format($totalBytes / 1024, 0) . ' KB';
+            } else {
+                $totalStorage = $totalBytes . ' B';
+            }
 
-        // Folders with count
-        $folders = MediaFile::select('folder')
-            ->selectRaw('count(*) as count')
-            ->groupBy('folder')
-            ->pluck('count', 'folder')
-            ->toArray();
+            $folders = MediaFile::select('folder')
+                ->selectRaw('count(*) as count')
+                ->groupBy('folder')
+                ->pluck('count', 'folder')
+                ->toArray();
+
+            return compact('totalFiles', 'trashedCount', 'totalStorage', 'folders');
+        });
+
+        $totalFiles = $stats['totalFiles'];
+        $trashedCount = $stats['trashedCount'];
+        $totalStorage = $stats['totalStorage'];
+        $folders = $stats['folders'];
 
         // Current Logo and Favicon
         $currentLogoUrl = StoreSetting::getLogoUrl();
         $currentFaviconUrl = StoreSetting::getFaviconUrl();
 
-        // Products & Categories for quick-attach dropdowns
-        $products = Product::select('id', 'name', 'code')->orderBy('name')->take(100)->get();
-        $categories = Category::select('id', 'name')->where('status', 0)->orderBy('name')->take(100)->get();
+        // Products & Categories for quick-attach dropdowns (cached for 60s)
+        $products = Cache::remember('media_attach_products_list', 60, function () {
+            return Product::select('id', 'name', 'code')->orderBy('name')->take(100)->get();
+        });
+        $categories = Cache::remember('media_attach_categories_list', 60, function () {
+            return Category::select('id', 'name')->where('status', 0)->orderBy('name')->take(100)->get();
+        });
 
         return view('admin.appearance.files.index', compact(
             'files',

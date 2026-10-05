@@ -85,6 +85,7 @@
         <img src="{{ $url }}"
              alt="{{ $name }}"
              loading="lazy"
+             decoding="async"
              class="uni-card-img"
              onerror="this.onerror=null; this.src='{{ $fallbackSvg }}'; this.classList.add('is-broken-img');" />
 

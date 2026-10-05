@@ -18,6 +18,12 @@
     <link rel="icon" href="{{ $adminFavicon }}">
     <link rel="apple-touch-icon" href="{{ $adminFavicon }}">
 
+    <!-- Fast DNS Prefetch & Font Preconnect -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     <link rel="stylesheet" href="{{ asset('assets/css/fa-all.min.css') }}">
     <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/summernote/0.8.20/summernote.min.css">
@@ -1162,10 +1168,17 @@
         }
     });
 
-    /* Loading overlay */
-    $(window).on('load', function () { $('#loading').fadeOut(300); });
-    if (document.readyState === 'complete') { $('#loading').fadeOut(300); }
-    setTimeout(function () { $('#loading').fadeOut(300); }, 3500);
+    /* Instant Interactive Page Reveal */
+    function dismissLoadingScreen() {
+        $('#loading').fadeOut(120);
+    }
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+        dismissLoadingScreen();
+    } else {
+        document.addEventListener('DOMContentLoaded', dismissLoadingScreen);
+        $(window).on('load', dismissLoadingScreen);
+    }
+    setTimeout(dismissLoadingScreen, 600);
 
     /* Logout button */
     document.getElementById('nav-logout-btn')?.addEventListener('click', function (e) {

@@ -288,7 +288,7 @@
                             </td>
                             <td style="text-align:center;">
                                 <div class="list-thumb-wrap" onclick="openUniversalPreview('{{ $file->url }}', '{{ addslashes($file->name) }}', '{{ $file->formatted_size }}', '{{ $file->width }}×{{ $file->height }}', '{{ $file->folder }}');" title="Click to preview">
-                                    <img src="{{ $file->url }}" alt="{{ $file->name }}" loading="lazy" class="list-thumb-img" onerror="this.onerror=null; this.src='{{ asset('assets/images/placeholder.svg') }}';">
+                                    <img src="{{ $file->url }}" alt="{{ $file->name }}" loading="lazy" decoding="async" class="list-thumb-img" onerror="this.onerror=null; this.src='{{ asset('assets/images/placeholder.svg') }}';">
                                     <div class="list-thumb-overlay"><i class="fas fa-search-plus"></i></div>
                                 </div>
                             </td>
