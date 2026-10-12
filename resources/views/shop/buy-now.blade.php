@@ -374,8 +374,12 @@ function bnRenderItems() {
  }
  document.getElementById('empty-cart-warning').style.display = 'none';
  document.getElementById('place-order-btn').disabled = false;
- list.innerHTML = bnItems.map(item => `
- <div class="summary-item">
+ list.innerHTML = bnItems.map(item => {
+  const itemKey = (typeof window.getCartItemKey === 'function')
+    ? window.getCartItemKey(item)
+    : `${item.id}_${item.variation_id || '0'}_${(item.color || '').trim().toLowerCase()}`;
+  return `
+ <div class="summary-item" data-key="${itemKey}">
  ${item.image ? `<img src="${item.image}" alt="">` : '<div style="width:48px; height:48px; background:#f3f3f3; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#cbd5e1;"><i class="fas fa-image"></i></div>'}
  <div class="info">
  <div class="name">${item.name || 'Product #' + item.id}</div>
@@ -384,16 +388,16 @@ function bnRenderItems() {
  ${item.options && item.options.length ? `<div style="font-size:11px; color:#007185;">Options: ${item.options.map(o => o.name).join(', ')}</div>` : ''}
  <div class="meta">
  <div class="bn-qty-row">
- <button type="button" class="bn-qty-btn" onclick="bnChangeQty(${item.id}, ${item.qty - 1})">−</button>
- <input type="number" class="bn-qty-input" value="${item.qty}" min="1" onchange="bnChangeQty(${item.id}, parseInt(this.value))">
- <button type="button" class="bn-qty-btn" onclick="bnChangeQty(${item.id}, ${item.qty + 1})">+</button>
+ <button type="button" class="bn-qty-btn" onclick="bnChangeQty('${itemKey}', ${(parseInt(item.qty) || 1) - 1})">−</button>
+ <input type="number" class="bn-qty-input" value="${item.qty || 1}" min="1" onchange="bnChangeQty('${itemKey}', parseInt(this.value))">
+ <button type="button" class="bn-qty-btn" onclick="bnChangeQty('${itemKey}', ${(parseInt(item.qty) || 1) + 1})">+</button>
  <span class="bn-unit-price">× ₹${Number(item.price || 0).toLocaleString('en-IN')}</span>
  </div>
  </div>
  </div>
- <div class="price">₹${(Number(item.price || 0) * item.qty).toLocaleString('en-IN')}</div>
+ <div class="price">₹${(Number(item.price || 0) * (parseInt(item.qty) || 1)).toLocaleString('en-IN')}</div>
  </div>
- `).join('');
+ `;}).join('');
  itemsField.value = JSON.stringify(bnItems);
 
  // Totals
@@ -465,18 +469,21 @@ function bnRenderItems() {
 }
 
 // Change qty for an item in the buy-now summary (also updates localStorage cart)
-function bnChangeQty(id, qty) {
+function bnChangeQty(keyOrId, qty) {
+ const isComposite = String(keyOrId).includes('_');
+ const item = bnItems.find(i => {
+  if (isComposite) {
+   const [pId, vId, clr] = String(keyOrId).split('_');
+   return String(i.id) === pId && String(i.variation_id || '0') === vId && String(i.color || '').trim().toLowerCase() === clr;
+  }
+  return String(i.id) === String(keyOrId);
+ });
  if (qty < 1) {
- // Remove the item from this buy-now view
- bnItems = bnItems.filter(i => i.id !== id);
- // Only sync to the main cart if we're in cart-checkout mode (not Buy Now)
- if (!bnIsSingleMode) updateCartQty(id, 0);
- } else {
- const item = bnItems.find(i => i.id === id);
- if (item) {
- item.qty = qty;
- if (!bnIsSingleMode) updateCartQty(id, qty);
- }
+  bnItems = bnItems.filter(i => i !== item);
+  if (!bnIsSingleMode && item) updateCartQty(keyOrId, 0);
+ } else if (item) {
+  item.qty = Math.max(1, parseInt(qty) || 1);
+  if (!bnIsSingleMode) updateCartQty(keyOrId, item.qty);
  }
  updateCartCount();
  bnRenderItems();
@@ -503,40 +510,84 @@ async function bnLoad() {
  // If the user came in via "Buy Now" on a product page, show ONLY that item
  // — leave the cart untouched.
  if (url.searchParams.get('single') === '1') {
- const single = JSON.parse(localStorage.getItem('buyNowItem') || 'null');
- if (single && single.id) {
- bnIsSingleMode = true;
- bnItems = [{ id: single.id, name: single.name, slug: single.slug, image: single.image, price: single.price, qty: single.qty || 1 }];
- bnRenderItems();
- if (cpnParam) bnApplyCoupon(); else bnRenderItems();
- return;
- }
+  const single = JSON.parse(localStorage.getItem('buyNowItem') || 'null');
+  if (single && single.id) {
+  bnIsSingleMode = true;
+  bnItems = [{
+   id: single.id,
+   name: single.name || ('Product #' + single.id),
+   slug: single.slug || ('product-' + single.id),
+   image: single.image || '',
+   price: Number(single.price || 0),
+   qty: Math.max(1, parseInt(single.qty) || 1),
+   variation_id: single.variation_id || null,
+   variation_name: single.variation_name || null,
+   color: single.color || null,
+   options: single.options || []
+  }];
+  bnRenderItems();
+  if (cpnParam) bnApplyCoupon(); else bnRenderItems();
+  return;
+  }
  }
  const cart = getCart();
  if (!cart.length) {
- bnItems = [];
- bnRenderItems();
- return;
+  bnItems = [];
+  bnRenderItems();
+  return;
  }
  // (Final coupon-apply happens at the bottom of bnLoad after items are loaded.)
  try {
- const res = await fetch('/api/cart/items', {
- method: 'POST',
- headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''},
- body: JSON.stringify({ ids: cart.map(c => c.id) })
- });
- const data = await res.json();
- if (data.success && data.data) {
- bnItems = data.data.map(p => {
- const local = cart.find(c => c.id === p.id);
- return { id: p.id, name: p.name, slug: p.slug, image: p.image, price: p.price, qty: local ? local.qty : 1 };
- });
- bnRenderItems();
- }
+  const res = await fetch('/api/cart/items', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''},
+  body: JSON.stringify({ ids: cart.map(c => c.id) })
+  });
+  const data = await res.json();
+  if (data.success && data.data) {
+   const productMap = {};
+   data.data.forEach(p => { productMap[p.id] = p; });
+   bnItems = cart.map(c => {
+    const p = productMap[c.id];
+    let price = Number(c.price || 0);
+    if (p) {
+      if (c.variation_id && p.variations) {
+        const v = p.variations.find(v => String(v.id) === String(c.variation_id));
+        if (v && v.price !== undefined) price = Number(v.price);
+      } else if (p.price !== undefined) {
+        price = Number(p.price);
+      }
+    }
+    return {
+      id: c.id,
+      name: (p && p.name) ? p.name : (c.name || ('Product #' + c.id)),
+      slug: (p && p.slug) ? p.slug : (c.slug || ('product-' + c.id)),
+      image: (p && p.image) ? p.image : (c.image || ''),
+      price: price,
+      qty: Math.max(1, parseInt(c.qty) || 1),
+      variation_id: c.variation_id || null,
+      variation_name: c.variation_name || null,
+      color: c.color || null,
+      options: c.options || []
+    };
+   });
+   bnRenderItems();
+  }
  } catch (e) {
- console.error('Failed to load cart details', e);
- bnItems = cart;
- bnRenderItems();
+  console.error('Failed to load cart details', e);
+  bnItems = cart.map(c => ({
+    id: c.id,
+    name: c.name || ('Product #' + c.id),
+    slug: c.slug || ('product-' + c.id),
+    image: c.image || '',
+    price: Number(c.price || 0),
+    qty: Math.max(1, parseInt(c.qty) || 1),
+    variation_id: c.variation_id || null,
+    variation_name: c.variation_name || null,
+    color: c.color || null,
+    options: c.options || []
+  }));
+  bnRenderItems();
  }
 
  // After everything is loaded, apply the URL-passed coupon (if any) so the

@@ -77,7 +77,7 @@
                   @endif
                   @if(!empty($waNumber))
                     <li>
-                      <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $waNumber) }}" title="WhatsApp" target="_blank" rel="noopener noreferrer" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#25D366; font-size:18px; transition:all 0.2s ease;">
+                      <a href="{{ \App\Models\StoreSetting::normalizePhoneNumber($waNumber) ? 'https://wa.me/' . \App\Models\StoreSetting::normalizePhoneNumber($waNumber) : '#' }}" title="WhatsApp" target="_blank" rel="noopener noreferrer" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#25D366; font-size:18px; transition:all 0.2s ease;">
                         <i class="lab la-whatsapp"></i>
                       </a>
                     </li>
@@ -144,8 +144,17 @@
       <!-- Footer Bottom Bar (Dynamic from DB) -->
       <div class="footer-bottom">
         <div class="footer-bottom-inner">
-          <div class="footer-text">
-            {!! $copyright !!}
+          <div class="footer-text" style="display:flex; flex-direction:column; gap:4px;">
+            <div>{!! $copyright !!}</div>
+            @php
+              $cloudaspireCreditEnabled = \App\Models\StoreSetting::getValue('cloudaspire_credit_enabled', '1');
+              $cloudaspireUrl = \App\Models\StoreSetting::getValue('cloudaspire_url', 'https://cloudaspire.in');
+            @endphp
+            @if($cloudaspireCreditEnabled)
+              <div class="footer-credit" style="font-size:12px; opacity:0.85;">
+                Crafted with <i class="las la-heart" style="color:#ef4444;" title="Love"></i> by <a href="{{ $cloudaspireUrl }}" target="_blank" rel="noopener noreferrer" style="font-weight:600; text-decoration:underline;">Cloudaspire</a>
+              </div>
+            @endif
           </div>
           @if($showPaymentBadges)
             <div class="footer-payment-badges">

@@ -688,4 +688,262 @@ class ProductController extends Controller
 
         return back()->with('success', $msg);
     }
+
+    /**
+     * Preview bulk uploaded product images with auto-matching.
+     */
+    public function bulkImagePreview(Request $request)
+    {
+        $request->validate([
+            'images' => 'required|array|min:1',
+            'images.*' => 'required|file|mimes:jpeg,jpg,png,webp,gif,avif|max:10240',
+        ]);
+
+        $batchId = Str::random(16);
+        $tempDir = "temp_bulk/{$batchId}";
+
+        // Ensure temp directory exists
+        Storage::disk('public')->makeDirectory($tempDir);
+
+        $products = Product::select('id', 'name', 'code', 'sku', 'slug')->get();
+
+        $matched = [];
+        $ambiguous = [];
+        $unmatched = [];
+        $invalid = [];
+
+        foreach ($request->file('images') as $file) {
+            if (!$file->isValid()) {
+                $invalid[] = [
+                    'original_name' => $file->getClientOriginalName(),
+                    'reason' => 'Invalid or corrupted upload',
+                ];
+                continue;
+            }
+
+            $origName = $file->getClientOriginalName();
+            $ext = strtolower($file->getClientOriginalExtension());
+            $baseName = pathinfo($origName, PATHINFO_FILENAME);
+            $cleanBaseName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $baseName);
+            $safeFileName = Str::random(8) . '_' . $cleanBaseName . '.' . $ext;
+
+            // Store in temp directory
+            $path = $file->storeAs($tempDir, $safeFileName, 'public');
+            $previewUrl = asset('storage/' . $path);
+
+            // Strip sequence suffixes: _1, _2, -1, -front, -back, etc.
+            $searchKey = trim(preg_replace('/(_[0-9]+|-[0-9]+|_front|_back|_side|_main|_thumb)$/i', '', $baseName));
+            $searchKeyLower = strtolower($searchKey);
+            $rawLower = strtolower($baseName);
+
+            // Candidate matching
+            $candidates = $products->filter(function ($p) use ($searchKeyLower, $rawLower) {
+                $skuLower = strtolower(trim((string)$p->sku));
+                $codeLower = strtolower(trim((string)$p->code));
+                $slugLower = strtolower(trim((string)$p->slug));
+                $idStr = (string)$p->id;
+
+                if (!empty($skuLower) && ($skuLower === $rawLower || $skuLower === $searchKeyLower)) {
+                    return true;
+                }
+                if (!empty($codeLower) && ($codeLower === $rawLower || $codeLower === $searchKeyLower)) {
+                    return true;
+                }
+                if ($idStr === $rawLower || $idStr === $searchKeyLower) {
+                    return true;
+                }
+                if (!empty($slugLower) && ($slugLower === $rawLower || $slugLower === $searchKeyLower)) {
+                    return true;
+                }
+
+                return false;
+            })->values();
+
+            $fileData = [
+                'temp_filename' => $safeFileName,
+                'original_name' => $origName,
+                'preview_url' => $previewUrl,
+                'size' => $file->getSize(),
+            ];
+
+            if ($candidates->count() === 1) {
+                $p = $candidates->first();
+                $matchedBy = 'SKU / Code';
+                if ((string)$p->id === $searchKeyLower || (string)$p->id === $rawLower) {
+                    $matchedBy = 'Product ID';
+                } elseif (strtolower($p->slug) === $searchKeyLower || strtolower($p->slug) === $rawLower) {
+                    $matchedBy = 'Product Slug';
+                }
+
+                $matched[] = array_merge($fileData, [
+                    'product_id' => $p->id,
+                    'product_name' => $p->name,
+                    'product_sku' => $p->sku ?: ($p->code ?: '—'),
+                    'matched_by' => $matchedBy,
+                ]);
+            } elseif ($candidates->count() > 1) {
+                $ambiguous[] = array_merge($fileData, [
+                    'candidates' => $candidates->map(fn($c) => [
+                        'id' => $c->id,
+                        'name' => $c->name,
+                        'sku' => $c->sku ?: ($c->code ?: '—'),
+                    ])->toArray(),
+                ]);
+            } else {
+                $unmatched[] = array_merge($fileData, [
+                    'reason' => 'No product matching identifier "' . $baseName . '" found',
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'batch_id' => $batchId,
+            'counts' => [
+                'total' => count($request->file('images')),
+                'matched' => count($matched),
+                'ambiguous' => count($ambiguous),
+                'unmatched' => count($unmatched),
+                'invalid' => count($invalid),
+            ],
+            'matched' => $matched,
+            'ambiguous' => $ambiguous,
+            'unmatched' => $unmatched,
+            'invalid' => $invalid,
+            'available_products' => $products->map(fn($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'sku' => $p->sku ?: ($p->code ?: '—'),
+            ]),
+        ]);
+    }
+
+    /**
+     * Apply confirmed bulk image imports.
+     */
+    public function bulkImageApply(Request $request)
+    {
+        $request->validate([
+            'batch_id' => 'required|string|alpha_num|max:32',
+            'assignments' => 'required|array|min:1',
+            'assignments.*.temp_filename' => 'required|string',
+            'assignments.*.product_id' => 'required|integer|exists:products,id',
+            'assignments.*.as_primary' => 'nullable|boolean',
+            'assignments.*.overwrite' => 'nullable|boolean',
+        ]);
+
+        $batchId = $request->input('batch_id');
+        $assignments = $request->input('assignments');
+        $tempDir = "temp_bulk/{$batchId}";
+
+        $imported = [];
+        $failed = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($assignments as $item) {
+                $tempFilename = basename($item['temp_filename']);
+                $tempPath = "{$tempDir}/{$tempFilename}";
+
+                if (!Storage::disk('public')->exists($tempPath)) {
+                    $failed[] = [
+                        'filename' => $tempFilename,
+                        'reason' => 'Temporary file not found or expired',
+                    ];
+                    continue;
+                }
+
+                $productId = (int) $item['product_id'];
+                $product = Product::find($productId);
+                if (!$product) {
+                    $failed[] = [
+                        'filename' => $tempFilename,
+                        'reason' => "Product ID {$productId} not found",
+                    ];
+                    continue;
+                }
+
+                $asPrimary = !empty($item['as_primary']);
+                $overwrite = !empty($item['overwrite']);
+
+                $permName = Str::random(12) . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $tempFilename);
+                $permPath = "product/{$permName}";
+
+                $content = Storage::disk('public')->get($tempPath);
+                Storage::disk('public')->put($permPath, $content);
+
+                if ($overwrite) {
+                    $oldImages = ProductImage::where('product_id', $product->id)->get();
+                    foreach ($oldImages as $oldImg) {
+                        if ($oldImg->image && !str_starts_with($oldImg->image, 'http')) {
+                            Storage::disk('public')->delete(str_replace('storage/', '', $oldImg->image));
+                        }
+                    }
+                    ProductImage::where('product_id', $product->id)->delete();
+                }
+
+                $existingCount = ProductImage::where('product_id', $product->id)->count();
+
+                if ($asPrimary) {
+                    ProductImage::where('product_id', $product->id)->update(['is_primary' => false]);
+                }
+
+                $isPrimary = $asPrimary || ($existingCount === 0) || empty($product->image);
+
+                $productImage = ProductImage::create([
+                    'product_id' => $product->id,
+                    'image' => $permPath,
+                    'sort_order' => $existingCount + 1,
+                    'is_primary' => $isPrimary,
+                ]);
+
+                if ($isPrimary) {
+                    $product->update(['image' => $permPath]);
+                }
+
+                try {
+                    \App\Models\MediaFile::create([
+                        'name' => pathinfo($tempFilename, PATHINFO_FILENAME),
+                        'filename' => $permName,
+                        'path' => $permPath,
+                        'disk' => 'public',
+                        'mime_type' => Storage::disk('public')->mimeType($permPath) ?: 'image/jpeg',
+                        'size' => Storage::disk('public')->size($permPath) ?: 0,
+                        'folder' => 'product',
+                    ]);
+                } catch (\Throwable $e) {}
+
+                $imported[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'image_id' => $productImage->id,
+                    'image_path' => $permPath,
+                    'is_primary' => $isPrimary,
+                ];
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed due to server error: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        try {
+            Storage::disk('public')->deleteDirectory($tempDir);
+        } catch (\Throwable $e) {}
+
+        \Illuminate\Support\Facades\Log::info("Bulk image import completed for batch {$batchId}: " . count($imported) . " imported, " . count($failed) . " failed.");
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully imported " . count($imported) . " image(s)." . (count($failed) > 0 ? " (" . count($failed) . " failed)" : ""),
+            'imported_count' => count($imported),
+            'failed_count' => count($failed),
+            'imported' => $imported,
+            'failed' => $failed,
+        ]);
+    }
 }

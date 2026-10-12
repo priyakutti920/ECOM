@@ -12,21 +12,29 @@ class InstallerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected string $lockFile;
+    protected array $lockFiles;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->lockFile = storage_path('installed');
-        if (file_exists($this->lockFile)) {
-            unlink($this->lockFile);
+        $this->lockFiles = [
+            base_path('install.lock'),
+            storage_path('install.lock'),
+            storage_path('installed'),
+        ];
+        foreach ($this->lockFiles as $file) {
+            if (file_exists($file)) {
+                @unlink($file);
+            }
         }
     }
 
     protected function tearDown(): void
     {
-        if (file_exists($this->lockFile)) {
-            unlink($this->lockFile);
+        foreach ($this->lockFiles as $file) {
+            if (file_exists($file)) {
+                @unlink($file);
+            }
         }
         parent::tearDown();
     }
@@ -34,10 +42,13 @@ class InstallerTest extends TestCase
     public static function tearDownAfterClass(): void
     {
         // Re-lock the application after running installer tests so production lock remains active
-        file_put_contents(storage_path('installed'), json_encode([
+        $data = json_encode([
             'installed_at' => date('c'),
             'version' => '1.0.0',
-        ]));
+        ]);
+        @file_put_contents(base_path('install.lock'), $data);
+        @file_put_contents(storage_path('install.lock'), $data);
+        @file_put_contents(storage_path('installed'), $data);
         parent::tearDownAfterClass();
     }
 
@@ -123,20 +134,20 @@ class InstallerTest extends TestCase
 
     public function test_complete_screen_creates_lock_file(): void
     {
-        $this->assertFalse(file_exists($this->lockFile));
+        $this->assertFalse(file_exists(base_path('install.lock')));
 
         $response = $this->get('/install/complete');
         $response->assertStatus(200);
         $response->assertSee('Setup Successfully Completed');
-        $response->assertSee('storage/installed active');
+        $response->assertSee('install.lock active');
 
-        $this->assertTrue(file_exists($this->lockFile));
+        $this->assertTrue(file_exists(base_path('install.lock')));
     }
 
     public function test_subsequent_visits_show_already_installed_when_locked(): void
     {
         // Lock the application
-        file_put_contents($this->lockFile, json_encode(['installed_at' => now()->toIso8601String()]));
+        file_put_contents(base_path('install.lock'), json_encode(['installed_at' => now()->toIso8601String()]));
 
         $response = $this->get('/install');
         $response->assertStatus(200);
@@ -147,19 +158,26 @@ class InstallerTest extends TestCase
 
     public function test_cli_reset_install_command(): void
     {
-        file_put_contents($this->lockFile, 'locked');
-        $this->assertTrue(file_exists($this->lockFile));
+        file_put_contents(base_path('install.lock'), 'locked');
+        $this->assertTrue(file_exists(base_path('install.lock')));
 
         $this->artisan('app:reset-install', ['--force' => true])
             ->assertSuccessful();
 
-        $this->assertFalse(file_exists($this->lockFile));
+        $this->assertFalse(file_exists(base_path('install.lock')));
     }
 
     public function test_automatically_redirects_to_installer_when_env_file_is_missing(): void
     {
         app()->instance('test_missing_env_redirect', true);
 
+        $response = $this->get('/');
+        $response->assertRedirect('/install');
+    }
+
+    public function test_automatically_redirects_to_installer_when_lock_file_is_missing(): void
+    {
+        // lockFiles are unlinked in setUp
         $response = $this->get('/');
         $response->assertRedirect('/install');
     }

@@ -62,6 +62,18 @@
             top: 0; left: 0;
             background-color: #fff;
             z-index: 99999;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            animation: autoDismissLoader 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        #loading.loaded {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            display: none !important;
+        }
+        @keyframes autoDismissLoader {
+            0%, 75% { opacity: 1; visibility: visible; }
+            100%    { opacity: 0; visibility: hidden; pointer-events: none; }
         }
         .loading-bars {
             display: flex; gap: 5px;
@@ -102,7 +114,9 @@
             padding: 0 16px;
             height: 52px;
             width: 100%;
-            gap: 12px;
+            gap: 16px;
+            box-sizing: border-box;
+            overflow: visible;
         }
 
         .admin-brand-left {
@@ -110,10 +124,11 @@
             align-items: center;
             gap: 10px;
             flex-shrink: 0;
+            z-index: 2;
         }
 
         .admin-drawer-toggle {
-            display: none;
+            display: none !important;
             background: #f1f5f9;
             border: 1px solid #cbd5e1;
             color: #334155;
@@ -122,6 +137,9 @@
             font-size: 14px;
             cursor: pointer;
             transition: all 0.2s;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
         }
         .admin-drawer-toggle:hover {
             background: #e2e8f0;
@@ -129,7 +147,7 @@
         }
 
         .admin-brand-link {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
             text-decoration: none !important;
@@ -144,18 +162,37 @@
             width: auto;
             object-fit: contain;
         }
+        .admin-brand-text {
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: -0.2px;
+        }
         .admin-brand-badge {
             background: #e0f2fe;
             color: #0369a1;
             font-size: 10px;
             font-weight: 700;
-            padding: 2px 6px;
+            padding: 2px 7px;
             border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            white-space: nowrap;
+            display: inline-block;
+            line-height: 1.3;
         }
 
-        /* Desktop Nav Items (>= 1200px) */
+        /* ── Right-Side Group: All Menus + Actions ── */
+        .admin-nav-right-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+            flex-shrink: 0;
+            overflow: visible;
+        }
+
+        /* Desktop Nav Items */
         .admin-desktop-nav {
             display: flex;
             align-items: center;
@@ -164,6 +201,11 @@
             padding: 0;
             gap: 2px;
             flex-wrap: nowrap;
+        }
+
+        .admin-desktop-nav > li {
+            position: relative;
+            margin: 0;
         }
 
         .admin-desktop-nav > li > a {
@@ -179,6 +221,19 @@
             white-space: nowrap;
             transition: background-color 0.15s, color 0.15s;
             line-height: 1.3;
+            height: 34px;
+            box-sizing: border-box;
+        }
+
+        .admin-desktop-nav > li > a i {
+            font-size: 12.5px;
+            opacity: 0.85;
+        }
+
+        .admin-desktop-nav > li > a .caret {
+            margin-left: 2px;
+            opacity: 0.65;
+            transition: transform 0.2s;
         }
 
         .admin-desktop-nav > li > a:hover,
@@ -187,10 +242,30 @@
             color: #0f172a !important;
         }
 
+        .admin-desktop-nav > li.open > a .caret {
+            opacity: 1;
+        }
+
         .admin-desktop-nav > li.active > a {
             background: #e2e8f0 !important;
             color: #0f172a !important;
             font-weight: 600;
+        }
+
+        /* Hover dropdown trigger on desktop */
+        @media (min-width: 1200px) {
+            .admin-desktop-nav > li.dropdown:hover > .dropdown-menu {
+                display: block;
+            }
+        }
+
+        /* Subtle Vertical Divider */
+        .admin-nav-sep {
+            width: 1px;
+            height: 22px;
+            background: #e2e8f0;
+            margin: 0 4px;
+            flex-shrink: 0;
         }
 
         /* Right Utilities (View Store, Settings, Profile) */
@@ -199,7 +274,6 @@
             align-items: center;
             gap: 8px;
             flex-shrink: 0;
-            margin-left: auto;
         }
 
         .admin-nav-util-btn {
@@ -371,7 +445,23 @@
         .drawer-nav-list > li {
             margin-bottom: 2px;
         }
-        .drawer-nav-list > li > a,
+        .drawer-nav-list > li > a {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 12px;
+            width: 100%;
+            padding: 11px 14px;
+            font-size: 13.5px;
+            color: #334155;
+            font-weight: 500;
+            text-decoration: none !important;
+            border-radius: 6px;
+            background: none;
+            border: none;
+            text-align: left;
+            transition: background 0.15s, color 0.15s;
+        }
         .drawer-accordion-btn {
             display: flex;
             align-items: center;
@@ -386,17 +476,42 @@
             background: none;
             border: none;
             text-align: left;
-            transition: background 0.15s;
+            transition: background 0.15s, color 0.15s;
+            cursor: pointer;
+        }
+        .drawer-nav-list > li > a > span,
+        .drawer-accordion-btn > span {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .drawer-nav-list > li > a i,
+        .drawer-accordion-btn > span i {
+            width: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #64748b;
+            flex-shrink: 0;
+            transition: color 0.15s;
         }
         .drawer-nav-list > li > a:hover,
         .drawer-accordion-btn:hover {
             background: #f1f5f9;
             color: #0f172a;
         }
+        .drawer-nav-list > li > a:hover i,
+        .drawer-accordion-btn:hover > span i,
+        .drawer-nav-list > li.active > a i {
+            color: var(--admin-primary);
+        }
         .drawer-nav-list > li.active > a {
             background: #e2e8f0;
             color: #0f172a;
             font-weight: 600;
+        }
+        .drawer-nav-list > li > a[style*="ef4444"] i,
+        .drawer-nav-list > li > a[style*="ef4444"]:hover i {
+            color: #ef4444 !important;
         }
         .drawer-sub-menu {
             list-style: none;
@@ -405,12 +520,23 @@
             border-left: 2px solid #e2e8f0;
         }
         .drawer-sub-menu li a {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             padding: 8px 14px;
             font-size: 12.5px;
             color: #64748b;
             text-decoration: none !important;
             border-radius: 4px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .drawer-sub-menu li a i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            flex-shrink: 0;
+            transition: color 0.15s;
         }
         .drawer-sub-menu li a:hover,
         .drawer-sub-menu li.active a {
@@ -418,21 +544,28 @@
             background: #f1f5f9;
             font-weight: 600;
         }
+        .drawer-sub-menu li a:hover i,
+        .drawer-sub-menu li.active a i {
+            color: var(--admin-primary);
+        }
 
         /* Responsive Breakpoints */
-        @media (max-width: 1199px) and (min-width: 992px) {
-            .admin-nav-container { padding: 0 10px; gap: 6px; }
+        @media (max-width: 1366px) and (min-width: 1200px) {
+            .admin-nav-container { padding: 0 10px; gap: 8px; }
+            .admin-nav-right-group { gap: 6px; }
             .admin-desktop-nav { gap: 1px; }
             .admin-desktop-nav > li > a { padding: 5px 6.5px; font-size: 11.5px; gap: 4px; }
             .admin-user-name { max-width: 75px; }
             .util-btn-text { display: none; }
         }
 
-        @media (max-width: 991px) {
-            .admin-desktop-nav { display: none !important; }
+        @media (max-width: 1199px) {
+            .admin-nav-container { padding: 0 12px; }
             .admin-drawer-toggle { display: inline-flex !important; }
-            .admin-user-name { display: none; }
-            .util-btn-text { display: none; }
+            .admin-desktop-nav { display: none !important; }
+            .admin-nav-sep { display: none !important; }
+            .admin-user-name { display: none !important; }
+            .util-btn-text { display: none !important; }
         }
 
         /* ── Universal Media Card Styling (Used Globally) ── */
@@ -793,6 +926,25 @@
         <span></span><span></span><span></span><span></span><span></span>
     </div>
 </div>
+<script>
+    (function () {
+        function hideLoadingOverlay() {
+            var el = document.getElementById('loading');
+            if (el) {
+                el.classList.add('loaded');
+                el.style.opacity = '0';
+                setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, 150);
+            }
+        }
+        if (document.readyState === 'interactive' || document.readyState === 'complete') {
+            setTimeout(hideLoadingOverlay, 50);
+        } else {
+            document.addEventListener('DOMContentLoaded', hideLoadingOverlay);
+            window.addEventListener('load', hideLoadingOverlay);
+        }
+        setTimeout(hideLoadingOverlay, 500);
+    })();
+</script>
 
 {{-- ── GLOBAL NAVBAR ── --}}
 <nav class="navbar navbar-fixed-top admin-navbar">
@@ -807,156 +959,154 @@
                 @if($siteLogo)
                     <img src="{{ $siteLogo }}" alt="{{ $siteName }}" class="admin-brand-logo">
                 @endif
-                <span>{{ $siteName }}</span>
+                <span class="admin-brand-text">{{ $siteName }}</span>
                 <span class="admin-brand-badge">Admin</span>
             </a>
         </div>
 
-        {{-- Desktop Navigation (>= 1200px) --}}
-        <ul class="admin-desktop-nav">
-            <li class="{{ $seg === 'dashboard' ? 'active' : '' }}">
-                <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-            </li>
+        {{-- Right: Navigation Menus + Utilities --}}
+        <div class="admin-nav-right-group">
 
-            <li class="dropdown {{ in_array($seg, ['orders','tasks','cancellations-returns']) ? 'active' : '' }}">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-shopping-cart"></i> Orders <span class="caret"></span>
+            {{-- Desktop Navigation Menus (>= 992px) --}}
+            <ul class="admin-desktop-nav">
+                <li class="{{ $seg === 'dashboard' ? 'active' : '' }}">
+                    <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                </li>
+
+                <li class="dropdown {{ in_array($seg, ['orders','tasks','cancellations-returns']) ? 'active' : '' }}">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-shopping-cart"></i> Orders <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li class="{{ $seg === 'orders' ? 'active' : '' }}">
+                            <a href="{{ url('admin/orders') }}"><i class="fas fa-list"></i> Order Management</a>
+                        </li>
+                        <li class="{{ $seg === 'cancellations-returns' ? 'active' : '' }}">
+                            <a href="{{ url('admin/cancellations-returns') }}"><i class="fas fa-undo"></i> Cancellations &amp; Returns</a>
+                        </li>
+                        <li class="{{ $seg === 'tasks' ? 'active' : '' }}">
+                            <a href="{{ url('admin/tasks') }}"><i class="fas fa-tasks"></i> Operational Tasks</a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li class="dropdown {{ in_array($seg, ['categories', 'products', 'inventory', 'providers', 'reviews']) ? 'active' : '' }}">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-box"></i> Products <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li class="{{ $seg === 'products' ? 'active' : '' }}">
+                            <a href="{{ url('admin/products') }}"><i class="fas fa-box-open"></i> All Products</a>
+                        </li>
+                        <li class="{{ $seg === 'inventory' ? 'active' : '' }}">
+                            <a href="{{ route('admin.inventory.index') }}"><i class="fas fa-warehouse"></i> Inventory &amp; Stock Ledger</a>
+                        </li>
+                        <li class="{{ $seg === 'categories' ? 'active' : '' }}">
+                            <a href="{{ url('admin/categories') }}"><i class="fas fa-folder"></i> Categories</a>
+                        </li>
+                        <li class="{{ $seg === 'providers' ? 'active' : '' }}">
+                            <a href="{{ url('admin/providers') }}"><i class="fas fa-truck"></i> Providers</a>
+                        </li>
+                        <li class="{{ $seg === 'reviews' ? 'active' : '' }}">
+                            <a href="{{ route('admin.reviews.index') }}"><i class="fas fa-star"></i> Product Reviews</a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li class="dropdown {{ in_array($seg, ['appearance', 'files', 'banners', 'navigation']) ? 'active' : '' }}">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-paint-brush"></i> Appearance <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li class="{{ request()->is('admin/appearance/theme*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.appearance.theme.index') }}"><i class="fas fa-palette text-info"></i> Theme Customizer</a>
+                        </li>
+                        <li class="{{ request()->is('admin/appearance/files*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.appearance.files.index') }}"><i class="fas fa-photo-video text-primary"></i> Files &amp; Media Library</a>
+                        </li>
+                        <li class="{{ $seg === 'banners' ? 'active' : '' }}">
+                            <a href="{{ url('admin/banners') }}"><i class="fas fa-image text-success"></i> Store Banners</a>
+                        </li>
+                        <li class="{{ request()->is('admin/appearance/sections*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.appearance.sections.index') }}"><i class="fas fa-layer-group text-warning"></i> Home Sections</a>
+                        </li>
+                        <li class="{{ request()->is('admin/appearance/footer*') ? 'active' : '' }}">
+                            <a href="{{ route('admin.appearance.footer.index') }}"><i class="fas fa-shoe-prints text-muted"></i> Footer Settings</a>
+                        </li>
+                        <li class="{{ $seg === 'navigation' ? 'active' : '' }}">
+                            <a href="{{ route('admin.navigation.index') }}"><i class="fas fa-compass"></i> Storefront Nav Bar</a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li class="{{ $seg === 'payments' ? 'active' : '' }}">
+                    <a href="{{ route('admin.payments.index') }}">
+                        <i class="fas fa-credit-card"></i> Payments
+                    </a>
+                </li>
+
+                <li class="dropdown {{ $seg === 'users' ? 'active' : '' }}">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-users"></i> Users <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-right">
+                        <li><a href="{{ route('admin.users.index') }}"><i class="fas fa-users text-primary"></i> All Users &amp; Admins</a></li>
+                        <li><a href="{{ route('admin.users.index', ['role' => 'customers']) }}"><i class="fas fa-user text-info"></i> Customers</a></li>
+                        <li><a href="{{ route('admin.users.index', ['role' => 'admins']) }}"><i class="fas fa-shield-alt" style="color:#9333ea;"></i> Administrators</a></li>
+                    </ul>
+                </li>
+
+                <li class="dropdown {{ in_array($seg, ['support','reports','broadcasts','coupons','bonuses','logs']) ? 'active' : '' }}">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fas fa-ellipsis-h"></i> More <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-right">
+                        <li><a href="{{ url('admin/support') }}"><i class="fas fa-headset text-info"></i> Support Tickets</a></li>
+                        <li class="divider"></li>
+                        <li><a href="{{ url('admin/reports') }}"><i class="fas fa-chart-bar"></i> Sales Reports</a></li>
+                        <li><a href="{{ url('admin/broadcasts') }}"><i class="fas fa-bullhorn"></i> Broadcasts</a></li>
+                        <li><a href="{{ url('admin/coupons') }}"><i class="fas fa-ticket-alt"></i> Discount Coupons</a></li>
+                        <li><a href="{{ url('admin/bonuses') }}"><i class="fas fa-gift"></i> Bonuses</a></li>
+                        <li><a href="{{ url('admin/logs') }}"><i class="fas fa-clipboard-list"></i> Activity Logs</a></li>
+                    </ul>
+                </li>
+            </ul>
+
+            {{-- Subtle Vertical Divider between Navigation and Utilities --}}
+            <div class="admin-nav-sep" aria-hidden="true"></div>
+
+            {{-- Right Utilities: Store Preview, Settings, User Profile --}}
+            <div class="admin-nav-right">
+                <a href="{{ url('/') }}" target="_blank" class="admin-nav-util-btn" title="View Storefront">
+                    <i class="fas fa-external-link-alt"></i> <span class="util-btn-text">Store</span>
                 </a>
-                <ul class="dropdown-menu">
-                    <li class="{{ $seg === 'orders' ? 'active' : '' }}">
-                        <a href="{{ url('admin/orders') }}"><i class="fas fa-list"></i> Order Management</a>
-                    </li>
-                    <li class="{{ $seg === 'cancellations-returns' ? 'active' : '' }}">
-                        <a href="{{ url('admin/cancellations-returns') }}"><i class="fas fa-undo"></i> Cancellations &amp; Returns</a>
-                    </li>
-                    <li class="{{ $seg === 'tasks' ? 'active' : '' }}">
-                        <a href="{{ url('admin/tasks') }}"><i class="fas fa-tasks"></i> Operational Tasks</a>
-                    </li>
-                </ul>
-            </li>
 
-            <li class="dropdown {{ in_array($seg, ['categories', 'products', 'inventory', 'providers', 'reviews']) ? 'active' : '' }}">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-box"></i> Products <span class="caret"></span>
+                <a href="{{ url('admin/settings') }}" class="admin-nav-util-btn {{ $seg === 'settings' ? 'active' : '' }}" title="Store Settings">
+                    <i class="fas fa-cog"></i>
                 </a>
-                <ul class="dropdown-menu">
-                    <li class="{{ $seg === 'products' ? 'active' : '' }}">
-                        <a href="{{ url('admin/products') }}"><i class="fas fa-box-open"></i> All Products</a>
-                    </li>
-                    <li class="{{ $seg === 'inventory' ? 'active' : '' }}">
-                        <a href="{{ route('admin.inventory.index') }}"><i class="fas fa-warehouse"></i> Inventory &amp; Stock Ledger</a>
-                    </li>
-                    <li class="{{ $seg === 'categories' ? 'active' : '' }}">
-                        <a href="{{ url('admin/categories') }}"><i class="fas fa-folder"></i> Categories</a>
-                    </li>
-                    <li class="{{ $seg === 'providers' ? 'active' : '' }}">
-                        <a href="{{ url('admin/providers') }}"><i class="fas fa-truck"></i> Providers</a>
-                    </li>
-                    <li class="{{ $seg === 'reviews' ? 'active' : '' }}">
-                        <a href="{{ route('admin.reviews.index') }}"><i class="fas fa-star"></i> Product Reviews</a>
-                    </li>
-                </ul>
-            </li>
 
-            <li class="dropdown {{ in_array($seg, ['appearance', 'files', 'banners', 'navigation']) ? 'active' : '' }}">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-paint-brush"></i> Appearance <span class="caret"></span>
-                </a>
-                <ul class="dropdown-menu">
-                    <li class="{{ request()->is('admin/appearance/theme*') ? 'active' : '' }}">
-                        <a href="{{ route('admin.appearance.theme.index') }}"><i class="fas fa-palette text-info"></i> Theme Customizer</a>
-                    </li>
-                    <li class="{{ request()->is('admin/appearance/files*') ? 'active' : '' }}">
-                        <a href="{{ route('admin.appearance.files.index') }}"><i class="fas fa-photo-video text-primary"></i> Files &amp; Media Library</a>
-                    </li>
-                    <li class="{{ $seg === 'banners' ? 'active' : '' }}">
-                        <a href="{{ url('admin/banners') }}"><i class="fas fa-image text-success"></i> Store Banners</a>
-                    </li>
-                    <li class="{{ request()->is('admin/appearance/sections*') ? 'active' : '' }}">
-                        <a href="{{ route('admin.appearance.sections.index') }}"><i class="fas fa-layer-group text-warning"></i> Home Sections</a>
-                    </li>
-                    <li class="{{ request()->is('admin/appearance/footer*') ? 'active' : '' }}">
-                        <a href="{{ route('admin.appearance.footer.index') }}"><i class="fas fa-shoe-prints text-muted"></i> Footer Settings</a>
-                    </li>
-                    <li class="{{ $seg === 'navigation' ? 'active' : '' }}">
-                        <a href="{{ route('admin.navigation.index') }}"><i class="fas fa-compass"></i> Storefront Nav Bar</a>
-                    </li>
-                </ul>
-            </li>
-
-            <li class="dropdown {{ in_array($seg, ['invoices', 'templates', 'payments']) ? 'active' : '' }}">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-file-invoice-dollar"></i> Finance <span class="caret"></span>
-                </a>
-                <ul class="dropdown-menu">
-                    <li class="{{ $seg === 'invoices' ? 'active' : '' }}">
-                        <a href="{{ route('admin.invoices.index') }}"><i class="fas fa-list-alt"></i> All Invoices</a>
-                    </li>
-                    <li class="{{ $seg === 'templates' ? 'active' : '' }}">
-                        <a href="{{ route('admin.templates.index') }}"><i class="fas fa-palette"></i> Invoice Templates</a>
-                    </li>
-                    <li class="divider"></li>
-                    <li class="{{ $seg === 'payments' ? 'active' : '' }}">
-                        <a href="{{ route('admin.payments.index') }}"><i class="fas fa-credit-card"></i> Payment Gateways</a>
-                    </li>
-                </ul>
-            </li>
-
-            <li class="dropdown {{ $seg === 'users' ? 'active' : '' }}">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-users"></i> Users <span class="caret"></span>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a href="{{ url('admin/users') }}"><i class="fas fa-user"></i> All Users &amp; Admins</a></li>
-                </ul>
-            </li>
-
-            <li class="dropdown {{ in_array($seg, ['support','reports','broadcasts','coupons','bonuses','logs']) ? 'active' : '' }}">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-                    <i class="fas fa-ellipsis-h"></i> More <span class="caret"></span>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-right">
-                    <li><a href="{{ url('admin/support') }}"><i class="fas fa-headset text-info"></i> Support Tickets</a></li>
-                    <li class="divider"></li>
-                    <li><a href="{{ url('admin/reports') }}"><i class="fas fa-chart-bar"></i> Sales Reports</a></li>
-                    <li><a href="{{ url('admin/broadcasts') }}"><i class="fas fa-bullhorn"></i> Broadcasts</a></li>
-                    <li><a href="{{ url('admin/coupons') }}"><i class="fas fa-ticket-alt"></i> Discount Coupons</a></li>
-                    <li><a href="{{ url('admin/bonuses') }}"><i class="fas fa-gift"></i> Bonuses</a></li>
-                    <li><a href="{{ url('admin/logs') }}"><i class="fas fa-clipboard-list"></i> Activity Logs</a></li>
-                </ul>
-            </li>
-        </ul>
-
-        {{-- Right Utilities: Store Preview, Settings, User Profile --}}
-        <div class="admin-nav-right">
-            <a href="{{ url('/') }}" target="_blank" class="admin-nav-util-btn" title="View Storefront">
-                <i class="fas fa-external-link-alt"></i> <span class="util-btn-text">Store</span>
-            </a>
-
-            <a href="{{ url('admin/settings') }}" class="admin-nav-util-btn {{ $seg === 'settings' ? 'active' : '' }}" title="Store Settings">
-                <i class="fas fa-cog"></i>
-            </a>
-
-            <div class="dropdown admin-user-dropdown">
-                <a href="#" class="dropdown-toggle admin-user-btn" data-toggle="dropdown">
-                    <span class="admin-user-avatar"><i class="fas fa-user"></i></span>
-                    <span class="admin-user-name">{{ Str::limit(auth()->user()->name ?? 'Admin', 12) }}</span>
-                    <span class="caret"></span>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-right">
-                    <li><a href="{{ url('admin/account') }}"><i class="fas fa-user-circle"></i> Profile &amp; Account</a></li>
-                    <li><a href="{{ url('admin/settings') }}"><i class="fas fa-sliders-h"></i> System Settings</a></li>
-                    <li class="divider"></li>
-                    <li>
-                        <a href="#" id="nav-logout-btn" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();" class="text-danger" title="Sign out of Admin Panel">
-                            <i class="fas fa-sign-out-alt"></i> Sign Out
-                        </a>
-                    </li>
-                </ul>
-                <form id="nav-logout-form" method="POST" action="{{ route('admin.logout') }}" style="display:none;">
-                    @csrf
-                </form>
+                <div class="dropdown admin-user-dropdown">
+                    <a href="#" class="dropdown-toggle admin-user-btn" data-toggle="dropdown">
+                        <span class="admin-user-avatar"><i class="fas fa-user"></i></span>
+                        <span class="admin-user-name">{{ Str::limit(auth()->user()->name ?? 'Admin', 12) }}</span>
+                        <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-right">
+                        <li><a href="{{ url('admin/account') }}"><i class="fas fa-user-circle"></i> Profile &amp; Account</a></li>
+                        <li><a href="{{ url('admin/settings') }}"><i class="fas fa-sliders-h"></i> System Settings</a></li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#" id="nav-logout-btn" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();" class="text-danger" title="Sign out of Admin Panel">
+                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                            </a>
+                        </li>
+                    </ul>
+                    <form id="nav-logout-form" method="POST" action="{{ route('admin.logout') }}" style="display:none;">
+                        @csrf
+                    </form>
+                </div>
             </div>
+
         </div>
 
     </div>
@@ -975,7 +1125,7 @@
     <div class="drawer-body">
         <ul class="drawer-nav-list">
             <li class="{{ $seg === 'dashboard' ? 'active' : '' }}">
-                <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="{{ route('admin.dashboard') }}"><span><i class="fas fa-tachometer-alt"></i> Dashboard</span></a>
             </li>
 
             <li>
@@ -999,7 +1149,7 @@
             </li>
 
             <li class="{{ $seg === 'support' ? 'active' : '' }}">
-                <a href="{{ url('admin/support') }}"><i class="fas fa-headset"></i> Support Tickets</a>
+                <a href="{{ url('admin/support') }}"><span><i class="fas fa-headset"></i> Support Tickets</span></a>
             </li>
 
             <li>
@@ -1030,18 +1180,10 @@
             </li>
 
             <li class="{{ $seg === 'payments' ? 'active' : '' }}">
-                <a href="{{ route('admin.payments.index') }}"><i class="fas fa-credit-card"></i> Payments</a>
+                <a href="{{ route('admin.payments.index') }}"><span><i class="fas fa-credit-card"></i> Payments</span></a>
             </li>
 
-            <li>
-                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('invoices-sub')">
-                    <span><i class="fas fa-file-invoice-dollar"></i> Invoices</span> <i class="fas fa-chevron-down" style="font-size:10px;"></i>
-                </button>
-                <ul class="drawer-sub-menu" id="invoices-sub" style="display:none;">
-                    <li><a href="{{ route('admin.invoices.index') }}"><i class="fas fa-list-alt"></i> All Invoices</a></li>
-                    <li><a href="{{ route('admin.templates.index') }}"><i class="fas fa-palette"></i> Templates</a></li>
-                </ul>
-            </li>
+
 
             <li>
                 <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('more-sub')">
@@ -1056,17 +1198,21 @@
                 </ul>
             </li>
 
+            <li class="{{ $seg === 'users' ? 'active' : '' }}">
+                <a href="{{ route('admin.users.index') }}"><span><i class="fas fa-users"></i> Users &amp; Admins</span></a>
+            </li>
+
             <li class="{{ $seg === 'settings' ? 'active' : '' }}">
-                <a href="{{ url('admin/settings') }}"><i class="fas fa-cog"></i> Settings</a>
+                <a href="{{ url('admin/settings') }}"><span><i class="fas fa-cog"></i> Settings</span></a>
             </li>
 
             <li class="{{ $seg === 'account' ? 'active' : '' }}">
-                <a href="{{ url('admin/account') }}"><i class="fas fa-user-circle"></i> {{ auth()->user()->name ?? 'Account' }}</a>
+                <a href="{{ url('admin/account') }}"><span><i class="fas fa-user-circle"></i> {{ auth()->user()->name ?? 'Account' }}</span></a>
             </li>
 
             <li>
                 <a href="#" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();" style="color:#ef4444 !important;">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                    <span><i class="fas fa-sign-out-alt"></i> Logout</span>
                 </a>
             </li>
         </ul>
@@ -1170,15 +1316,20 @@
 
     /* Instant Interactive Page Reveal */
     function dismissLoadingScreen() {
-        $('#loading').fadeOut(120);
+        var el = document.getElementById('loading');
+        if (el) {
+            el.classList.add('loaded');
+            el.style.opacity = '0';
+            setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, 150);
+        }
     }
     if (document.readyState === 'interactive' || document.readyState === 'complete') {
         dismissLoadingScreen();
     } else {
         document.addEventListener('DOMContentLoaded', dismissLoadingScreen);
-        $(window).on('load', dismissLoadingScreen);
+        window.addEventListener('load', dismissLoadingScreen);
     }
-    setTimeout(dismissLoadingScreen, 600);
+    setTimeout(dismissLoadingScreen, 250);
 
     /* Logout button */
     document.getElementById('nav-logout-btn')?.addEventListener('click', function (e) {

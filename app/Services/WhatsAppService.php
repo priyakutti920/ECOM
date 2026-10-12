@@ -2,147 +2,652 @@
 
 namespace App\Services;
 
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\StoreSetting;
+use App\Models\WaMessageLog;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class WhatsAppService
 {
+    private const TEMPLATE_NAME = 'order_notify';
+    private const MESSAGE_ID = '24059';
+    private const FAST2SMS_API_URL = 'https://www.fast2sms.com/dev/whatsapp';
+
     /**
-     * Build standard, well-structured order summary message for WhatsApp.
+     * Resolve Fast2SMS WhatsApp credentials purely from .env / config('services.whatsapp').
      */
-    public function buildOrderMessage(Order $order): string
+    public static function resolveCredentials(): array
     {
+        $authKey = config('services.whatsapp.fast2sms_auth_key') ?: env('WA_FAST2SMS_AUTH_KEY', env('FAST2SMS_DEV_AUTH_KEY', ''));
+        $phoneId = config('services.whatsapp.phone_number_id') ?: env('WA_PHONE_NUMBER_ID', '');
+        $adminPhone = self::getAdminPhone();
+
+        return [
+            trim((string) $authKey),
+            trim((string) $phoneId),
+            trim((string) $adminPhone),
+        ];
+    }
+
+    public static function getAdminPhone(): string
+    {
+        $dbPhone = StoreSetting::getValue('wa_admin_phone');
+        if (!empty($dbPhone)) {
+            return trim((string) $dbPhone);
+        }
+
+        return trim((string) (config('services.whatsapp.admin_phone') ?: env('WA_ADMIN_PHONE', '')));
+    }
+
+    public static function getSenderNumber(): string
+    {
+        return trim((string) (config('services.whatsapp.sender_number') ?: env('WA_SENDER_NUMBER', '')));
+    }
+
+    public static function isDisabled(): bool
+    {
+        return (bool) (config('services.whatsapp.engine_disabled') || env('WA_ENGINE_DISABLED', false));
+    }
+
+    public static function isCustomerNotifyEnabled(): bool
+    {
+        return (bool) (config('services.whatsapp.customer_notify_enabled') || env('WA_CUSTOMER_NOTIFY_ENABLED', false));
+    }
+
+    /**
+     * Normalize phone number to 12 digits (with country code 91 for India by default).
+     */
+    public static function normalizePhone(?string $raw): string
+    {
+        return StoreSetting::normalizePhoneNumber($raw);
+    }
+
+    /**
+     * Send order notification to admin via Fast2SMS WhatsApp API.
+     */
+    public static function sendOrderNotificationToAdmin(Order|Invoice|array $order, string $source = 'checkout'): bool
+    {
+        if (self::isDisabled()) {
+            Log::info("WhatsAppService: Engine is disabled via config or settings.");
+            return false;
+        }
+
+        $orderData = self::normalizeOrderData($order);
+        if (empty($orderData)) {
+            return false;
+        }
+
+        [$authKey, $phoneId, $adminPhone] = self::resolveCredentials();
+
+        if (empty($adminPhone) || empty($authKey) || empty($phoneId)) {
+            Log::warning("WhatsAppService: Missing admin phone or Fast2SMS credentials.");
+            return false;
+        }
+
+        $normalizedPhone = self::normalizePhone($adminPhone);
+        if (strlen($normalizedPhone) < 10) {
+            Log::warning("WhatsAppService: Invalid admin phone number: {$adminPhone}");
+            return false;
+        }
+
+        // Wallet balance check and deduction (Rs 0.50)
+        $cost = WaWalletService::getCostPerMessage();
+        if (WaWalletService::canDeduct($cost)) {
+            WaWalletService::deduct($cost, "Admin WhatsApp notification for #{$orderData['order_code']}", $orderData['order_code']);
+        }
+
+        $orderId = str_replace(['|', "\n"], ['-', ' '], $orderData['order_code']);
+        $customerName = str_replace(['|', "\n"], ['-', ' '], $orderData['customer_name'] ?: 'Customer');
+        $customerMobile = str_replace(['|', "\n"], ['-', ' '], $orderData['customer_phone'] ?: '');
+        $amountStr = 'Rs.' . number_format((float) ($orderData['total_amount'] ?? 0), 2);
+
         $storeName = StoreSetting::getStoreName();
-        $currency = StoreSetting::getCurrencySymbol();
+        $adminName = str_replace(['|', "\n"], ['-', ' | '], $storeName);
 
-        $lines = [];
-        $lines[] = "🛍️ *New Order Confirmation — {$storeName}*";
-        $lines[] = "─────────────────────────";
-        $lines[] = "👤 *Customer:* {$order->contact_name}";
-        $lines[] = "📦 *Order ID:* #{$order->order_code}";
-        $lines[] = "📅 *Date:* " . $order->created_at->format('d M Y, h:i A');
-        $lines[] = "💳 *Payment:* " . strtoupper($order->payment_method) . " (" . ucfirst($order->payment_status) . ")";
-        $lines[] = "🚚 *Order Status:* " . ucfirst($order->status);
-        $lines[] = "─────────────────────────";
-        $lines[] = "*Ordered Items:*";
+        $variables = implode('|', [
+            $adminName, $orderId, $customerName, $customerMobile, $amountStr,
+        ]);
 
-        foreach ($order->items as $i => $item) {
-            $desc = $item->full_description;
-            $lineTotal = number_format($item->line_total, 2);
-            $lines[] = ($i + 1) . ". {$desc} × {$item->quantity} = {$currency}{$lineTotal}";
+        $pdfUrl = self::savePdfToStorage($orderData);
+
+        $payload = [
+            'authorization' => $authKey,
+            'message_id' => self::MESSAGE_ID,
+            'phone_number_id' => $phoneId,
+            'numbers' => $normalizedPhone,
+            'variables_values' => $variables,
+            'media_url' => $pdfUrl ?: '',
+            'document_filename' => 'invoice_' . $orderId . '.pdf',
+        ];
+
+        $response = self::callFast2SmsApi($payload);
+        $ok = self::isSuccess($response);
+
+        WaMessageLog::createLog([
+            'telephone' => $normalizedPhone,
+            'template_name' => self::TEMPLATE_NAME,
+            'order_id' => $orderData['id'] ?? null,
+            'invoice_id' => $orderData['invoice_id'] ?? null,
+            'status' => $ok ? 'success' : 'failed',
+            'source' => $source,
+            'response_body' => $response,
+        ]);
+
+        if ($ok) {
+            Log::info("WhatsAppService: Admin notification sent successfully for #{$orderId}");
+        } else {
+            Log::warning("WhatsAppService: Failed to send admin notification for #{$orderId}: " . json_encode($response));
         }
 
-        $lines[] = "─────────────────────────";
-        $lines[] = "*Subtotal:* {$currency}" . number_format($order->subtotal, 2);
-        if ($order->discount > 0) {
-            $lines[] = "*Discount:* -{$currency}" . number_format($order->discount, 2);
-        }
-        $lines[] = "*Shipping:* " . ($order->shipping > 0 ? "{$currency}" . number_format($order->shipping, 2) : "FREE");
-        $lines[] = "💰 *Grand Total:* *{$currency}" . number_format($order->total, 2) . "*";
-        $lines[] = "─────────────────────────";
+        return $ok;
+    }
 
-        if ($order->addr_line_1) {
-            $lines[] = "📍 *Shipping Address:*";
-            $lines[] = "{$order->addr_full_name}";
-            $lines[] = "{$order->addr_line_1}" . ($order->addr_line_2 ? ", {$order->addr_line_2}" : "");
-            $lines[] = "{$order->addr_city}, {$order->addr_state} - {$order->addr_pincode}";
-            $lines[] = "📞 Phone: {$order->addr_mobile_primary}";
+    /**
+     * Send payment confirmation / order confirmation to customer.
+     */
+    public static function sendPaymentConfirmationToCustomer(Order|Invoice|array $order, string $source = 'payment_confirm'): bool
+    {
+        if (self::isDisabled()) {
+            return false;
         }
 
-        $lines[] = "";
-        $lines[] = "Track your order here: " . url('/track-order?code=' . $order->order_code);
-        $lines[] = "Thank you for shopping with us! 🙌";
+        $orderData = self::normalizeOrderData($order);
+        if (empty($orderData)) {
+            return false;
+        }
 
-        return implode("\n", $lines);
+        $customerPhone = trim($orderData['customer_phone'] ?? '');
+        if (empty($customerPhone)) {
+            return false;
+        }
+
+        $normalizedPhone = self::normalizePhone($customerPhone);
+        if (strlen($normalizedPhone) < 10) {
+            return false;
+        }
+
+        [$authKey, $phoneId] = self::resolveCredentials();
+        if (empty($authKey) || empty($phoneId)) {
+            return false;
+        }
+
+        // Wallet deduction (Rs 0.50)
+        $cost = WaWalletService::getCostPerMessage();
+        if (WaWalletService::canDeduct($cost)) {
+            WaWalletService::deduct($cost, "Customer WhatsApp confirmation for #{$orderData['order_code']}", $orderData['order_code']);
+        }
+
+        $pdfUrl = self::savePdfToStorage($orderData);
+
+        $storeName = StoreSetting::getStoreName();
+        $orderId = $orderData['order_code'];
+        $customerName = $orderData['customer_name'] ?: 'Customer';
+        $amountStr = 'Rs.' . number_format((float) ($orderData['total_amount'] ?? 0), 2);
+
+        $variables = implode('|', [
+            $storeName, $orderId, $customerName, $normalizedPhone, $amountStr,
+        ]);
+
+        $payload = [
+            'authorization' => $authKey,
+            'message_id' => self::MESSAGE_ID,
+            'phone_number_id' => $phoneId,
+            'numbers' => $normalizedPhone,
+            'variables_values' => $variables,
+            'media_url' => $pdfUrl ?: '',
+            'document_filename' => 'invoice_' . $orderId . '.pdf',
+        ];
+
+        $response = self::callFast2SmsApi($payload);
+        $ok = self::isSuccess($response);
+
+        WaMessageLog::createLog([
+            'telephone' => $normalizedPhone,
+            'template_name' => self::TEMPLATE_NAME,
+            'order_id' => $orderData['id'] ?? null,
+            'invoice_id' => $orderData['invoice_id'] ?? null,
+            'status' => $ok ? 'success' : 'failed',
+            'source' => $source,
+            'response_body' => $response,
+        ]);
+
+        return $ok;
+    }
+
+    /**
+     * General customer WhatsApp message sender.
+     */
+    public static function sendToCustomer(string $phone, string $name, string $orderId, string $amount, string $storeName): bool
+    {
+        if (self::isDisabled()) {
+            return false;
+        }
+
+        [$authKey, $phoneId] = self::resolveCredentials();
+        if (empty($authKey) || empty($phoneId)) {
+            return false;
+        }
+
+        $normalizedPhone = self::normalizePhone($phone);
+        if (strlen($normalizedPhone) < 10) {
+            return false;
+        }
+
+        $variables = implode('|', [
+            $storeName, $orderId, $name, $normalizedPhone, $amount,
+        ]);
+
+        $payload = [
+            'authorization' => $authKey,
+            'message_id' => self::MESSAGE_ID,
+            'phone_number_id' => $phoneId,
+            'numbers' => $normalizedPhone,
+            'variables_values' => $variables,
+        ];
+
+        $response = self::callFast2SmsApi($payload);
+        $ok = self::isSuccess($response);
+
+        WaMessageLog::createLog([
+            'telephone' => $normalizedPhone,
+            'template_name' => self::TEMPLATE_NAME,
+            'order_id' => null,
+            'status' => $ok ? 'success' : 'failed',
+            'source' => 'customer',
+            'response_body' => $response,
+        ]);
+
+        return $ok;
+    }
+
+    /**
+     * Send automated notification on order placement (handles both Fast2SMS and Cloud API).
+     */
+    public function sendAutomatedNotification(Order $order): array
+    {
+        $adminOk = self::sendOrderNotificationToAdmin($order, 'checkout');
+
+        $customerNotify = self::isCustomerNotifyEnabled();
+        $customerOk = false;
+        if ($customerNotify && !empty($order->contact_mobile ?: $order->addr_mobile_primary)) {
+            $customerOk = self::sendPaymentConfirmationToCustomer($order, 'checkout_customer');
+        }
+
+        return [
+            'success' => $adminOk || $customerOk,
+            'admin_notified' => $adminOk,
+            'customer_notified' => $customerOk,
+            'manual_url' => $this->getClickableShareUrl($order),
+        ];
+    }
+
+    /**
+     * Build standard, well-structured order summary message for WhatsApp with Rich Layout & Emojis.
+     */
+    public function buildOrderMessage(Order|Invoice|array $order, ?string $customTrackUrl = null): string
+    {
+        return self::buildPrefilledOrderMessage($order, [], $customTrackUrl);
+    }
+
+    /**
+     * Build formatted WhatsApp order pre-filled message matching exact user specification.
+     */
+    public static function buildPrefilledOrderMessage(Order|Invoice|array $order, array $invoiceData = [], ?string $customTrackUrl = null): string
+    {
+        $data = self::normalizeOrderData($order);
+        $storeName = StoreSetting::getStoreName();
+        $storeAddress = StoreSetting::getValue('address', 'Sivakasi, Tamil Nadu, India');
+        $storePhone = StoreSetting::getValue('whatsapp_number') ?: StoreSetting::getValue('wa_number') ?: StoreSetting::getValue('contact_phone');
+
+        $createdAt = !empty($data['created_at'])
+            ? date('d-m-Y, h:i A', strtotime($data['created_at']))
+            : date('d-m-Y, h:i A');
+
+        $linesText = [];
+        $totalQty = 0;
+        $sNo = 1;
+
+        foreach ($data['items'] as $item) {
+            $name = trim($item['name'] ?? 'Product');
+            $qty = (int) ($item['qty'] ?? 1);
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $lineTotal = (float) ($item['line_total'] ?? ($unitPrice * $qty));
+            $totalQty += $qty;
+
+            $linesText[] = "{$sNo}. {$name} | {$qty} x ₹" . number_format($unitPrice, 2) . " = ₹" . number_format($lineTotal, 2);
+            $sNo++;
+        }
+
+        if (empty($linesText)) {
+            $linesText[] = "1. Products Order | ₹" . number_format((float) ($data['total_amount'] ?? 0), 2);
+            $totalQty = 1;
+        }
+
+        $subtotal = (float) ($data['subtotal'] ?? 0);
+        $discountAmount = (float) ($data['discount'] ?? 0);
+        $otherCharges = (float) ($data['shipping'] ?? 0);
+        $taxAmount = (float) ($data['tax_amount'] ?? 0);
+        $total = (float) ($data['total_amount'] ?? ($subtotal - $discountAmount + $otherCharges + $taxAmount));
+
+        if (empty($customTrackUrl)) {
+            $customTrackUrl = url('/track-order?code=' . urlencode($data['order_code']));
+        }
+
+        $msg = [];
+        $msg[] = "🛍️ *New Order Details*";
+        $msg[] = "📅 *Time:* " . $createdAt;
+        $msg[] = "🔖 *Order ID:* #" . $data['order_code'];
+        $msg[] = "----------------------------------------";
+
+        $msg[] = "🏬 *Shop Details / Store Information*";
+        $msg[] = "*Store:* " . $storeName;
+        if (!empty($storeAddress)) {
+            $msg[] = "*Address:* " . $storeAddress;
+        }
+        if (!empty($storePhone)) {
+            $msg[] = "*Contact:* " . $storePhone;
+        }
+        $msg[] = "----------------------------------------";
+
+        $msg[] = "👤 *Customer Details:*";
+        $msg[] = "*Name:* " . ($data['customer_name'] ?: 'Customer');
+        $msg[] = "*Phone:* " . ($data['customer_phone'] ?: '-');
+        if (!empty($data['customer_email'])) {
+            $msg[] = "*Email:* " . $data['customer_email'];
+        }
+        if (!empty($data['customer_address'])) {
+            $msg[] = "*Address:* " . $data['customer_address'];
+        }
+        $msg[] = "----------------------------------------";
+
+        $msg[] = "📦 *Product Details*";
+        $msg[] = "*S.No | Products | Qty | Amount*";
+        foreach ($linesText as $lineItem) {
+            $msg[] = $lineItem;
+        }
+        $msg[] = "----------------------------------------";
+
+        $msg[] = "📊 *Total Qty & Total Rs*";
+        $msg[] = "*Total Qty:* " . $totalQty;
+        $msg[] = "*Total Rs:* ₹" . number_format($subtotal, 2);
+        $msg[] = "----------------------------------------";
+
+        $msg[] = "💳 *Payment Details*";
+        $msg[] = "*Total Qty:* " . $totalQty;
+        $msg[] = "*Total Value:* ₹" . number_format($subtotal, 2);
+        if ($discountAmount > 0) {
+            $msg[] = "*Discounted Value:* -₹" . number_format($discountAmount, 2);
+        }
+        if ($otherCharges > 0) {
+            $msg[] = "*Extra Charges:* +₹" . number_format($otherCharges, 2);
+        }
+        if ($taxAmount > 0) {
+            $msg[] = "*GST:* +₹" . number_format($taxAmount, 2);
+        }
+        $msg[] = "*Final Value: ₹" . number_format($total, 2) . "*";
+        $msg[] = "----------------------------------------";
+
+        $msg[] = "🚚 *Track Order:*";
+        $msg[] = "🔗 " . $customTrackUrl;
+        $msg[] = "----------------------------------------";
+        $msg[] = "🙏 *Thank you for your order!*";
+
+        return implode("\n", $msg);
     }
 
     /**
      * Generate an instant, clickable WhatsApp URL (wa.me) for web/mobile dispatch.
-     * Can target the customer or the store's WhatsApp number.
      */
-    public function getClickableShareUrl(Order $order, ?string $targetPhone = null): string
+    public function getClickableShareUrl(Order|Invoice|array $order, ?string $targetPhone = null): string
     {
-        $phone = $targetPhone ?: ($order->contact_mobile ?: $order->addr_mobile_primary);
-        // Normalize phone number to digits with country code default (91 for India)
-        $digits = preg_replace('/\D+/', '', (string) $phone);
-        if (strlen($digits) === 10) {
-            $digits = '91' . $digits;
-        }
-
+        $data = self::normalizeOrderData($order);
+        $phone = $targetPhone ?: ($data['customer_phone'] ?? '');
+        $digits = self::normalizePhone($phone);
         $message = $this->buildOrderMessage($order);
 
         if (!empty($digits)) {
-            return 'https://wa.me/' . $digits . '?text=' . urlencode($message);
+            return 'https://wa.me/' . $digits . '?text=' . rawurlencode($message);
         }
 
-        return 'https://wa.me/?text=' . urlencode($message);
+        return 'https://wa.me/?text=' . rawurlencode($message);
     }
 
-    /**
-     * Generate an instant, clickable WhatsApp URL (wa.me) for web/mobile dispatch.
-     * Alias for getClickableShareUrl.
-     */
-    public function getShareUrl(Order $order, ?string $targetPhone = null): string
+    public function getShareUrl(Order|Invoice|array $order, ?string $targetPhone = null): string
     {
         return $this->getClickableShareUrl($order, $targetPhone);
     }
 
-    public static function generateOrderWaLink(Order $order, ?string $targetPhone = null): string
+    public static function generateOrderWaLink(Order|Invoice|array $order, ?string $targetPhone = null): string
     {
         return (new static())->getClickableShareUrl($order, $targetPhone);
     }
 
     /**
-     * Send automated notification using WhatsApp Cloud API / Provider if configured.
-     * Does not fail hard if unconfigured or API error occurs.
+     * Get Plugin configured WhatsApp click-to-chat URL with pre-filled message.
      */
-    public function sendAutomatedNotification(Order $order): array
+    public static function getPluginWhatsAppUrl(string $prefilledMessage = ''): string
     {
-        $apiUrl = StoreSetting::getValue('whatsapp_api_url') ?: config('services.whatsapp.api_url');
-        $token  = StoreSetting::getValue('whatsapp_api_token') ?: config('services.whatsapp.token');
-        $phoneId = StoreSetting::getValue('whatsapp_phone_number_id') ?: config('services.whatsapp.phone_number_id');
+        $waNumber = StoreSetting::getValue('wa_number') ?: StoreSetting::getValue('whatsapp_number') ?: StoreSetting::getValue('contact_phone', '');
+        $cleanNumber = self::normalizePhone($waNumber);
 
-        if (!$apiUrl || !$token || !$phoneId) {
-            Log::info('WhatsApp automated notification skipped: API credentials not configured.');
+        if (empty($cleanNumber)) {
+            return '';
+        }
+
+        return 'https://api.whatsapp.com/send?phone=' . $cleanNumber . (!empty($prefilledMessage) ? ('&text=' . rawurlencode($prefilledMessage)) : '');
+    }
+
+    // ── Internal Helpers ────────────────────────────────────────────────
+
+    private static function normalizeOrderData(mixed $order): array
+    {
+        if ($order instanceof Order) {
+            $items = [];
+            foreach ($order->items as $it) {
+                $items[] = [
+                    'id' => $it->product_id,
+                    'name' => $it->product_name,
+                    'qty' => (int) $it->quantity,
+                    'unit_price' => (float) $it->unit_price,
+                    'line_total' => (float) $it->line_total,
+                ];
+            }
+
+            $fullAddress = trim(implode(', ', array_filter([
+                $order->addr_line_1,
+                $order->addr_line_2,
+                $order->addr_city,
+                $order->addr_state ? ($order->addr_state . ($order->addr_pincode ? ' - ' . $order->addr_pincode : '')) : $order->addr_pincode,
+            ])));
+
             return [
-                'success' => false,
-                'message' => 'WhatsApp API not configured. Direct wa.me link available.',
-                'manual_url' => $this->getClickableShareUrl($order),
+                'id' => $order->id,
+                'order_code' => $order->order_code,
+                'invoice_number' => $order->order_code,
+                'customer_name' => $order->contact_name ?: $order->addr_full_name,
+                'customer_phone' => $order->contact_mobile ?: $order->addr_mobile_primary,
+                'customer_email' => $order->contact_email,
+                'customer_address' => $fullAddress,
+                'subtotal' => (float) $order->subtotal,
+                'discount' => (float) $order->discount,
+                'shipping' => (float) $order->shipping,
+                'tax_amount' => (float) $order->tax_amount,
+                'total_amount' => (float) $order->total,
+                'items' => $items,
+                'created_at' => $order->created_at ? $order->created_at->toDateTimeString() : now()->toDateTimeString(),
+                'invoice_id' => null,
             ];
         }
 
-        try {
-            $targetPhone = preg_replace('/\D+/', '', $order->contact_mobile ?: $order->addr_mobile_primary);
-            if (strlen($targetPhone) === 10) {
-                $targetPhone = '91' . $targetPhone;
+        if ($order instanceof Invoice) {
+            $decoded = json_decode($order->invoice_json ?? '{}', true) ?: [];
+            $lines = $decoded['items'] ?? ($decoded['lines'] ?? []);
+            $items = [];
+            foreach ($lines as $line) {
+                $items[] = [
+                    'id' => $line['id'] ?? null,
+                    'name' => $line['name'] ?? 'Product',
+                    'qty' => (int) ($line['qty'] ?? 1),
+                    'unit_price' => (float) ($line['rate'] ?? $line['unit_price'] ?? 0),
+                    'line_total' => (float) ($line['amount'] ?? $line['line_total'] ?? 0),
+                ];
             }
 
-            $endpoint = rtrim($apiUrl, '/') . '/' . $phoneId . '/messages';
-
-            $response = Http::withToken($token)
-                ->timeout(10)
-                ->post($endpoint, [
-                    'messaging_product' => 'whatsapp',
-                    'to'                => $targetPhone,
-                    'type'              => 'text',
-                    'text'              => [
-                        'preview_url' => true,
-                        'body'        => $this->buildOrderMessage($order),
-                    ],
-                ]);
-
-            if ($response->successful()) {
-                Log::info("WhatsApp order notification sent to {$targetPhone} for order #{$order->order_code}");
-                return ['success' => true, 'response' => $response->json()];
-            }
-
-            Log::warning("WhatsApp API notification failed: " . $response->body());
-            return ['success' => false, 'error' => $response->body()];
-        } catch (\Throwable $e) {
-            Log::error('WhatsApp API notification exception: ' . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
+            return [
+                'id' => $order->id,
+                'order_code' => $order->invoice_number,
+                'invoice_number' => $order->invoice_number,
+                'customer_name' => $order->customer_name,
+                'customer_phone' => $order->customer_phone,
+                'customer_email' => $order->customer_email,
+                'customer_address' => $order->customer_address,
+                'subtotal' => (float) $order->subtotal,
+                'discount' => (float) ($decoded['discount_amount'] ?? 0),
+                'shipping' => (float) $order->other_charges,
+                'tax_amount' => (float) $order->tax_amount,
+                'total_amount' => (float) $order->total_amount,
+                'items' => $items,
+                'created_at' => $order->created_at ? $order->created_at->toDateTimeString() : now()->toDateTimeString(),
+                'invoice_id' => $order->id,
+            ];
         }
+
+        if (is_array($order)) {
+            $order['order_code'] = $order['order_code'] ?? ($order['invoice_number'] ?? ('ORD-' . ($order['id'] ?? time())));
+            $order['items'] = $order['items'] ?? ($order['lines'] ?? []);
+            return $order;
+        }
+
+        return [];
+    }
+
+    private static function savePdfToStorage(array $orderData): ?string
+    {
+        try {
+            $invoiceCode = preg_replace('/[^A-Za-z0-9_-]/', '_', $orderData['order_code'] ?? ('INV-' . time()));
+            $fileName = $invoiceCode . '.pdf';
+
+            $storageDir = storage_path('app/public/invoices/');
+            if (!is_dir($storageDir)) {
+                @mkdir($storageDir, 0777, true);
+            }
+
+            $filePath = $storageDir . $fileName;
+
+            // Generate simple clean PDF HTML or use DomPDF
+            $storeName = StoreSetting::getStoreName();
+            $storeAddress = StoreSetting::getValue('address', 'Sivakasi, Tamil Nadu, India');
+            $orderDate = !empty($orderData['created_at']) ? date('d-m-Y', strtotime($orderData['created_at'])) : date('d-m-Y');
+
+            $itemsHtml = '';
+            foreach ($orderData['items'] as $idx => $it) {
+                $pName = htmlspecialchars($it['name'] ?? 'Product');
+                $qty = (int) ($it['qty'] ?? 1);
+                $rate = number_format((float) ($it['unit_price'] ?? 0), 2);
+                $amt = number_format((float) ($it['line_total'] ?? 0), 2);
+                $itemsHtml .= "<tr>
+                    <td style='text-align:center; padding:6px 8px; border-bottom:1px solid #eee;'>" . ($idx + 1) . "</td>
+                    <td style='padding:6px 8px; border-bottom:1px solid #eee;'>{$pName}</td>
+                    <td style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;'>Rs.{$rate}</td>
+                    <td style='text-align:center; padding:6px 8px; border-bottom:1px solid #eee;'>{$qty}</td>
+                    <td style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;'>Rs.{$amt}</td>
+                </tr>";
+            }
+
+            $subtotalStr = number_format((float) ($orderData['subtotal'] ?? 0), 2);
+            $totalStr = number_format((float) ($orderData['total_amount'] ?? 0), 2);
+
+            $html = "<!DOCTYPE html>
+            <html><head><meta charset='utf-8'><style>
+                body { font-family: sans-serif; font-size: 12px; color: #333; margin: 20px; }
+                .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }
+                .header h1 { margin: 0; font-size: 20px; color: #2c3e50; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th { background: #2c3e50; color: #fff; padding: 8px; font-size: 11px; text-align: left; }
+                .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #777; }
+            </style></head><body>
+                <div class='header'>
+                    <h1>" . htmlspecialchars($storeName) . "</h1>
+                    <p style='margin:4px 0; color:#666;'>" . nl2br(htmlspecialchars($storeAddress)) . "</p>
+                    <p style='margin:4px 0; font-weight:bold;'>Invoice: #" . htmlspecialchars($orderData['order_code']) . " | Date: {$orderDate}</p>
+                </div>
+                <div style='margin-bottom:15px;'>
+                    <strong>Customer:</strong> " . htmlspecialchars($orderData['customer_name'] ?? 'Customer') . "<br>
+                    <strong>Phone:</strong> " . htmlspecialchars($orderData['customer_phone'] ?? '-') . "<br>
+                    <strong>Address:</strong> " . nl2br(htmlspecialchars($orderData['customer_address'] ?? '-')) . "
+                </div>
+                <table>
+                    <thead><tr><th>#</th><th>Product</th><th style='text-align:right'>Rate</th><th style='text-align:center'>Qty</th><th style='text-align:right'>Total</th></tr></thead>
+                    <tbody>{$itemsHtml}</tbody>
+                </table>
+                <div style='margin-top:15px; text-align:right; font-size:13px;'>
+                    <p style='margin:3px 0;'><strong>Subtotal:</strong> Rs.{$subtotalStr}</p>
+                    <p style='margin:3px 0; font-size:15px; font-weight:bold; color:#2c3e50;'><strong>Grand Total:</strong> Rs.{$totalStr}</p>
+                </div>
+                <div class='footer'>Thank you for shopping with " . htmlspecialchars($storeName) . "!</div>
+            </body></html>";
+
+            if (class_exists('\Barryvdh\DomPDF\Facade\Pdf')) {
+                $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
+                file_put_contents($filePath, $pdf->output());
+            }
+
+            if (file_exists($filePath)) {
+                return url('storage/invoices/' . $fileName);
+            }
+
+            return url('/track-order?code=' . urlencode($orderData['order_code']));
+        } catch (\Throwable $e) {
+            Log::error("WhatsAppService: Failed to save PDF - " . $e->getMessage());
+            return url('/track-order?code=' . urlencode($orderData['order_code'] ?? ''));
+        }
+    }
+
+    private static function callFast2SmsApi(array $payload): string|array|null
+    {
+        try {
+            $ch = curl_init(self::FAST2SMS_API_URL);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => [
+                    'authorization: ' . ($payload['authorization'] ?? ''),
+                    'Content-Type: application/json',
+                ],
+                CURLOPT_POSTFIELDS => json_encode($payload),
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+            $response = curl_exec($ch);
+            curl_close($ch);
+            return $response;
+        } catch (\Throwable $e) {
+            Log::error("WhatsAppService: Fast2SMS API call exception: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    private static function isSuccess(mixed $body): bool
+    {
+        if ($body === null || $body === '') return false;
+        if (is_array($body)) {
+            if (($body['return'] ?? null) === true) return true;
+            if (($body['status'] ?? '') === 'success') return true;
+            if (isset($body['status_code']) && (int) $body['status_code'] === 200) return true;
+            return false;
+        }
+        $trim = trim((string) $body);
+        if (in_array(strtolower($trim), ['true', '1', 'ok', 'success'], true)) return true;
+        $decoded = json_decode($trim, true);
+        if (is_array($decoded)) {
+            if (($decoded['return'] ?? null) === true) return true;
+            if (($decoded['status'] ?? '') === 'success') return true;
+            if (isset($decoded['status_code']) && (int) $decoded['status_code'] === 200) return true;
+        }
+        return false;
     }
 }

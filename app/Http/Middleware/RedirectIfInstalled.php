@@ -10,11 +10,14 @@ class RedirectIfInstalled
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (file_exists(storage_path('installed'))) {
+        /** @var \App\Services\Install\EnvironmentManager $envManager */
+        $envManager = app(\App\Services\Install\EnvironmentManager::class);
+
+        if ($envManager->isInstalled()) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'The application has already been installed. To re-install, remove storage/installed.',
+                    'message' => 'The application has already been installed. To re-install, remove install.lock.',
                 ], 403);
             }
 

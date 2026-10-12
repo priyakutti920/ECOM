@@ -120,6 +120,32 @@
         </div>
     </div>
 
+    {{-- Operational Attention Banner --}}
+    @if(($pendingReturnsCount ?? 0) > 0 || ($openTicketsCount ?? 0) > 0)
+        <div class="alert alert-warning" style="border-radius:8px; margin-top:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-exclamation-triangle" style="font-size:18px;"></i>
+                <div>
+                    <strong>Action Required:</strong>
+                    @if(($pendingReturnsCount ?? 0) > 0)
+                        <span style="margin-left:6px;">{{ $pendingReturnsCount }} Return {{ Str::plural('request', $pendingReturnsCount) }} awaiting review.</span>
+                    @endif
+                    @if(($openTicketsCount ?? 0) > 0)
+                        <span style="margin-left:6px;">{{ $openTicketsCount }} Open support {{ Str::plural('ticket', $openTicketsCount) }} pending response.</span>
+                    @endif
+                </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                @if(($pendingReturnsCount ?? 0) > 0)
+                    <a href="{{ route('admin.cancellations-returns.index') }}" class="btn btn-warning btn-xs" style="font-weight:600;">Manage Returns</a>
+                @endif
+                @if(($openTicketsCount ?? 0) > 0)
+                    <a href="{{ route('admin.support.index') }}" class="btn btn-warning btn-xs" style="font-weight:600;">View Tickets</a>
+                @endif
+            </div>
+        </div>
+    @endif
+
     {{-- Recent Orders Table --}}
     <div class="panel panel-default" style="border-radius:10px; border:1px solid #e2e8f0; margin-top:16px;">
         <div class="panel-heading" style="background:#fff; border-bottom:1px solid #f1f5f9; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">

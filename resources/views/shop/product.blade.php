@@ -987,6 +987,23 @@ function handleAddToCart() {
     } else if (typeof window.addToCart === 'function') {
         window.addToCart(p.id, p.qty, p.name, p.price, p.image, p.slug, p.variation_id, p.variation_name, p.color, p.options);
     }
+    if (typeof window.openCartSidebar === 'function') {
+        window.openCartSidebar();
+    }
+    const btn = document.getElementById('btn-add-to-cart');
+    if (btn) {
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Added to Cart!';
+        btn.style.background = '#10b981';
+        btn.style.color = '#ffffff';
+        btn.style.borderColor = '#10b981';
+        setTimeout(() => {
+            btn.innerHTML = origHtml;
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+        }, 1800);
+    }
 }
 
 function handleBuyNow() {
@@ -1095,5 +1112,114 @@ async function checkPdpPincode() {
         resultBox.innerHTML = '<i class="fas fa-exclamation-circle"></i> Unable to verify pincode at this moment.';
     }
 }
+
+// Product Sharing Actions
+function shareProduct() {
+    const title = @js($product->name);
+    const text = @js('Check out ' . $product->name . ' on ' . $storeName);
+    const url = @js($productUrl);
+
+    if (navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
+        navigator.share({ title, text, url }).catch(err => {
+            if (err.name !== 'AbortError') openShareModal();
+        });
+    } else {
+        openShareModal();
+    }
+}
+
+function openShareModal() {
+    const modal = document.getElementById('shareModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeShareModal() {
+    const modal = document.getElementById('shareModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
+function copyShareLink() {
+    const input = document.getElementById('shareLinkInput');
+    const btn = document.getElementById('copyShareLinkBtn');
+    if (!input) return;
+    const url = input.value;
+    const handleSuccess = () => {
+        if (btn) {
+            const orig = btn.innerText;
+            btn.innerText = 'Copied!';
+            btn.style.background = '#10b981';
+            setTimeout(() => {
+                btn.innerText = orig;
+                btn.style.background = '#0f172a';
+            }, 2000);
+        }
+        if (typeof showToast === 'function') showToast('Link copied to clipboard!', 'success');
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(handleSuccess).catch(() => {
+            input.select();
+            document.execCommand('copy');
+            handleSuccess();
+        });
+    } else {
+        input.select();
+        document.execCommand('copy');
+        handleSuccess();
+    }
+}
+
+function shareOn(platform) {
+    const rawUrl = @js($productUrl);
+    const url = encodeURIComponent(rawUrl);
+    const title = encodeURIComponent(@js($product->name));
+    const text = encodeURIComponent(@js('Check out ' . $product->name . ' on ' . $storeName . ': ') + rawUrl);
+    let targetUrl = '';
+
+    switch (platform) {
+        case 'whatsapp':
+            targetUrl = `https://api.whatsapp.com/send?text=${text}`;
+            break;
+        case 'facebook':
+            targetUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+            break;
+        case 'twitter':
+            targetUrl = `https://twitter.com/intent/tweet?text=${title}&url=${url}`;
+            break;
+        case 'telegram':
+            targetUrl = `https://t.me/share/url?url=${url}&text=${title}`;
+            break;
+        case 'email':
+            targetUrl = `mailto:?subject=${title}&body=${text}`;
+            break;
+        case 'linkedin':
+            targetUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+            break;
+        case 'pinterest':
+            const media = encodeURIComponent(@js($imageUrl));
+            targetUrl = `https://pinterest.com/pin/create/button/?url=${url}&media=${media}&description=${title}`;
+            break;
+        case 'sms':
+            targetUrl = `sms:?body=${text}`;
+            break;
+    }
+
+    if (targetUrl) {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('shareModal');
+    if (modal && e.target === modal) {
+        closeShareModal();
+    }
+});
 </script>
 @endpush

@@ -31,7 +31,7 @@ class AppResetInstallCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->error('Failed to remove lock file at ' . storage_path('installed'));
+        $this->error('Failed to remove lock file at ' . base_path('install.lock'));
         return self::FAILURE;
     }
 }

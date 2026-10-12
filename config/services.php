@@ -54,4 +54,18 @@ return [
         'secret_key' => env('CASHFREE_SECRET_KEY', ''),
         'mode' => env('CASHFREE_MODE', 'sandbox'),
     ],
+
+    'whatsapp' => [
+        'api_url' => env('WA_API_URL', 'https://www.fast2sms.com/dev/whatsapp'),
+        'fast2sms_auth_key' => env('WA_FAST2SMS_AUTH_KEY', env('FAST2SMS_DEV_AUTH_KEY', env('FAST2SMS_AUTH_KEY', ''))),
+        'phone_number_id' => env('WA_PHONE_NUMBER_ID', env('FAST2SMS_PHONE_NUMBER_ID', '')),
+        'sender_number' => env('WA_SENDER_NUMBER', ''),
+        'admin_phone' => env('WA_ADMIN_PHONE', ''),
+        'customer_notify_enabled' => filter_var(env('WA_CUSTOMER_NOTIFY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'engine_disabled' => filter_var(env('WA_ENGINE_DISABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'message_id' => env('WA_MESSAGE_ID', '24059'),
+        'template_name' => env('WA_TEMPLATE_NAME', 'order_notify'),
+        // Cloud API compatibility
+        'token' => env('WA_API_TOKEN', ''),
+    ],
 ];

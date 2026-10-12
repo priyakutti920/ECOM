@@ -23,33 +23,60 @@
                 <h1 class="search-page-title">
                     @if($q !== '')
                         Results for <span class="search-highlight">"{{ $q }}"</span>
+                        @if(!empty($selectedCategory))
+                            in <span class="search-highlight">{{ $selectedCategory->name }}</span>
+                        @endif
+                    @elseif(!empty($selectedCategory))
+                        Category: <span class="search-highlight">{{ $selectedCategory->name }}</span>
                     @else
                         Search Products
                     @endif
                 </h1>
-                @if($q !== '' && $products->count() > 0)
+                @if(($q !== '' || !empty($selectedCategory)) && $products->count() > 0)
                     <span class="search-count-pill">
                         {{ $products->total() }} {{ Str::plural('Result', $products->total()) }}
                     </span>
                 @endif
             </div>
-            @if($q !== '')
-                <p class="search-page-sub">Showing products matching your search query. Refine your search if needed.</p>
+            @if($q !== '' || !empty($selectedCategory))
+                <p class="search-page-sub">Showing products matching your search criteria. Refine your query or filters if needed.</p>
             @else
                 <p class="search-page-sub">Use the search bar above to discover trending apparel, best sellers, and everyday essentials.</p>
             @endif
         </div>
     </div>
 
-    @if($q !== '' && $products->count() > 0)
+    @if(($q !== '' || !empty($selectedCategory)) && $products->count() > 0)
         {{-- ── Toolbar ── --}}
         <div class="search-toolbar">
             <span class="search-results-info">
                 Showing <strong>{{ $products->firstItem() ?? 0 }}–{{ $products->lastItem() ?? $products->count() }}</strong> of <strong>{{ $products->total() }}</strong> items
             </span>
-            <div class="search-active-pill">
-                Query: <strong>{{ $q }}</strong>
-                <a href="{{ url('/shop') }}" title="Clear search"><i class="las la-times"></i></a>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                @if($q !== '')
+                    <div class="search-active-pill">
+                        Query: <strong>{{ $q }}</strong>
+                        <a href="{{ url('/search') . (!empty($categoryId) ? '?category=' . urlencode($categoryId) : '') }}" title="Clear query"><i class="las la-times"></i></a>
+                    </div>
+                @endif
+                @if(!empty($selectedCategory))
+                    <div class="search-active-pill">
+                        Category: <strong>{{ $selectedCategory->name }}</strong>
+                        <a href="{{ url('/search') . ($q !== '' ? '?q=' . urlencode($q) : '') }}" title="Clear category"><i class="las la-times"></i></a>
+                    </div>
+                @endif
+                <form method="GET" action="{{ url('/search') }}" style="display:inline-flex; align-items:center; gap:6px; margin:0;">
+                    @if($q !== '') <input type="hidden" name="q" value="{{ $q }}"> @endif
+                    @if(!empty($categoryId)) <input type="hidden" name="category" value="{{ $categoryId }}"> @endif
+                    <label for="search-sort-select" style="font-size:12px; color:#64748b; font-weight:600;">Sort:</label>
+                    <select id="search-sort-select" name="sort" onchange="this.form.submit()" style="padding:4px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px; background:#fff; outline:none; color:#1e293b;">
+                        <option value="latest" {{ ($sort ?? '') === 'latest' ? 'selected' : '' }}>Latest</option>
+                        <option value="price_asc" {{ ($sort ?? '') === 'price_asc' ? 'selected' : '' }}>Price: Low to High</option>
+                        <option value="price_desc" {{ ($sort ?? '') === 'price_desc' ? 'selected' : '' }}>Price: High to Low</option>
+                        <option value="name_asc" {{ ($sort ?? '') === 'name_asc' ? 'selected' : '' }}>Name: A-Z</option>
+                        <option value="name_desc" {{ ($sort ?? '') === 'name_desc' ? 'selected' : '' }}>Name: Z-A</option>
+                    </select>
+                </form>
             </div>
         </div>
 
@@ -63,7 +90,7 @@
         <div class="search-pagination-wrap">
             {{ $products->withQueryString()->links('pagination::simple-default') }}
         </div>
-    @elseif($q !== '')
+    @elseif($q !== '' || !empty($selectedCategory))
         <div class="search-empty">
             <div class="search-empty-icon-wrap">
                 <i class="las la-search"></i>

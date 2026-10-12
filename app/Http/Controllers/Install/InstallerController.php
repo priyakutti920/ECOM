@@ -65,16 +65,16 @@ class InstallerController extends Controller
         }
 
         $currentConfig = [
-            'app_name'      => config('app.name', 'E-Commerce Store'),
-            'app_url'       => config('app.url', url('/')),
-            'app_env'       => config('app.env', 'production'),
-            'app_debug'     => config('app.debug', false),
-            'db_connection' => config('database.default', 'mysql'),
-            'db_host'       => config('database.connections.mysql.host', '127.0.0.1'),
-            'db_port'       => config('database.connections.mysql.port', '3306'),
-            'db_database'   => config('database.connections.mysql.database', 'e-com'),
-            'db_username'   => config('database.connections.mysql.username', 'root'),
-            'db_password'   => config('database.connections.mysql.password', ''),
+            'app_name'      => $this->envManager->getEnvValue('APP_NAME') ?: config('app.name', 'E-Commerce Store'),
+            'app_url'       => $this->envManager->getEnvValue('APP_URL') ?: config('app.url', url('/')),
+            'app_env'       => $this->envManager->getEnvValue('APP_ENV') ?: config('app.env', 'production'),
+            'app_debug'     => ($this->envManager->getEnvValue('APP_DEBUG') === 'true' || config('app.debug', false)),
+            'db_connection' => $this->envManager->getEnvValue('DB_CONNECTION') ?: config('database.default', 'mysql'),
+            'db_host'       => $this->envManager->getEnvValue('DB_HOST') ?: config('database.connections.mysql.host', '127.0.0.1'),
+            'db_port'       => $this->envManager->getEnvValue('DB_PORT') ?: config('database.connections.mysql.port', '3306'),
+            'db_database'   => $this->envManager->getEnvValue('DB_DATABASE') ?: config('database.connections.mysql.database', 'mainecomm'),
+            'db_username'   => $this->envManager->getEnvValue('DB_USERNAME') ?? config('database.connections.mysql.username', 'root'),
+            'db_password'   => $this->envManager->getEnvValue('DB_PASSWORD') ?? config('database.connections.mysql.password', ''),
         ];
 
         return view('install.database', compact('currentConfig'));

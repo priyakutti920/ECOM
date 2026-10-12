@@ -201,64 +201,137 @@ class AppearanceFilesController extends Controller
         $uploaded = [];
         $failed = [];
         $disk = Storage::disk('public');
-        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif', 'pdf', 'txt'];
+        $allowedExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'svg', 'ico', 'avif', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'pdf', 'txt'];
+        $extMimes = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'jpe'  => 'image/jpeg',
+            'jfif' => 'image/jpeg',
+            'png'  => 'image/png',
+            'webp' => 'image/webp',
+            'gif'  => 'image/gif',
+            'svg'  => 'image/svg+xml',
+            'ico'  => 'image/x-icon',
+            'avif' => 'image/avif',
+            'bmp'  => 'image/bmp',
+            'tiff' => 'image/tiff',
+            'tif'  => 'image/tiff',
+            'heic' => 'image/heic',
+            'heif' => 'image/heif',
+        ];
+
+        $publicStorage = public_path('storage');
+        $appStorage = storage_path('app/public');
+        $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
+        $publicDir = public_path('storage/' . $folder);
 
         foreach ($rawFiles as $file) {
-            $originalName = $file->getClientOriginalName();
-            $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+            if (!$file || !($file instanceof \Illuminate\Http\UploadedFile)) {
+                continue;
+            }
 
-            if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm'])) {
-                $failed[] = ['name' => $originalName, 'error' => 'Executable scripts are strictly forbidden.'];
+            $originalName = $file->getClientOriginalName() ?: 'Uploaded file';
+
+            if (!$file->isValid()) {
+                $errCode = $file->getError();
+                $errMsg = match ($errCode) {
+                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size (' . ini_get('upload_max_filesize') . ').',
+                    UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
+                    UPLOAD_ERR_PARTIAL => 'File was only partially uploaded.',
+                    UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
+                    UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder on server.',
+                    UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
+                    default => 'Upload error: ' . $file->getErrorMessage(),
+                };
+                $failed[] = ['name' => $originalName, 'error' => $errMsg];
+                continue;
+            }
+
+            $ext = strtolower(trim($file->getClientOriginalExtension() ?: ''));
+            if (!$ext) {
+                $ext = strtolower(trim($file->guessExtension() ?: 'jpg'));
+            }
+
+            if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm', 'vbs', 'com', 'scr'])) {
+                $failed[] = ['name' => $originalName, 'error' => 'Executable scripts and code files are strictly forbidden.'];
                 continue;
             }
 
             if (!in_array($ext, $allowedExts)) {
-                $failed[] = ['name' => $originalName, 'error' => "Unsupported format (.{$ext})."];
+                $failed[] = ['name' => $originalName, 'error' => "Unsupported format (.{$ext}). Allowed: JPG, PNG, WebP, GIF, SVG, AVIF, JFIF, BMP, TIFF, HEIC, ICO."];
                 continue;
             }
 
-            if ($file->getSize() > 20971520) { // 20 MB limit
-                $failed[] = ['name' => $originalName, 'error' => 'File exceeds 20MB limit.'];
+            $size = (int)$file->getSize();
+            if ($size > 26214400) { // 25 MB limit
+                $failed[] = ['name' => $originalName, 'error' => 'File exceeds 25MB limit (' . round($size / 1048576, 1) . 'MB).'];
                 continue;
             }
 
             $cleanBase = Str::slug(pathinfo($originalName, PATHINFO_FILENAME));
-            $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(6) . '.' . $ext;
-            $path = $file->storeAs($folder, $filename, 'public');
+            $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(8) . '.' . $ext;
 
-            // Mirror to public/storage if directory exists
-            $publicDir = public_path('storage/' . $folder);
-            if (is_dir(public_path('storage')) && !is_link(public_path('storage'))) {
+            try {
+                $path = $file->storeAs($folder, $filename, 'public');
+                if (!$path || !$disk->exists($path)) {
+                    throw new \Exception('Failed to write file to disk.');
+                }
+            } catch (\Throwable $e) {
+                $failed[] = ['name' => $originalName, 'error' => 'Storage error: ' . $e->getMessage()];
+                continue;
+            }
+
+            // Mirror to public/storage only if not already symlinked/junctioned
+            if (!$isLinked && is_dir($publicStorage)) {
                 if (!is_dir($publicDir)) {
                     @mkdir($publicDir, 0755, true);
                 }
                 @copy($disk->path($path), public_path('storage/' . $path));
             }
 
-            $mime = $file->getClientMimeType() ?: 'image/jpeg';
-            $size = $file->getSize() ?: 0;
+            $clientMime = strtolower($file->getClientMimeType() ?: '');
+            $realMime = '';
+            try {
+                $realMime = strtolower($file->getMimeType() ?: '');
+            } catch (\Throwable $e) {}
+
+            $mime = $realMime ?: $clientMime;
+            if (empty($mime) || $mime === 'application/octet-stream' || !str_starts_with($mime, 'image/')) {
+                $mime = $extMimes[$ext] ?? 'image/jpeg';
+            }
+            if (in_array($mime, ['image/jfif', 'image/pjpeg', 'image/x-jfif'])) {
+                $mime = 'image/jpeg';
+            }
 
             $width = null;
             $height = null;
-            if (str_starts_with($mime, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif'])) {
+            try {
                 $info = @getimagesize($file->getRealPath());
                 if ($info) {
                     $width = $info[0] ?? null;
                     $height = $info[1] ?? null;
                 }
-            }
+            } catch (\Throwable $e) {}
 
-            $media = MediaFile::create([
-                'name' => pathinfo($originalName, PATHINFO_FILENAME),
-                'filename' => $filename,
-                'path' => $path,
-                'disk' => 'public',
-                'mime_type' => $mime,
-                'size' => $size,
-                'width' => $width,
-                'height' => $height,
-                'folder' => $folder,
-            ]);
+            $cleanName = mb_substr(pathinfo($originalName, PATHINFO_FILENAME) ?: $filename, 0, 200);
+
+            try {
+                $media = MediaFile::create([
+                    'name' => $cleanName,
+                    'filename' => $filename,
+                    'path' => $path,
+                    'disk' => 'public',
+                    'mime_type' => $mime,
+                    'size' => $size,
+                    'width' => $width,
+                    'height' => $height,
+                    'folder' => $folder,
+                ]);
+            } catch (\Throwable $e) {
+                @$disk->delete($path);
+                $failed[] = ['name' => $originalName, 'error' => 'Database error: ' . $e->getMessage()];
+                continue;
+            }
 
             $uploaded[] = [
                 'id' => $media->id,
@@ -322,34 +395,90 @@ class AppearanceFilesController extends Controller
         $disk = Storage::disk('public');
         $allowedMimes = [
             'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon',
-            'image/pjpeg', 'image/jfif', 'image/x-png', 'image/vnd.microsoft.icon', 'image/ico',
-            'image/svg', 'text/xml', 'text/plain', 'image/avif', 'application/octet-stream'
+            'image/pjpeg', 'image/jfif', 'image/x-jfif', 'image/x-png', 'image/vnd.microsoft.icon', 'image/ico',
+            'image/svg', 'text/xml', 'text/plain', 'image/avif', 'image/bmp', 'image/x-ms-bmp',
+            'image/tiff', 'image/x-tiff', 'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
+            'application/octet-stream'
         ];
-        $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif'];
+        $allowedExts = [
+            'jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'svg', 'ico', 'avif',
+            'bmp', 'tiff', 'tif', 'heic', 'heif'
+        ];
+        $extMimes = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'jpe'  => 'image/jpeg',
+            'jfif' => 'image/jpeg',
+            'png'  => 'image/png',
+            'webp' => 'image/webp',
+            'gif'  => 'image/gif',
+            'svg'  => 'image/svg+xml',
+            'ico'  => 'image/x-icon',
+            'avif' => 'image/avif',
+            'bmp'  => 'image/bmp',
+            'tiff' => 'image/tiff',
+            'tif'  => 'image/tiff',
+            'heic' => 'image/heic',
+            'heif' => 'image/heif',
+        ];
+
+        $publicStorage = public_path('storage');
+        $appStorage = storage_path('app/public');
+        $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
+        $publicDir = public_path('storage/' . $folder);
 
         foreach ($files as $file) {
-            $origName = $file->getClientOriginalName();
-            $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-            $size = $file->getSize();
+            if (!$file || !($file instanceof \Illuminate\Http\UploadedFile)) {
+                continue;
+            }
 
-            // 1. Extension & Executable check
-            if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm'])) {
+            $origName = $file->getClientOriginalName() ?: 'Uploaded image';
+
+            // 0. PHP upload validity check
+            if (!$file->isValid()) {
+                $errCode = $file->getError();
+                $errMsg = match ($errCode) {
+                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size (' . ini_get('upload_max_filesize') . ').',
+                    UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
+                    UPLOAD_ERR_PARTIAL => 'File was only partially uploaded. Please try again.',
+                    UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
+                    UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder on server.',
+                    UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
+                    default => 'Upload error: ' . $file->getErrorMessage(),
+                };
                 $failed[] = [
                     'name' => $origName,
-                    'error' => 'Executable scripts are strictly forbidden.',
+                    'error' => $errMsg,
                 ];
                 continue;
             }
 
+            $ext = strtolower(trim($file->getClientOriginalExtension() ?: ''));
+            if (!$ext) {
+                $ext = strtolower(trim($file->guessExtension() ?: 'jpg'));
+            }
+            $size = (int)$file->getSize();
+
+            // 1. Executable and script rejection
+            if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm', 'vbs', 'com', 'scr'])) {
+                $failed[] = [
+                    'name' => $origName,
+                    'error' => 'Executable scripts and code files are strictly forbidden.',
+                ];
+                continue;
+            }
+
+            // 2. Extension check
             if (!in_array($ext, $allowedExts)) {
                 $failed[] = [
                     'name' => $origName,
-                    'error' => "Unsupported format (.{$ext}). Allowed: JPG, PNG, WebP, GIF, SVG, ICO.",
+                    'error' => "Unsupported format (.{$ext}). Allowed: JPG, PNG, WebP, GIF, SVG, AVIF, JFIF, BMP, TIFF, HEIC, ICO.",
                 ];
                 continue;
             }
 
-            if ($size > 12582912) { // 12 MB limit
+            // 3. File size check (12 MB)
+            if ($size > 12582912) {
                 $failed[] = [
                     'name' => $origName,
                     'error' => 'File exceeds 12MB limit.',
@@ -357,7 +486,7 @@ class AppearanceFilesController extends Controller
                 continue;
             }
 
-            // 2. MIME check & Image validation
+            // 4. MIME check & Image validation
             $clientMime = strtolower($file->getClientMimeType() ?: '');
             $realMime = '';
             try {
@@ -380,7 +509,7 @@ class AppearanceFilesController extends Controller
                 }
             }
 
-            if (!$isImageMime && !$isInAllowed && !$isImageFile) {
+            if (!$isImageMime && !$isInAllowed && !$isImageFile && !isset($extMimes[$ext])) {
                 $failed[] = [
                     'name' => $origName,
                     'error' => 'File type verification failed: not a valid image format.',
@@ -388,14 +517,25 @@ class AppearanceFilesController extends Controller
                 continue;
             }
 
-            // 3. Store file safely
+            // 5. Store file safely
             $cleanBase = Str::slug(pathinfo($origName, PATHINFO_FILENAME));
             $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(8) . '.' . $ext;
-            $path = $file->storeAs($folder, $filename, 'public');
 
-            // Mirror to public/storage if directory exists
-            $publicDir = public_path('storage/' . $folder);
-            if (is_dir(public_path('storage')) && !is_link(public_path('storage'))) {
+            try {
+                $path = $file->storeAs($folder, $filename, 'public');
+                if (!$path || !$disk->exists($path)) {
+                    throw new \Exception('Failed to write file to public storage disk.');
+                }
+            } catch (\Throwable $e) {
+                $failed[] = [
+                    'name' => $origName,
+                    'error' => 'Storage error: ' . $e->getMessage(),
+                ];
+                continue;
+            }
+
+            // Mirror to public/storage only if not already symlinked/junctioned
+            if (!$isLinked && is_dir($publicStorage)) {
                 if (!is_dir($publicDir)) {
                     @mkdir($publicDir, 0755, true);
                 }
@@ -405,23 +545,45 @@ class AppearanceFilesController extends Controller
             // Dimensions
             $width = null;
             $height = null;
-            $info = @getimagesize($file->getRealPath());
-            if ($info) {
-                $width = $info[0] ?? null;
-                $height = $info[1] ?? null;
+            try {
+                $info = @getimagesize($file->getRealPath());
+                if ($info) {
+                    $width = $info[0] ?? null;
+                    $height = $info[1] ?? null;
+                }
+            } catch (\Throwable $e) {}
+
+            // Normalized MIME
+            $finalMime = $realMime ?: $clientMime;
+            if (empty($finalMime) || $finalMime === 'application/octet-stream' || !str_starts_with($finalMime, 'image/')) {
+                $finalMime = $extMimes[$ext] ?? 'image/jpeg';
+            }
+            if (in_array($finalMime, ['image/jfif', 'image/pjpeg', 'image/x-jfif'])) {
+                $finalMime = 'image/jpeg';
             }
 
-            $media = MediaFile::create([
-                'name' => pathinfo($origName, PATHINFO_FILENAME),
-                'filename' => $filename,
-                'path' => $path,
-                'disk' => 'public',
-                'mime_type' => $clientMime ?: ($realMime ?: 'image/jpeg'),
-                'size' => $size,
-                'width' => $width,
-                'height' => $height,
-                'folder' => $folder,
-            ]);
+            $cleanName = mb_substr(pathinfo($origName, PATHINFO_FILENAME) ?: $filename, 0, 200);
+
+            try {
+                $media = MediaFile::create([
+                    'name' => $cleanName,
+                    'filename' => $filename,
+                    'path' => $path,
+                    'disk' => 'public',
+                    'mime_type' => $finalMime,
+                    'size' => $size,
+                    'width' => $width,
+                    'height' => $height,
+                    'folder' => $folder,
+                ]);
+            } catch (\Throwable $e) {
+                @$disk->delete($path);
+                $failed[] = [
+                    'name' => $origName,
+                    'error' => 'Database error: ' . $e->getMessage(),
+                ];
+                continue;
+            }
 
             $uploaded[] = [
                 'id' => $media->id,
@@ -475,18 +637,26 @@ class AppearanceFilesController extends Controller
             ], 422);
         }
 
-        $ext = strtolower($file->getClientOriginalExtension());
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico', 'avif'])) {
+        if (!$file->isValid()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unsupported format. Allowed: JPG, PNG, WebP, GIF, SVG, ICO, AVIF.',
+                'message' => 'Upload failed: ' . $file->getErrorMessage(),
             ], 422);
         }
 
-        if ($file->getSize() > 20971520) {
+        $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $allowedExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'svg', 'ico', 'avif', 'bmp', 'tiff', 'tif', 'heic', 'heif'];
+        if (!in_array($ext, $allowedExts)) {
             return response()->json([
                 'success' => false,
-                'message' => 'File exceeds 20MB limit.',
+                'message' => 'Unsupported format. Allowed: JPG, PNG, WebP, GIF, SVG, AVIF, JFIF, BMP, TIFF, HEIC, ICO.',
+            ], 422);
+        }
+
+        if ($file->getSize() > 26214400) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File exceeds 25MB limit.',
             ], 422);
         }
 
@@ -495,14 +665,16 @@ class AppearanceFilesController extends Controller
         $folder = $media->folder ?: 'media';
 
         $origName = $file->getClientOriginalName();
-        $ext = strtolower($file->getClientOriginalExtension());
         $cleanBase = Str::slug(pathinfo($origName, PATHINFO_FILENAME));
         $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(8) . '.' . $ext;
         $newPath = $file->storeAs($folder, $filename, 'public');
 
-        // Mirror to public/storage if directory exists
-        $publicDir = public_path('storage/' . $folder);
-        if (is_dir(public_path('storage')) && !is_link(public_path('storage'))) {
+        // Mirror to public/storage only if not already symlinked/junctioned
+        $publicStorage = public_path('storage');
+        $appStorage = storage_path('app/public');
+        $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
+        if (!$isLinked && is_dir($publicStorage)) {
+            $publicDir = public_path('storage/' . $folder);
             if (!is_dir($publicDir)) {
                 @mkdir($publicDir, 0755, true);
             }

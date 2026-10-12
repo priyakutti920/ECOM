@@ -30,37 +30,6 @@
         </a>
       </div>
 
-      <!-- Center: Search with Category Dropdown from DB & Live Search -->
-      <div class="header-search-container" id="desktopSearchContainer">
-        <form class="header-search" action="{{ url('/search') }}" method="GET" role="search" id="desktopSearchForm">
-          @if($categories->count() > 0)
-            <select name="category" class="header-search-cat-select" id="desktopSearchCat" aria-label="Select Category">
-              <option value="">All Categories</option>
-              @foreach($categories as $cat)
-                <option value="{{ $cat->id }}" {{ request('category') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
-              @endforeach
-            </select>
-          @endif
-          <div class="header-search-input-wrap">
-            <input type="text" name="q" class="header-search-input live-search-input" id="desktopSearchInput" placeholder="Search for products, brands and more…" value="{{ request('q') }}" autocomplete="off" spellcheck="false" aria-label="Search products" aria-expanded="false" aria-haspopup="listbox" aria-autocomplete="list">
-            <button type="button" class="live-search-clear-btn" id="desktopSearchClear" aria-label="Clear search" style="display: none;">
-              <i class="las la-times"></i>
-            </button>
-            <div class="live-search-spinner" id="desktopSearchSpinner" aria-hidden="true" style="display: none;">
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="live-search-spinner-svg">
-                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
-                <path d="M12 2 a 10 10 0 0 1 10 10"></path>
-              </svg>
-            </div>
-          </div>
-          <button type="submit" class="header-search-btn" aria-label="Search">
-            <i class="las la-search" style="font-size: 18px;"></i>
-          </button>
-        </form>
-
-        <!-- Live Search Dropdown Panel -->
-        <div class="live-search-dropdown" id="desktopSearchDropdown" role="listbox" aria-label="Search Results"></div>
-      </div>
 
       <!-- Right: Compare, Wishlist, Cart -->
       <div class="header-actions">
@@ -137,25 +106,29 @@
     </div>
   </div>
 
-  <!-- Mobile Search Bar -->
-  <div class="container d-block d-lg-none" style="padding-bottom: 12px;">
-    <div class="mobile-search-container" id="mobileSearchContainer">
-      <form class="mobile-search-form" action="{{ url('/search') }}" method="GET" id="mobileSearchForm" style="display:flex; border:1.5px solid var(--color-primary); border-radius:var(--radius-sm); overflow:hidden; background:#fff; height:42px;">
-        <div class="header-search-input-wrap mobile-search-input-wrap" style="flex:1; position:relative; display:flex; align-items:center;">
-          <input type="text" name="q" class="live-search-input" id="mobileSearchInput" value="{{ request('q') }}" placeholder="Search products, brands and more…" autocomplete="off" spellcheck="false" aria-label="Search products" aria-expanded="false" aria-haspopup="listbox" aria-autocomplete="list" style="flex:1; border:none; padding:0 36px 0 12px; outline:none; font-size:13.5px; font-family:var(--font-base); width:100%; height:100%;">
-          <button type="button" class="live-search-clear-btn" id="mobileSearchClear" aria-label="Clear search" style="display: none;">
+  <!-- Full-Width Search Bar -->
+  <div class="container" style="padding-bottom: 12px;">
+    <div class="header-search-container" id="desktopSearchContainer">
+      <form class="header-search" action="{{ url('/search') }}" method="GET" role="search" id="desktopSearchForm">
+        <div class="header-search-input-wrap">
+          <input type="text" name="q" class="header-search-input live-search-input" id="desktopSearchInput" placeholder="Search products, brands and more…" value="{{ request('q') }}" autocomplete="off" spellcheck="false" aria-label="Search products" aria-expanded="false" aria-haspopup="listbox" aria-autocomplete="list">
+          <button type="button" class="live-search-clear-btn" id="desktopSearchClear" aria-label="Clear search" style="display: none;">
             <i class="las la-times"></i>
           </button>
-          <div class="live-search-spinner" id="mobileSearchSpinner" aria-hidden="true" style="display: none;">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="live-search-spinner-svg">
+          <div class="live-search-spinner" id="desktopSearchSpinner" aria-hidden="true" style="display: none;">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="live-search-spinner-svg">
               <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
               <path d="M12 2 a 10 10 0 0 1 10 10"></path>
             </svg>
           </div>
         </div>
-        <button type="submit" style="background:var(--color-primary); color:#fff; border:none; padding:0 18px; cursor:pointer; display:flex; align-items:center; justify-content:center;" aria-label="Search"><i class="las la-search" style="font-size: 16px;"></i></button>
+        <button type="submit" class="header-search-btn" aria-label="Search">
+          <i class="las la-search" style="font-size: 18px;"></i>
+        </button>
       </form>
-      <div class="live-search-dropdown mobile-live-search-dropdown" id="mobileSearchDropdown" role="listbox" aria-label="Search Results"></div>
+
+      <!-- Live Search Dropdown Panel -->
+      <div class="live-search-dropdown" id="desktopSearchDropdown" role="listbox" aria-label="Search Results"></div>
     </div>
   </div>
 </header>

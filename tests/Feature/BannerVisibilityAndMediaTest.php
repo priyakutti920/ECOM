@@ -684,4 +684,49 @@ class BannerVisibilityAndMediaTest extends TestCase
         // Trashed file must remain soft-deleted
         $this->assertSoftDeleted('media_files', ['id' => $media->id]);
     }
+
+    /**
+     * 29. Bulk image upload accepts modern formats including JFIF, WebP, and BMP.
+     */
+    public function test_bulk_upload_supports_jfif_and_modern_image_formats()
+    {
+        $jfif = UploadedFile::fake()->create('photo.jfif', 200, 'image/jfif');
+        $webp = UploadedFile::fake()->create('modern.webp', 150, 'image/webp');
+        $bmp  = UploadedFile::fake()->create('sample.bmp', 300, 'image/bmp');
+
+        $response = $this->actingAs($this->admin)->postJson(route('admin.appearance.files.bulk-upload'), [
+            'files' => [$jfif, $webp, $bmp],
+            'folder' => 'media',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+        $response->assertJsonCount(3, 'data.uploaded');
+        $response->assertJsonCount(0, 'data.failed');
+
+        $this->assertDatabaseHas('media_files', ['name' => 'photo', 'mime_type' => 'image/jpeg']);
+        $this->assertDatabaseHas('media_files', ['name' => 'modern', 'mime_type' => 'image/webp']);
+        $this->assertDatabaseHas('media_files', ['name' => 'sample', 'mime_type' => 'image/bmp']);
+    }
+
+    /**
+     * 30. Bulk upload reports individual item statuses when some files fail.
+     */
+    public function test_bulk_upload_reports_individual_failures_accurately()
+    {
+        $validFile = UploadedFile::fake()->create('valid_pic.jpg', 200, 'image/jpeg');
+        $invalidFile = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
+
+        $response = $this->actingAs($this->admin)->postJson(route('admin.appearance.files.bulk-upload'), [
+            'files' => [$validFile, $invalidFile],
+            'folder' => 'media',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data.uploaded');
+        $response->assertJsonCount(1, 'data.failed');
+        $this->assertEquals('valid_pic', $response->json('data.uploaded.0.name'));
+        $this->assertEquals('document.pdf', $response->json('data.failed.0.name'));
+    }
 }
+

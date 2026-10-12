@@ -474,7 +474,7 @@ class StoreSetting extends Model
             ],
 
             // Bottom Bar
-            'copyright_text'    => "Copyright © {$storeName} " . date('Y') . ". All rights reserved.",
+            'copyright_text'    => "Copyright © {store_name} {year}. All rights reserved.",
             'safe_checkout_text'=> '',
             'show_payment_badges' => true,
         ];
@@ -527,5 +527,65 @@ class StoreSetting extends Model
         }
 
         static::clearCache();
+    }
+
+    /**
+     * Normalize a phone number to standard international format without symbols.
+     * For Indian numbers (10 digits), prepends country code 91 -> 91xxxxxxxxxx.
+     */
+    public static function normalizePhoneNumber(?string $number, string $defaultCountryCode = '91'): string
+    {
+        if (empty($number)) {
+            return '';
+        }
+
+        // Keep only digits
+        $digits = preg_replace('/[^0-9]/', '', $number);
+        if (empty($digits)) {
+            return '';
+        }
+
+        // If 10 digits (standard Indian mobile), prepend country code
+        if (strlen($digits) === 10) {
+            return $defaultCountryCode . $digits;
+        }
+
+        // If starts with 0 and length is 11, strip leading 0 and prepend 91
+        if (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+            return $defaultCountryCode . substr($digits, 1);
+        }
+
+        return $digits;
+    }
+
+    /**
+     * Get authoritative normalized WhatsApp number for customer contact.
+     */
+    public static function getWhatsAppNumber(): string
+    {
+        $val = static::getValue('whatsapp_number')
+            ?: static::getValue('wa_number')
+            ?: static::getValue('phone')
+            ?: '8056081594';
+
+        return static::normalizePhoneNumber($val);
+    }
+
+    /**
+     * Build customer-facing WhatsApp chat URL with optional prefilled message.
+     */
+    public static function getWhatsAppUrl(string $message = ''): string
+    {
+        $number = static::getWhatsAppNumber();
+        if (empty($number)) {
+            return '';
+        }
+
+        $url = 'https://wa.me/' . $number;
+        if (!empty($message)) {
+            $url .= '?text=' . rawurlencode($message);
+        }
+
+        return $url;
     }
 }

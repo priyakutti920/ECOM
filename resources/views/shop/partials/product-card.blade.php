@@ -34,7 +34,7 @@
     <!-- Product Image -->
     <div class="product-image">
       @if(!empty($imageUrl))
-        <img src="{{ $imageUrl }}" alt="{{ $product->name }}" loading="lazy" width="220" height="220" onerror="this.src='/assets/images/placeholder.png';">
+        <img src="{{ $imageUrl }}" alt="{{ $product->name }}" loading="lazy" width="220" height="220" onerror="this.src='/assets/images/placeholder.svg';">
       @else
         <div class="product-image-fallback">
           <i class="las la-image"></i>

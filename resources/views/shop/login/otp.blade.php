@@ -115,7 +115,7 @@
 
  <div class="otp-resend-row">
  <span id="resend-timer" class="resend-timer">Resend OTP in <strong id="countdown">60</strong>s</span>
- <a href="{{ route('shop.login.resend') }}" method="POST" id="resend-link" class="resend-link disabled" onclick="return false;">
+ <a href="{{ route('shop.login.resend') }}" id="resend-link" class="resend-link disabled" onclick="return false;">
  <i class="fas fa-redo"></i> Resend OTP
  </a>
  </div>
@@ -150,6 +150,165 @@
 .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--color-border, #e2e8f0); }
 .login-footer-text { text-align: center; font-size: 11.5px; color: var(--color-muted, #64748b); display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 16px; line-height: 1.4; }
 .login-footer-text i { color: #16a34a; }
+
+/* ── Change Email Link ── */
+.change-number-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-primary, #0068e1);
+    font-weight: 600;
+    text-decoration: none;
+    margin-top: 8px;
+    transition: color 0.15s ease;
+}
+.change-number-link:hover {
+    color: var(--color-primary-hover, #0051b3);
+    text-decoration: underline;
+}
+
+/* ── OTP 6-Digit Container (Strict Single-Row Flex) ── */
+.otp-inputs-wrapper {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    gap: 10px;
+    margin: 22px 0 24px;
+    width: 100%;
+}
+
+/* ── Individual Square Digit Input ── */
+.otp-digit {
+    width: 48px !important;
+    height: 54px !important;
+    flex: 0 0 48px !important;
+    max-width: 48px !important;
+    border: 1.5px solid var(--color-border, #cbd5e1) !important;
+    border-radius: var(--radius-md, 8px) !important;
+    background: #ffffff !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: var(--color-heading, #0f172a) !important;
+    text-align: center !important;
+    outline: none !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: all 0.18s ease;
+    padding: 0 !important;
+    line-height: 54px !important;
+    box-sizing: border-box !important;
+    -moz-appearance: textfield;
+}
+
+.otp-digit::-webkit-outer-spin-button,
+.otp-digit::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.otp-digit:focus {
+    border-color: var(--color-primary, #0068e1) !important;
+    box-shadow: 0 0 0 3px rgba(0, 104, 225, 0.18) !important;
+    background: #ffffff !important;
+    transform: translateY(-2px);
+}
+
+.otp-digit.filled {
+    border-color: var(--color-primary, #0068e1) !important;
+    background: #f8fafc !important;
+}
+
+/* ── Field Error Message ── */
+.field-error {
+    display: block;
+    color: #ef4444;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 14px;
+    text-align: center;
+}
+
+/* ── Resend OTP Row ── */
+.otp-resend-row {
+    margin-top: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-muted, #64748b);
+    text-align: center;
+}
+
+.resend-timer {
+    color: var(--color-muted, #64748b);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.resend-timer strong {
+    color: var(--color-heading, #0f172a);
+    font-weight: 700;
+}
+
+.resend-link {
+    color: var(--color-primary, #0068e1);
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.resend-link:hover:not(.disabled) {
+    color: var(--color-primary-hover, #0051b3);
+    text-decoration: underline;
+}
+
+.resend-link.disabled {
+    color: #94a3b8 !important;
+    cursor: not-allowed;
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+/* ── Mobile Responsive Refinements ── */
+@media (max-width: 480px) {
+    .login-card {
+        padding: 28px 18px;
+    }
+    .otp-inputs-wrapper {
+        gap: 6px;
+    }
+    .otp-digit {
+        width: 42px !important;
+        height: 48px !important;
+        flex: 0 0 42px !important;
+        max-width: 42px !important;
+        font-size: 19px !important;
+        line-height: 48px !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .otp-inputs-wrapper {
+        gap: 4px;
+    }
+    .otp-digit {
+        width: 36px !important;
+        height: 44px !important;
+        flex: 0 0 36px !important;
+        max-width: 36px !important;
+        font-size: 17px !important;
+        line-height: 44px !important;
+    }
+}
 </style>
 @endpush
 

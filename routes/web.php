@@ -300,6 +300,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::get('/settings/plugin', [AdminDashboardController::class, 'settingsPlugin'])->name('settings.plugin');
  Route::get('/settings/plugin-data', [AdminDashboardController::class, 'settingsPluginData'])->name('settings.plugin-data');
  Route::post('/settings/plugin-save', [AdminDashboardController::class, 'settingsPluginSave'])->name('settings.plugin-save');
+
+ Route::get('/settings/whatsapp', [AdminDashboardController::class, 'settingsWhatsapp'])->name('settings.whatsapp');
+ Route::get('/settings/whatsapp-data', [AdminDashboardController::class, 'settingsWhatsappData'])->name('settings.whatsapp-data');
+ Route::post('/settings/whatsapp-save', [AdminDashboardController::class, 'settingsWhatsappSave'])->name('settings.whatsapp-save');
+ Route::post('/settings/plugin/test-whatsapp', [AdminDashboardController::class, 'settingsPluginTestWa'])->name('settings.plugin-test-wa');
+ Route::post('/settings/plugin/wallet-topup', [AdminDashboardController::class, 'settingsPluginWalletTopup'])->name('settings.plugin-wallet-topup');
  Route::get('/settings/payment', [AdminDashboardController::class, 'settingsPayment'])->name('settings.payment');
  Route::get('/settings/payment-data', [AdminDashboardController::class, 'settingsPaymentData'])->name('settings.payment-data');
  Route::post('/settings/payment-toggle', [AdminDashboardController::class, 'settingsPaymentToggle'])->name('settings.payment-toggle');
@@ -358,6 +364,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
  Route::get('/products', [ProductController::class, 'index'])->name('products.index');
  Route::post('/products/bulk-action', [ProductController::class, 'bulkAction'])->name('products.bulk-action');
+ Route::post('/products/bulk-images/preview', [ProductController::class, 'bulkImagePreview'])->name('products.bulk-images.preview');
+ Route::post('/products/bulk-images/apply', [ProductController::class, 'bulkImageApply'])->name('products.bulk-images.apply');
  Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
  Route::post('/products', [ProductController::class, 'store'])->name('products.store');
  Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
@@ -384,6 +392,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::post ('/orders/{order}/cancel',                 [\App\Http\Controllers\Admin\OrderController::class, 'cancel'])          ->name('orders.cancel');
  Route::post ('/orders/{order}/refund',                 [\App\Http\Controllers\Admin\OrderController::class, 'refund'])          ->name('orders.refund');
  Route::get  ('/orders/{order}/invoice',                [\App\Http\Controllers\Admin\OrderController::class, 'invoice'])         ->name('orders.invoice');
+ Route::post ('/orders/{order}/send-whatsapp',          [\App\Http\Controllers\Admin\OrderController::class, 'sendWhatsappNotification'])->name('orders.send-whatsapp');
  Route::post ('/orders/{order}/shipment',               [\App\Http\Controllers\Admin\OrderController::class, 'createShipment'])   ->name('orders.shipment');
  Route::post ('/orders/{order}/awb',                    [\App\Http\Controllers\Admin\OrderController::class, 'generateAwb'])      ->name('orders.awb');
  Route::get  ('/orders/{order}/label',                  [\App\Http\Controllers\Admin\OrderController::class, 'downloadLabel'])    ->name('orders.label');
@@ -397,6 +406,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::get   ('/cancellations-returns',                              [\App\Http\Controllers\Admin\CancellationReturnController::class, 'index'])         ->name('cancellations-returns.index');
  Route::post  ('/returns/{return}/status',                            [\App\Http\Controllers\Admin\CancellationReturnController::class, 'updateReturnStatus'])->name('returns.status');
  Route::post  ('/returns/{return}/note',                              [\App\Http\Controllers\Admin\CancellationReturnController::class, 'updateReturnNote'])->name('returns.note');
+
+ // Support Tickets
+ Route::get  ('/support',                 [\App\Http\Controllers\Admin\SupportController::class, 'index'])        ->name('support.index');
+ Route::get  ('/support/{ticket}',        [\App\Http\Controllers\Admin\SupportController::class, 'show'])         ->name('support.show');
+ Route::post ('/support/{ticket}/reply',  [\App\Http\Controllers\Admin\SupportController::class, 'reply'])        ->name('support.reply');
+ Route::post ('/support/{ticket}/status', [\App\Http\Controllers\Admin\SupportController::class, 'updateStatus']) ->name('support.status');
 
  // Account & Profile
  Route::get  ('/account',    [AdminDashboardController::class, 'account'])      ->name('account');

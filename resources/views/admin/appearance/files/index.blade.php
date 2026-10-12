@@ -97,7 +97,7 @@
 
         <div class="bulk-card-body">
             <div class="bulk-dropzone" id="bulkDropzone" onclick="document.getElementById('bulkFileInput').click()">
-                <input type="file" id="bulkFileInput" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" style="display:none;" onchange="handleBulkFilesSelected(this.files)">
+                <input type="file" id="bulkFileInput" multiple accept="image/*,.jfif,.avif,.webp,.svg,.ico,.bmp,.tiff,.tif,.heic,.heif" style="display:none;" onchange="handleBulkFilesSelected(this.files)">
                 <div class="dropzone-icon">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </div>
@@ -107,7 +107,7 @@
                     <i class="fas fa-folder-open"></i> Choose Images
                 </button>
                 <div class="dropzone-hint">
-                    Supported: JPG &bull; PNG &bull; WebP &bull; GIF &bull; SVG (Max 20MB per file)
+                    Supported: JPG &bull; PNG &bull; WebP &bull; GIF &bull; SVG &bull; AVIF &bull; JFIF &bull; BMP &bull; HEIC (Max 12MB per file)
                 </div>
             </div>
 
@@ -921,6 +921,16 @@
 var stagedFiles = [];
 var isBulkUploading = false;
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function toggleBulkUploadPanel() {
     var p = document.getElementById('bulkUploadPanel');
     p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'block' : 'none';
@@ -1004,24 +1014,29 @@ function renderBulkQueue() {
         } else if (item.status === 'done') {
             badgeHtml = '<span class="bulk-queue-status-badge status-badge-done" id="queue-status-' + item.id + '"><i class="fas fa-check-circle"></i> Uploaded</span>';
         } else if (item.status === 'error') {
-            badgeHtml = '<span class="bulk-queue-status-badge status-badge-error" id="queue-status-' + item.id + '" title="' + (item.errorMsg || 'Upload failed') + '"><i class="fas fa-exclamation-triangle"></i> Failed</span>';
+            badgeHtml = '<span class="bulk-queue-status-badge status-badge-error" id="queue-status-' + item.id + '" title="' + escapeHtml(item.errorMsg || 'Upload failed') + '"><i class="fas fa-exclamation-triangle"></i> Failed</span>';
         } else {
             badgeHtml = '<span class="bulk-queue-status-badge status-badge-ready" id="queue-status-' + item.id + '">Ready</span>';
         }
 
         var removeBtn = isBulkUploading
             ? ''
-            : '<button type="button" class="btn btn-default btn-xs text-danger" onclick="removeFromQueue(' + idx + ')"><i class="fas fa-times"></i></button>';
+            : '<button type="button" class="btn btn-default btn-xs text-danger" onclick="removeFromQueue(' + idx + ')" title="Remove"><i class="fas fa-times"></i></button>';
+
+        var errorMsgHtml = item.errorMsg
+            ? '<div class="text-danger" id="queue-error-' + item.id + '" style="font-size:11px; margin-top:2px; word-break:break-word;"><i class="fas fa-exclamation-circle"></i> ' + escapeHtml(item.errorMsg) + '</div>'
+            : '<div class="text-danger" id="queue-error-' + item.id + '" style="display:none; font-size:11px; margin-top:2px; word-break:break-word;"></div>';
 
         el.innerHTML =
-            '<div class="bulk-queue-left">' +
+            '<div class="bulk-queue-left" style="flex:1; min-width:0;">' +
                 '<img src="' + (objectUrl || '{{ asset("assets/images/placeholder.svg") }}') + '" class="bulk-queue-thumb" alt="thumb" onerror="this.onerror=null; this.src=\'{{ asset("assets/images/placeholder.svg") }}\';">' +
-                '<div>' +
-                    '<div class="bulk-queue-title" title="' + item.name + '">' + item.name + '</div>' +
-                    '<span class="text-muted" style="font-size:11px;">' + sizeKb + ' &bull; ' + item.type + '</span>' +
+                '<div style="min-width:0; flex:1;">' +
+                    '<div class="bulk-queue-title" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</div>' +
+                    '<span class="text-muted" style="font-size:11px;">' + sizeKb + ' &bull; ' + escapeHtml(item.type || 'image') + '</span>' +
+                    errorMsgHtml +
                 '</div>' +
             '</div>' +
-            '<div style="display:flex; align-items:center; gap:8px;">' +
+            '<div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">' +
                 badgeHtml +
                 removeBtn +
             '</div>';
@@ -1105,24 +1120,10 @@ function startBulkUpload() {
 
     updateProgressDisplay(0, 0, totalFiles, 'Starting upload queue for ' + totalFiles + ' file(s)...');
 
-    // Group into safe batches: Max 2 files per batch OR 1 file if > 3.5MB, batch max 8MB
-    var batches = [];
-    var currentBatch = [];
-    var currentBatchSize = 0;
-
-    pendingItems.forEach(function (item) {
-        var itemSize = item.size || 0;
-        if (currentBatch.length >= 2 || (currentBatchSize + itemSize > 8388608 && currentBatch.length > 0)) {
-            batches.push(currentBatch);
-            currentBatch = [];
-            currentBatchSize = 0;
-        }
-        currentBatch.push(item);
-        currentBatchSize += itemSize;
+    // Process one file per request for resilient error handling and progress accuracy
+    var batches = pendingItems.map(function (item) {
+        return [item];
     });
-    if (currentBatch.length > 0) {
-        batches.push(currentBatch);
-    }
 
     var folder = document.getElementById('bulkFolderSelect').value || 'media';
     var csrfToken = $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}';
@@ -1130,25 +1131,27 @@ function startBulkUpload() {
 
     function processNextBatch() {
         if (batchIndex >= batches.length) {
-            // All batches processed!
             isBulkUploading = false;
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check-circle"></i> Upload Complete';
+                if (failedFiles > 0) {
+                    btn.innerHTML = '<i class="fas fa-redo"></i> Retry Failed (' + failedFiles + ')';
+                } else {
+                    btn.innerHTML = '<i class="fas fa-check-circle"></i> Upload Complete';
+                }
             }
             if (clearBtn) clearBtn.disabled = false;
 
-            updateProgressDisplay(100, completedFiles, totalFiles, 'Completed! ' + completedFiles + ' uploaded' + (failedFiles > 0 ? ', ' + failedFiles + ' failed' : '') + '.');
-
-            var msg = completedFiles + ' of ' + totalFiles + ' files imported successfully!';
+            var finalMsg = completedFiles + ' of ' + totalFiles + ' files imported successfully.';
             if (failedFiles > 0) {
-                msg += ' (' + failedFiles + ' failed)';
-                adminToast(msg, 'warning');
+                finalMsg += ' (' + failedFiles + ' failed)';
+                updateProgressDisplay(100, completedFiles, totalFiles, finalMsg);
+                adminToast(finalMsg, 'warning');
+                renderBulkQueue();
             } else {
-                adminToast(msg, 'success');
-            }
-
-            if (completedFiles > 0) {
+                updateProgressDisplay(100, completedFiles, totalFiles, 'Completed! All files uploaded successfully.');
+                adminToast(finalMsg, 'success');
+                renderBulkQueue();
                 setTimeout(function () {
                     window.location.href = '{{ route("admin.appearance.files.index", ["status" => "active", "sort" => "latest"]) }}';
                 }, 1200);
@@ -1157,30 +1160,24 @@ function startBulkUpload() {
         }
 
         var batch = batches[batchIndex];
-        var batchBytesTotal = batch.reduce(function (acc, item) {
-            return acc + (item.size || 0);
-        }, 0);
+        var item = batch[0];
+        var itemSize = item.size || 0;
 
-        // Mark current batch items as uploading in UI
-        batch.forEach(function (item) {
-            item.status = 'uploading';
-            var badge = document.getElementById('queue-status-' + item.id);
-            if (badge) {
-                badge.className = 'bulk-queue-status-badge status-badge-uploading';
-                badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading';
-            }
-            var row = document.getElementById('queue-item-' + item.id);
-            if (row) {
-                row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        });
+        item.status = 'uploading';
+        var badge = document.getElementById('queue-status-' + item.id);
+        if (badge) {
+            badge.className = 'bulk-queue-status-badge status-badge-uploading';
+            badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading';
+        }
+        var row = document.getElementById('queue-item-' + item.id);
+        if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
 
         var fd = new FormData();
         fd.append('_token', csrfToken);
         fd.append('folder', folder);
-        batch.forEach(function (item) {
-            fd.append('files[]', item.file);
-        });
+        fd.append('files[]', item.file);
 
         $.ajax({
             url: '{{ route("admin.appearance.files.bulk-upload") }}',
@@ -1195,48 +1192,82 @@ function startBulkUpload() {
                 var xhr = new window.XMLHttpRequest();
                 xhr.upload.addEventListener('progress', function (e) {
                     if (e.lengthComputable && totalBytes > 0) {
-                        var currentBatchLoaded = Math.min(e.loaded, batchBytesTotal);
+                        var currentBatchLoaded = Math.min(e.loaded, itemSize);
                         var totalLoadedNow = uploadedBytesCompletedBatches + currentBatchLoaded;
                         var pct = Math.min(99, Math.round((totalLoadedNow / totalBytes) * 100));
-                        updateProgressDisplay(pct, completedFiles, totalFiles, 'Uploading: batch ' + (batchIndex + 1) + ' of ' + batches.length + ' (' + pct + '%)');
+                        updateProgressDisplay(pct, completedFiles, totalFiles, 'Uploading ' + (batchIndex + 1) + ' of ' + totalFiles + ': ' + item.name + ' (' + pct + '%)');
                     }
                 }, false);
                 return xhr;
             },
             success: function (res) {
-                uploadedBytesCompletedBatches += batchBytesTotal;
-                batch.forEach(function (item) {
-                    item.status = 'done';
-                    completedFiles++;
-                    var badge = document.getElementById('queue-status-' + item.id);
-                    if (badge) {
-                        badge.className = 'bulk-queue-status-badge status-badge-done';
-                        badge.innerHTML = '<i class="fas fa-check-circle"></i> Uploaded';
-                    }
-                });
+                uploadedBytesCompletedBatches += itemSize;
+                var failedList = (res.data && res.data.failed) || [];
 
-                var pct = Math.round((completedFiles / totalFiles) * 100);
-                updateProgressDisplay(pct, completedFiles, totalFiles, 'Uploaded ' + completedFiles + ' of ' + totalFiles + ' files...');
+                if (failedList.length > 0) {
+                    var failObj = failedList[0];
+                    item.status = 'error';
+                    item.errorMsg = failObj.error || 'Upload was rejected by server.';
+                    failedFiles++;
+                    var b = document.getElementById('queue-status-' + item.id);
+                    if (b) {
+                        b.className = 'bulk-queue-status-badge status-badge-error';
+                        b.title = item.errorMsg;
+                        b.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
+                    }
+                    var errEl = document.getElementById('queue-error-' + item.id);
+                    if (errEl) {
+                        errEl.innerText = item.errorMsg;
+                        errEl.style.display = 'block';
+                    }
+                } else {
+                    item.status = 'done';
+                    item.errorMsg = '';
+                    completedFiles++;
+                    var b = document.getElementById('queue-status-' + item.id);
+                    if (b) {
+                        b.className = 'bulk-queue-status-badge status-badge-done';
+                        b.innerHTML = '<i class="fas fa-check-circle"></i> Uploaded';
+                    }
+                    var errEl = document.getElementById('queue-error-' + item.id);
+                    if (errEl) {
+                        errEl.style.display = 'none';
+                    }
+                }
+
+                var pct = Math.round(((batchIndex + 1) / totalFiles) * 100);
+                updateProgressDisplay(pct, completedFiles, totalFiles, 'Processed ' + (batchIndex + 1) + ' of ' + totalFiles + ' files...');
 
                 batchIndex++;
                 processNextBatch();
             },
             error: function (xhr) {
-                uploadedBytesCompletedBatches += batchBytesTotal;
+                uploadedBytesCompletedBatches += itemSize;
                 var res = xhr.responseJSON || {};
+                var failedList = (res.data && res.data.failed) || [];
                 var errDetail = res.message || 'Upload failed.';
+                if (failedList.length > 0 && failedList[0].error) {
+                    errDetail = failedList[0].error;
+                }
 
-                batch.forEach(function (item) {
-                    item.status = 'error';
-                    item.errorMsg = errDetail;
-                    failedFiles++;
-                    var badge = document.getElementById('queue-status-' + item.id);
-                    if (badge) {
-                        badge.className = 'bulk-queue-status-badge status-badge-error';
-                        badge.title = errDetail;
-                        badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
-                    }
-                });
+                item.status = 'error';
+                item.errorMsg = errDetail;
+                failedFiles++;
+
+                var b = document.getElementById('queue-status-' + item.id);
+                if (b) {
+                    b.className = 'bulk-queue-status-badge status-badge-error';
+                    b.title = errDetail;
+                    b.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
+                }
+                var errEl = document.getElementById('queue-error-' + item.id);
+                if (errEl) {
+                    errEl.innerText = errDetail;
+                    errEl.style.display = 'block';
+                }
+
+                var pct = Math.round(((batchIndex + 1) / totalFiles) * 100);
+                updateProgressDisplay(pct, completedFiles, totalFiles, 'Processed ' + (batchIndex + 1) + ' of ' + totalFiles + ' files...');
 
                 batchIndex++;
                 processNextBatch();

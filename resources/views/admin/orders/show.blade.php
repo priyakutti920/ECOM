@@ -295,8 +295,15 @@
                             <a onclick="openCancelModal()" style="color:#c0392b;"><i class="fas fa-times" style="color:#c0392b;"></i> Cancel order</a>
                         </li>
                         <li class="divider"></li>
+                        <li class="action-section">WhatsApp Notifications</li>
                         <li>
-                            <a href="{{ app(\App\Services\WhatsAppService::class)->getShareUrl($order) }}" target="_blank" style="color:#25d366; font-weight:600;"><i class="fab fa-whatsapp" style="color:#25d366;"></i> WhatsApp Customer</a>
+                            <a href="javascript:void(0)" onclick="sendWhatsAppNotification('admin')" style="color:#059669; font-weight:600;"><i class="fab fa-whatsapp" style="color:#059669;"></i> Send WhatsApp to Admin (API)</a>
+                        </li>
+                        <li>
+                            <a href="javascript:void(0)" onclick="sendWhatsAppNotification('customer')" style="color:#25d366; font-weight:600;"><i class="fab fa-whatsapp" style="color:#25d366;"></i> Send WhatsApp to Customer (API)</a>
+                        </li>
+                        <li>
+                            <a href="{{ app(\App\Services\WhatsAppService::class)->getShareUrl($order) }}" target="_blank" style="color:#0284c7; font-weight:600;"><i class="fas fa-external-link-alt" style="color:#0284c7;"></i> Open Chat in WhatsApp Web</a>
                         </li>
                     </ul>
                 </div>
@@ -813,6 +820,34 @@
         })
         .catch(err => {
             body.innerHTML = '<div style="padding:15px; color:#b91c1c; background:#fef2f2; border-radius:6px;"><i class="fas fa-exclamation-triangle"></i> Failed to connect to tracking server.</div>';
+        });
+    }
+
+    function sendWhatsAppNotification(target) {
+        if (!confirm('Are you sure you want to trigger automated WhatsApp notification to ' + (target === 'customer' ? 'the customer' : 'admin') + '?')) {
+            return;
+        }
+
+        fetch("{{ route('admin.orders.send-whatsapp', $order->order_code) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ target: target })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'WhatsApp notification sent successfully!');
+            } else {
+                alert(data.message || 'Failed to send WhatsApp notification. Please check logs and API configuration.');
+            }
+        })
+        .catch(err => {
+            alert('Error connecting to WhatsApp dispatch service.');
         });
     }
 </script>

@@ -456,8 +456,13 @@ function renderCart() {
   empty.style.display = 'none';
   withItems.style.display = 'grid';
 
-  list.innerHTML = cart.map(item => `
-    <div class="cart-item-row" data-id="${item.id}">
+  list.innerHTML = cart.map(item => {
+    const itemKey = (typeof window.getCartItemKey === 'function') 
+      ? window.getCartItemKey(item) 
+      : `${item.id}_${item.variation_id || '0'}_${(item.color || '').trim().toLowerCase()}`;
+
+    return `
+    <div class="cart-item-row" data-id="${item.id}" data-key="${itemKey}">
       <a href="/product/${item.slug || item.id}" class="cart-item-thumb">
         ${item.image ? `<img src="${item.image}" alt="${item.name || ''}">` : '<i class="fas fa-image" style="color:#cbd5e1; font-size:24px;"></i>'}
       </a>
@@ -468,24 +473,74 @@ function renderCart() {
         <div class="cart-item-price-unit">₹${Number(item.price || 0).toLocaleString('en-IN')}</div>
         <div class="cart-item-actions-row">
           <div class="stepper">
-            <button type="button" onclick="changeCartQty(${item.id}, ${item.qty - 1})" aria-label="Decrease quantity">−</button>
-            <input type="number" value="${item.qty}" min="1" onchange="changeCartQty(${item.id}, parseInt(this.value))" aria-label="Quantity">
-            <button type="button" onclick="changeCartQty(${item.id}, ${item.qty + 1})" aria-label="Increase quantity">+</button>
+            <button type="button" onclick="changeCartQty('${itemKey}', ${(parseInt(item.qty) || 1) - 1})" aria-label="Decrease quantity">−</button>
+            <input type="number" value="${item.qty || 1}" min="1" onchange="changeCartQty('${itemKey}', parseInt(this.value))" aria-label="Quantity">
+            <button type="button" onclick="changeCartQty('${itemKey}', ${(parseInt(item.qty) || 1) + 1})" aria-label="Increase quantity">+</button>
           </div>
-          <button type="button" class="item-action-link" onclick="saveForLater(${item.id})">
+          <button type="button" class="item-action-link" onclick="saveForLater('${itemKey}')">
             <i class="far fa-heart"></i> Save for later
           </button>
-          <button type="button" class="item-action-link remove" onclick="removeCartItem(${item.id})">
+          <button type="button" class="item-action-link remove" onclick="removeCartItem('${itemKey}')">
             <i class="fas fa-trash-alt"></i> Remove
           </button>
         </div>
       </div>
-      <div class="cart-item-line-total">₹${(Number(item.price || 0) * item.qty).toLocaleString('en-IN')}</div>
+      <div class="cart-item-line-total">₹${(Number(item.price || 0) * (parseInt(item.qty) || 1)).toLocaleString('en-IN')}</div>
     </div>
-  `).join('');
+  `;}).join('');
 
   updateCartTotals();
   document.getElementById('cart-count-display').textContent = `(${cart.length} ${cart.length === 1 ? 'item' : 'items'})`;
+}
+
+async function refreshCartFromServer() {
+  const cart = getCart();
+  if (!cart.length) return;
+  try {
+    const res = await fetch('/api/cart/items', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
+      },
+      body: JSON.stringify({ ids: cart.map(c => c.id) })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.data) && data.data.length) {
+        const productMap = {};
+        data.data.forEach(p => { productMap[p.id] = p; });
+        let changed = false;
+        const currentCart = getCart();
+        currentCart.forEach(c => {
+          const p = productMap[c.id];
+          if (p) {
+            let serverPrice = Number(p.price);
+            if (c.variation_id && p.variations) {
+              const v = p.variations.find(v => String(v.id) === String(c.variation_id));
+              if (v && v.price !== undefined) serverPrice = Number(v.price);
+            }
+            if (c.price !== serverPrice) {
+              c.price = serverPrice;
+              changed = true;
+            }
+            if (p.name && c.name !== p.name) {
+              c.name = p.name;
+              changed = true;
+            }
+            if (p.image && !c.image) {
+              c.image = p.image;
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          saveCart(currentCart);
+          renderCart();
+        }
+      }
+    }
+  } catch(e) {}
 }
 
 function updateShippingMeter(subtotal) {
@@ -516,14 +571,14 @@ function updateShippingMeter(subtotal) {
   }
 }
 
-function changeCartQty(id, qty) {
-  if (qty < 1) { removeCartItem(id); return; }
-  updateCartQty(id, qty);
+function changeCartQty(keyOrId, qty) {
+  if (qty < 1) { removeCartItem(keyOrId); return; }
+  updateCartQty(keyOrId, qty);
   renderCart();
 }
 
-function removeCartItem(id) {
-  removeFromCart(id);
+function removeCartItem(keyOrId) {
+  removeFromCart(keyOrId);
   renderCart();
 }
 
@@ -536,14 +591,21 @@ function clearCart() {
   }
 }
 
-function saveForLater(id) {
+function saveForLater(keyOrId) {
   const cart = getCart();
-  const item = cart.find(c => c.id === id);
+  const isComposite = String(keyOrId).includes('_');
+  const item = cart.find(c => {
+    if (isComposite) {
+      const [pId, vId, clr] = String(keyOrId).split('_');
+      return String(c.id) === pId && String(c.variation_id || '0') === vId && String(c.color || '').trim().toLowerCase() === clr;
+    }
+    return String(c.id) === String(keyOrId);
+  });
   if (item) {
     const later = JSON.parse(localStorage.getItem('store_saved') || '[]');
     later.push(item);
     localStorage.setItem('store_saved', JSON.stringify(later));
-    removeFromCart(id);
+    removeFromCart(keyOrId);
     renderCart();
     showToast('Saved for later!', 'info');
   }
@@ -627,7 +689,12 @@ function proceedToCheckout() {
   window.location = u;
 }
 
-document.addEventListener('DOMContentLoaded', renderCart);
+window.renderCart = renderCart;
+document.addEventListener('DOMContentLoaded', () => {
+  renderCart();
+  refreshCartFromServer();
+});
+window.addEventListener('cart:updated', renderCart);
 </script>
 @endpush
 

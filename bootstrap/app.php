@@ -11,6 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust all upstream reverse proxies for SSL termination, correct IP and secure cookies
+        $middleware->trustProxies(at: '*');
+
         // Prepend installer redirect so that missing .env files automatically redirect to /install
         $middleware->web(prepend: [
             \App\Http\Middleware\RedirectIfNotInstalled::class,

@@ -457,5 +457,45 @@ class OrderController extends Controller
 
         return back()->with('success', $msg);
     }
+
+    /**
+     * Send WhatsApp notification to Admin or Customer for a specific order.
+     */
+    public function sendWhatsappNotification(Request $request, string $order)
+    {
+        $o = Order::where('order_code', $order)->with(['items', 'customer'])->firstOrFail();
+        $target = $request->input('target', 'admin'); // 'admin' or 'customer'
+
+        if ($target === 'customer') {
+            $customerPhone = $o->contact_mobile ?: $o->addr_mobile_primary;
+            if (empty($customerPhone)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Customer mobile number is not available for this order.',
+                ], 422);
+            }
+
+            $ok = \App\Services\WhatsAppService::sendPaymentConfirmationToCustomer($o, 'admin_manual');
+            if ($ok) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "WhatsApp order confirmation sent to customer ({$customerPhone}) successfully.",
+                ]);
+            }
+        } else {
+            $ok = \App\Services\WhatsAppService::sendOrderNotificationToAdmin($o, 'admin_manual');
+            if ($ok) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'WhatsApp notification sent to Admin successfully.',
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send WhatsApp notification. Please check API credentials and logs.',
+        ], 500);
+    }
 }
 

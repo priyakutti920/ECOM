@@ -98,9 +98,12 @@ class BannerController extends Controller
             $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(6) . '.' . $ext;
             $imagePath = $file->storeAs('banner', $filename, 'public');
 
-            // Mirror to public/storage if directory exists
-            $publicDir = public_path('storage/banner');
-            if (is_dir(public_path('storage')) && !is_link(public_path('storage'))) {
+            // Mirror to public/storage only if not already symlinked/junctioned
+            $publicStorage = public_path('storage');
+            $appStorage = storage_path('app/public');
+            $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
+            if (!$isLinked && is_dir($publicStorage)) {
+                $publicDir = public_path('storage/banner');
                 if (!is_dir($publicDir)) {
                     @mkdir($publicDir, 0755, true);
                 }
@@ -198,9 +201,12 @@ class BannerController extends Controller
             $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(6) . '.' . $ext;
             $imagePath = $file->storeAs('banner', $filename, 'public');
 
-            // Mirror to public/storage if directory exists
-            $publicDir = public_path('storage/banner');
-            if (is_dir(public_path('storage')) && !is_link(public_path('storage'))) {
+            // Mirror to public/storage only if not already symlinked/junctioned
+            $publicStorage = public_path('storage');
+            $appStorage = storage_path('app/public');
+            $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
+            if (!$isLinked && is_dir($publicStorage)) {
+                $publicDir = public_path('storage/banner');
                 if (!is_dir($publicDir)) {
                     @mkdir($publicDir, 0755, true);
                 }
@@ -234,7 +240,7 @@ class BannerController extends Controller
             'button_name'  => $request->boolean('show_button') ? ($validated['button_name'] ?? null) : null,
             'button_link'  => $request->boolean('show_button') ? ($validated['button_link'] ?? null) : null,
             'sort_order'   => $validated['sort_order'] ?? $banner->sort_order,
-            'is_active'    => $request->has('is_active') ? $request->boolean('is_active') : $banner->is_active,
+            'is_active'    => $request->boolean('is_active'),
             'start_date'   => $validated['start_date'] ?? null,
             'end_date'     => $validated['end_date'] ?? null,
             'is_flash_sale'=> $request->boolean('is_flash_sale'),
@@ -245,11 +251,15 @@ class BannerController extends Controller
         Cache::forget('home_flash_sale_banner');
         StoreSetting::clearCache();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Banner updated successfully.',
-            'banner' => $banner,
-        ]);
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Banner updated successfully.',
+                'banner' => $banner,
+            ]);
+        }
+
+        return redirect()->route('admin.banners.index')->with('success', 'Banner updated successfully.');
     }
 
     /**

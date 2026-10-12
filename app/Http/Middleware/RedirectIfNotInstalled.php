@@ -13,9 +13,13 @@ class RedirectIfNotInstalled
 {
     public function handle(Request $request, Closure $next): Response
     {
+        /** @var EnvironmentManager $envManager */
+        $envManager = app(EnvironmentManager::class);
+        $isInstalled = $envManager->isInstalled();
+
         // Prevent session errors if database does not exist yet (only in non-testing environments)
         if (!app()->environment('testing')) {
-            if (!file_exists(base_path('.env')) || !file_exists(storage_path('installed'))) {
+            if (!$isInstalled || !file_exists(base_path('.env'))) {
                 config([
                     'session.driver' => 'file',
                 ]);
@@ -39,9 +43,9 @@ class RedirectIfNotInstalled
             return $next($request);
         }
 
-        // In case .env does not exist or test simulates missing .env, automatically redirect to installer
-        if (!file_exists(base_path('.env')) || app()->bound('test_missing_env_redirect')) {
-            if (!app()->bound('test_missing_env_redirect')) {
+        // If install.lock does NOT exist or .env does not exist, automatically redirect to installer
+        if (!$isInstalled || !file_exists(base_path('.env')) || app()->bound('test_missing_env_redirect')) {
+            if (!app()->bound('test_missing_env_redirect') && !file_exists(base_path('.env'))) {
                 $this->initializeBaselineEnv();
             }
             return redirect()->route('install.index');

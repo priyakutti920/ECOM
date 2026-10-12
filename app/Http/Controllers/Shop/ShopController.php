@@ -413,8 +413,11 @@ class ShopController extends Controller
     {
         $q = trim((string) $request->get('q', ''));
         $categoryId = $request->get('category');
+        $sort = (string) $request->get('sort', 'latest');
 
         $products = collect();
+        $selectedCategory = null;
+
         if ($q !== '' || !empty($categoryId)) {
             $query = Product::active()
                 ->with(['primaryImage', 'categories'])
@@ -422,19 +425,24 @@ class ShopController extends Controller
                 ->withCount('approvedReviews');
 
             if ($q !== '') {
-                $query->where(function ($query) use ($q) {
-                    $query->where('name', 'like', "%{$q}%")
-                        ->orWhere('description', 'like', "%{$q}%")
-                        ->orWhere('code', 'like', "%{$q}%")
-                        ->orWhereHas('categories', function ($catQuery) use ($q) {
-                            $catQuery->where('name', 'like', "%{$q}%");
+                $escapedQ = addcslashes($q, '%_\\');
+                $query->where(function ($query) use ($escapedQ) {
+                    $query->where('name', 'like', "%{$escapedQ}%")
+                        ->orWhere('description', 'like', "%{$escapedQ}%")
+                        ->orWhere('code', 'like', "%{$escapedQ}%")
+                        ->orWhere('sku', 'like', "%{$escapedQ}%")
+                        ->orWhereHas('categories', function ($catQuery) use ($escapedQ) {
+                            $catQuery->where('name', 'like', "%{$escapedQ}%");
                         });
                 });
             }
 
-            if (!empty($categoryId) && is_numeric($categoryId)) {
-                $cat = Category::active()->find($categoryId);
+            if (!empty($categoryId)) {
+                $cat = is_numeric($categoryId)
+                    ? Category::active()->find($categoryId)
+                    : Category::active()->where('slug', $categoryId)->first();
                 if ($cat) {
+                    $selectedCategory = $cat;
                     $subIds = Category::active()->where('parent_id', $cat->id)->pluck('id')->all();
                     $ids = collect([$cat->id])->merge($subIds)->unique()->all();
                     $query->where(function ($cq) use ($ids) {
@@ -444,14 +452,20 @@ class ShopController extends Controller
                 }
             }
 
-            $products = $query->orderByDesc('id')
-                ->paginate(24)
-                ->withQueryString();
+            match ($sort) {
+                'price_asc' => $query->orderBy('price', 'asc'),
+                'price_desc' => $query->orderBy('price', 'desc'),
+                'name_asc' => $query->orderBy('name', 'asc'),
+                'name_desc' => $query->orderBy('name', 'desc'),
+                default => $query->orderByDesc('id'),
+            };
+
+            $products = $query->paginate(24)->withQueryString();
         }
 
         $storeName = StoreSetting::getStoreName();
 
-        return view('shop.search', compact('products', 'q', 'storeName'));
+        return view('shop.search', compact('products', 'q', 'categoryId', 'selectedCategory', 'sort', 'storeName'));
     }
 
     /**
@@ -477,6 +491,7 @@ class ShopController extends Controller
         $cacheKey = 'live_srch_' . md5(mb_strtolower($q) . '_' . ($categoryId ?: 'all'));
 
         $data = Cache::remember($cacheKey, 180, function () use ($q, $categoryId) {
+            $escapedQ = addcslashes($q, '%_\\');
             $baseQuery = Product::active()
                 ->select([
                     'id', 'name', 'code', 'slug', 'price', 'special_price',
@@ -487,16 +502,19 @@ class ShopController extends Controller
                     'primaryImage:id,product_id,image',
                     'categories:id,name,slug'
                 ])
-                ->where(function ($query) use ($q) {
-                    $query->where('name', 'like', "%{$q}%")
-                        ->orWhere('code', 'like', "%{$q}%")
-                        ->orWhereHas('categories', function ($catQuery) use ($q) {
-                            $catQuery->where('name', 'like', "%{$q}%");
+                ->where(function ($query) use ($escapedQ) {
+                    $query->where('name', 'like', "%{$escapedQ}%")
+                        ->orWhere('code', 'like', "%{$escapedQ}%")
+                        ->orWhere('sku', 'like', "%{$escapedQ}%")
+                        ->orWhereHas('categories', function ($catQuery) use ($escapedQ) {
+                            $catQuery->where('name', 'like', "%{$escapedQ}%");
                         });
                 });
 
-            if (!empty($categoryId) && is_numeric($categoryId)) {
-                $cat = Category::active()->select('id', 'parent_id')->find($categoryId);
+            if (!empty($categoryId)) {
+                $cat = is_numeric($categoryId)
+                    ? Category::active()->select('id', 'parent_id')->find($categoryId)
+                    : Category::active()->select('id', 'parent_id')->where('slug', $categoryId)->first();
                 if ($cat) {
                     $subIds = Category::active()->where('parent_id', $cat->id)->pluck('id')->all();
                     $ids = collect([$cat->id])->merge($subIds)->unique()->all();
@@ -526,7 +544,7 @@ class ShopController extends Controller
                     'name' => $product->name,
                     'slug' => $product->slug ?: (string) $product->id,
                     'url' => route('shop.product', $product->slug ?: $product->id),
-                    'image' => $product->image_url ?: asset('assets/images/placeholder.png'),
+                    'image' => $product->image_url ?: asset('assets/images/placeholder.svg'),
                     'price' => (float) $product->price,
                     'formatted_price' => '₹' . number_format($product->price, 2),
                     'effective_price' => (float) $product->effective_price,

@@ -77,6 +77,14 @@ class CartController extends Controller
                 'original_price' => (float) $p->price,
                 'in_stock' => $p->stock_status === 'in_stock' && ($p->qty === null || $p->qty > 0),
                 'qty_available' => (int) ($p->qty ?? 10),
+                'variations' => $p->variations->map(fn ($v) => [
+                    'id' => $v->id,
+                    'name' => $v->name,
+                    'price' => (float) $v->effective_price,
+                    'original_price' => (float) $v->price,
+                    'in_stock' => $v->stock_status === 'in_stock' && ($v->qty === null || $v->qty > 0),
+                    'qty_available' => (int) ($v->qty ?? 10),
+                ]),
             ];
         }
 

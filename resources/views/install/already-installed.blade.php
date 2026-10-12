@@ -46,7 +46,7 @@
                 php artisan app:reset-install
             </div>
             <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.4rem;">
-                Or manually delete the <code>storage/installed</code> file from the root storage folder.
+                Or manually delete the <code>install.lock</code> file from the application root folder.
             </div>
         </div>
     </div>

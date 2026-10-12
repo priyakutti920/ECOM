@@ -38,9 +38,14 @@
             <i class="fas fa-box-open" style="font-size:18px; margin-right:6px;"></i> Products
             <span style="font-size:14px; color:#999; font-weight:400; margin-left:8px;">({{ $products->total() }})</span>
         </h2>
-        <a href="{{ route('admin.products.create') }}" class="btn btn-primary" style="font-weight:600; padding:7px 20px;">
-            <i class="fas fa-plus"></i> Add Product
-        </a>
+        <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#bulkImageModal" style="font-weight:600; padding:7px 16px; border:1px solid #cbd5e1; background:#fff; color:#334155;">
+                <i class="fas fa-images" style="color:#3a7bd5; margin-right:4px;"></i> Bulk Image Import
+            </button>
+            <a href="{{ route('admin.products.create') }}" class="btn btn-primary" style="font-weight:600; padding:7px 20px;">
+                <i class="fas fa-plus"></i> Add Product
+            </a>
+        </div>
     </div>
 
     {{-- Filters --}}
@@ -92,7 +97,8 @@
                     <td style="padding:8px 12px; vertical-align:middle;">
                         @if($product->image_url)
                             <img src="{{ $product->image_url }}"
-                                class="table-prod-img" alt="{{ $product->name }}">
+                                class="table-prod-img" alt="{{ $product->name }}"
+                                onerror="this.onerror=null; this.src='{{ asset('assets/images/placeholder.svg') }}';">
                         @else
                             <div class="table-prod-img" style="display:flex; align-items:center; justify-content:center;">
                                 <i class="fas fa-image" style="color:#ccc; font-size:16px;"></i>
@@ -205,6 +211,90 @@
         </div>
     </div>
 </div>
+
+<!-- Bulk Image Import Modal -->
+<div class="modal fade" id="bulkImageModal" tabindex="-1" role="dialog" aria-labelledby="bulkImageModalLabel">
+    <div class="modal-dialog modal-lg" role="document" style="max-width:850px;">
+        <div class="modal-content" style="border-radius:8px; overflow:hidden;">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:14px 20px;">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="font-size:22px; opacity:0.6;">&times;</button>
+                <h4 class="modal-title" id="bulkImageModalLabel" style="font-size:16px; font-weight:700; color:#1e293b; margin:0;">
+                    <i class="fas fa-images" style="color:#3a7bd5; margin-right:8px;"></i> Bulk Product Image Import
+                </h4>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <!-- Step 1: Upload / Dropzone -->
+                <div id="bulkImageUploadSection">
+                    <p style="color:#64748b; font-size:13px; margin-bottom:14px;">
+                        Upload multiple product images at once. Images will be auto-matched to products based on filename matching Product SKU, Code, ID, or Slug (e.g., <code>TSHIRT-BLK_1.jpg</code>, <code>PRD001.webp</code>, <code>12.png</code>).
+                    </p>
+                    <div id="bulkImageDropArea" style="border:2px dashed #cbd5e1; border-radius:8px; padding:35px 20px; text-align:center; background:#f8fafc; cursor:pointer; transition:all 0.2s;">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:40px; color:#94a3b8; margin-bottom:10px;"></i>
+                        <h5 style="margin:0 0 6px 0; font-weight:600; color:#334155;">Drag & drop images here, or click to browse</h5>
+                        <p style="margin:0; font-size:12px; color:#94a3b8;">Supported formats: JPG, PNG, WEBP, GIF, AVIF (Max 10MB each)</p>
+                        <input type="file" id="bulkImageFileInput" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif" style="display:none;">
+                    </div>
+                    <div id="bulkImageSelectedCount" style="margin-top:10px; font-size:12.5px; color:#475569; display:none;"></div>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div id="bulkImageLoading" style="display:none; text-align:center; padding:35px 0;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:36px; color:#3a7bd5; margin-bottom:12px;"></i>
+                    <p id="bulkImageLoadingText" style="color:#475569; font-weight:500; font-size:13.5px; margin:0;">Analyzing images and matching against product catalog...</p>
+                </div>
+
+                <!-- Step 2: Preview & Matching Results -->
+                <div id="bulkImagePreviewSection" style="display:none;">
+                    <!-- Summary Badges -->
+                    <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                        <span class="badge" style="background:#10b981; padding:6px 10px; font-size:12px; font-weight:600;"><i class="fas fa-check-circle"></i> <span id="cntMatched">0</span> Matched</span>
+                        <span class="badge" style="background:#f59e0b; padding:6px 10px; font-size:12px; font-weight:600;"><i class="fas fa-exclamation-triangle"></i> <span id="cntAmbiguous">0</span> Ambiguous</span>
+                        <span class="badge" style="background:#64748b; padding:6px 10px; font-size:12px; font-weight:600;"><i class="fas fa-question-circle"></i> <span id="cntUnmatched">0</span> Unmatched</span>
+                        <span class="badge" style="background:#ef4444; padding:6px 10px; font-size:12px; font-weight:600;"><i class="fas fa-times-circle"></i> <span id="cntInvalid">0</span> Invalid</span>
+                    </div>
+
+                    <!-- Global options -->
+                    <div style="display:flex; gap:20px; margin-bottom:14px; background:#f1f5f9; padding:10px 14px; border-radius:6px; font-size:12.5px; align-items:center;">
+                        <label style="margin:0; font-weight:500; cursor:pointer;">
+                            <input type="checkbox" id="bulkSetPrimaryGlobal" checked style="margin-right:6px;"> Set as primary product image
+                        </label>
+                        <label style="margin:0; font-weight:500; cursor:pointer;">
+                            <input type="checkbox" id="bulkOverwriteGlobal" style="margin-right:6px;"> Overwrite existing gallery images
+                        </label>
+                    </div>
+
+                    <!-- Preview Table -->
+                    <div style="max-height:360px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table class="table table-hover" style="margin:0; font-size:12px;">
+                            <thead style="background:#f8fafc; position:sticky; top:0; z-index:2;">
+                                <tr>
+                                    <th style="width:60px;">Preview</th>
+                                    <th>Filename</th>
+                                    <th>Matched / Target Product</th>
+                                    <th>Match Details</th>
+                                    <th style="width:70px; text-align:center;">Include</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkImagePreviewTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px;">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" id="btnBulkImageReset" class="btn btn-default" style="display:none;" onclick="resetBulkImageModal()">
+                    <i class="fas fa-redo"></i> Choose Different Images
+                </button>
+                <button type="button" id="btnBulkImageAnalyze" class="btn btn-primary" style="display:none;" onclick="startBulkImageAnalyze()">
+                    <i class="fas fa-search"></i> Analyze & Match
+                </button>
+                <button type="button" id="btnBulkImageApply" class="btn btn-success" style="display:none;" onclick="applyBulkImageImports()">
+                    <i class="fas fa-check"></i> Import & Attach Images
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -272,6 +362,260 @@ function submitBulkCategory() {
 
 function executeProductBulk(action, confirmMsg) {
     runBulkAction('{{ route("admin.products.bulk-action") }}', action, {}, confirmMsg);
+}
+
+// Bulk Image Import Logic
+var currentBulkBatchId = null;
+var currentBulkProducts = [];
+var selectedBulkFiles = [];
+
+$(function () {
+    var $dropArea = $('#bulkImageDropArea');
+    var $fileInput = $('#bulkImageFileInput');
+
+    $dropArea.on('click', function () {
+        $fileInput.trigger('click');
+    });
+
+    $dropArea.on('dragover dragenter', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $dropArea.css({ 'border-color': '#3a7bd5', 'background': '#eff6ff' });
+    });
+
+    $dropArea.on('dragleave dragend drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $dropArea.css({ 'border-color': '#cbd5e1', 'background': '#f8fafc' });
+    });
+
+    $dropArea.on('drop', function (e) {
+        var files = e.originalEvent.dataTransfer.files;
+        handleFilesSelected(files);
+    });
+
+    $fileInput.on('change', function () {
+        handleFilesSelected(this.files);
+    });
+});
+
+function handleFilesSelected(files) {
+    if (!files || !files.length) return;
+    selectedBulkFiles = Array.from(files);
+    $('#bulkImageSelectedCount').text(selectedBulkFiles.length + ' image file(s) selected.').show();
+    $('#btnBulkImageAnalyze').show();
+}
+
+function resetBulkImageModal() {
+    selectedBulkFiles = [];
+    currentBulkBatchId = null;
+    currentBulkProducts = [];
+    $('#bulkImageFileInput').val('');
+    $('#bulkImageSelectedCount').hide();
+    $('#bulkImageUploadSection').show();
+    $('#bulkImagePreviewSection').hide();
+    $('#bulkImageLoading').hide();
+    $('#btnBulkImageReset').hide();
+    $('#btnBulkImageApply').hide();
+    $('#btnBulkImageAnalyze').hide();
+    $('#bulkImagePreviewTbody').empty();
+}
+
+function startBulkImageAnalyze() {
+    if (!selectedBulkFiles.length) {
+        adminToast('Please select at least one image file.', 'error');
+        return;
+    }
+
+    var formData = new FormData();
+    selectedBulkFiles.forEach(function (file) {
+        formData.append('images[]', file);
+    });
+
+    $('#bulkImageUploadSection').hide();
+    $('#btnBulkImageAnalyze').hide();
+    $('#bulkImageLoading').show();
+
+    $.ajax({
+        url: '{{ route("admin.products.bulk-images.preview") }}',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (res) {
+            $('#bulkImageLoading').hide();
+            if (!res.success) {
+                adminToast(res.message || 'Failed to analyze images.', 'error');
+                $('#bulkImageUploadSection').show();
+                $('#btnBulkImageAnalyze').show();
+                return;
+            }
+
+            currentBulkBatchId = res.batch_id;
+            currentBulkProducts = res.available_products || [];
+
+            $('#cntMatched').text(res.counts.matched || 0);
+            $('#cntAmbiguous').text(res.counts.ambiguous || 0);
+            $('#cntUnmatched').text(res.counts.unmatched || 0);
+            $('#cntInvalid').text(res.counts.invalid || 0);
+
+            renderBulkPreviewTable(res);
+
+            $('#bulkImagePreviewSection').show();
+            $('#btnBulkImageReset').show();
+            $('#btnBulkImageApply').show();
+        },
+        error: function (xhr) {
+            $('#bulkImageLoading').hide();
+            $('#bulkImageUploadSection').show();
+            $('#btnBulkImageAnalyze').show();
+            var err = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Server error during upload';
+            adminToast(err, 'error');
+        }
+    });
+}
+
+function renderBulkPreviewTable(res) {
+    var $tbody = $('#bulkImagePreviewTbody').empty();
+
+    function productOptionsHtml(selectedId) {
+        var opts = '<option value="">-- Do Not Import / Skip --</option>';
+        currentBulkProducts.forEach(function (p) {
+            var sel = (selectedId && p.id == selectedId) ? ' selected' : '';
+            opts += '<option value="' + p.id + '"' + sel + '>' + $('<span>').text(p.name + ' (' + p.sku + ')').html() + '</option>';
+        });
+        return opts;
+    }
+
+    // Matched items
+    (res.matched || []).forEach(function (item, idx) {
+        var row = '<tr class="bulk-import-row" data-filename="' + $('<span>').text(item.temp_filename).html() + '">' +
+            '<td><img src="' + item.preview_url + '" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid #e2e8f0;"></td>' +
+            '<td><strong>' + $('<span>').text(item.original_name).html() + '</strong></td>' +
+            '<td>' +
+                '<select class="form-control input-sm bulk-target-product" style="font-size:12px;">' +
+                    productOptionsHtml(item.product_id) +
+                '</select>' +
+            '</td>' +
+            '<td><span class="badge" style="background:#10b981;">Matched via ' + item.matched_by + '</span></td>' +
+            '<td style="text-align:center;"><input type="checkbox" class="bulk-row-include" checked></td>' +
+        '</tr>';
+        $tbody.append(row);
+    });
+
+    // Ambiguous items
+    (res.ambiguous || []).forEach(function (item, idx) {
+        var candOpts = '<option value="">-- Resolve Match (Select Product) --</option>';
+        (item.candidates || []).forEach(function (c) {
+            candOpts += '<option value="' + c.id + '">' + $('<span>').text(c.name + ' (' + c.sku + ')').html() + '</option>';
+        });
+        candOpts += '<option disabled>──────────</option>' + productOptionsHtml(null);
+
+        var row = '<tr class="bulk-import-row" data-filename="' + $('<span>').text(item.temp_filename).html() + '" style="background:#fffbeb;">' +
+            '<td><img src="' + item.preview_url + '" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid #f59e0b;"></td>' +
+            '<td><strong>' + $('<span>').text(item.original_name).html() + '</strong></td>' +
+            '<td>' +
+                '<select class="form-control input-sm bulk-target-product" style="font-size:12px; border-color:#f59e0b;">' +
+                    candOpts +
+                '</select>' +
+            '</td>' +
+            '<td><span class="badge" style="background:#f59e0b;">Multiple Matches</span></td>' +
+            '<td style="text-align:center;"><input type="checkbox" class="bulk-row-include"></td>' +
+        '</tr>';
+        $tbody.append(row);
+    });
+
+    // Unmatched items
+    (res.unmatched || []).forEach(function (item, idx) {
+        var row = '<tr class="bulk-import-row" data-filename="' + $('<span>').text(item.temp_filename).html() + '">' +
+            '<td><img src="' + item.preview_url + '" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid #e2e8f0;"></td>' +
+            '<td><strong>' + $('<span>').text(item.original_name).html() + '</strong></td>' +
+            '<td>' +
+                '<select class="form-control input-sm bulk-target-product" style="font-size:12px;">' +
+                    productOptionsHtml(null) +
+                '</select>' +
+            '</td>' +
+            '<td><span class="badge" style="background:#64748b;">Unmatched</span></td>' +
+            '<td style="text-align:center;"><input type="checkbox" class="bulk-row-include"></td>' +
+        '</tr>';
+        $tbody.append(row);
+    });
+
+    // Invalid items
+    (res.invalid || []).forEach(function (item, idx) {
+        var row = '<tr style="background:#fef2f2; opacity:0.8;">' +
+            '<td><i class="fas fa-exclamation-triangle" style="color:#ef4444; font-size:18px;"></i></td>' +
+            '<td>' + $('<span>').text(item.original_name).html() + '</td>' +
+            '<td colspan="2"><span class="text-danger" style="font-size:11.5px;">' + $('<span>').text(item.reason).html() + '</span></td>' +
+            '<td style="text-align:center;"><input type="checkbox" disabled></td>' +
+        '</tr>';
+        $tbody.append(row);
+    });
+
+    // Auto-check checkbox when target product is selected
+    $tbody.find('.bulk-target-product').on('change', function () {
+        var $row = $(this).closest('tr');
+        if ($(this).val()) {
+            $row.find('.bulk-row-include').prop('checked', true);
+        }
+    });
+}
+
+function applyBulkImageImports() {
+    if (!currentBulkBatchId) return;
+
+    var assignments = [];
+    var isPrimary = $('#bulkSetPrimaryGlobal').is(':checked');
+    var overwrite = $('#bulkOverwriteGlobal').is(':checked');
+
+    $('#bulkImagePreviewTbody .bulk-import-row').each(function () {
+        var $row = $(this);
+        var isIncluded = $row.find('.bulk-row-include').is(':checked');
+        var productId = $row.find('.bulk-target-product').val();
+        var tempFilename = $row.data('filename');
+
+        if (isIncluded && productId && tempFilename) {
+            assignments.push({
+                temp_filename: tempFilename,
+                product_id: parseInt(productId, 10),
+                as_primary: isPrimary,
+                overwrite: overwrite
+            });
+        }
+    });
+
+    if (!assignments.length) {
+        adminToast('Please select at least one matched image to import.', 'error');
+        return;
+    }
+
+    var $btn = $('#btnBulkImageApply').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Importing...');
+
+    $.ajax({
+        url: '{{ route("admin.products.bulk-images.apply") }}',
+        method: 'POST',
+        data: {
+            batch_id: currentBulkBatchId,
+            assignments: assignments
+        },
+        success: function (res) {
+            $btn.prop('disabled', false).html('<i class="fas fa-check"></i> Import & Attach Images');
+            if (res.success) {
+                adminToast(res.message || 'Images imported successfully!');
+                $('#bulkImageModal').modal('hide');
+                setTimeout(function () {
+                    location.reload();
+                }, 1000);
+            } else {
+                adminToast(res.message || 'Import failed.', 'error');
+            }
+        },
+        error: function (xhr) {
+            $btn.prop('disabled', false).html('<i class="fas fa-check"></i> Import & Attach Images');
+            var err = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Server error applying images.';
+            adminToast(err, 'error');
+        }
+    });
 }
 </script>
 @endpush

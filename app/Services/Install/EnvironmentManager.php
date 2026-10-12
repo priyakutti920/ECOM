@@ -10,18 +10,27 @@ class EnvironmentManager
 {
     protected string $envPath;
     protected string $envExamplePath;
-    protected string $lockFilePath;
+    protected array $lockFilePaths;
 
     public function __construct()
     {
         $this->envPath = base_path('.env');
         $this->envExamplePath = base_path('.env.example');
-        $this->lockFilePath = storage_path('installed');
+        $this->lockFilePaths = [
+            base_path('install.lock'),
+            storage_path('install.lock'),
+            storage_path('installed'),
+        ];
     }
 
     public function isInstalled(): bool
     {
-        return file_exists($this->lockFilePath);
+        foreach ($this->lockFilePaths as $path) {
+            if (file_exists($path)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function createLockFile(array $metadata = []): bool
@@ -32,15 +41,33 @@ class EnvironmentManager
             'php_version'     => PHP_VERSION,
         ], $metadata);
 
-        return file_put_contents($this->lockFilePath, json_encode($data, JSON_PRETTY_PRINT)) !== false;
+        $json = json_encode($data, JSON_PRETTY_PRINT);
+        $success = true;
+
+        foreach ($this->lockFilePaths as $path) {
+            $dir = dirname($path);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            if (@file_put_contents($path, $json) === false) {
+                $success = false;
+            }
+        }
+
+        return $success;
     }
 
     public function removeLockFile(): bool
     {
-        if (file_exists($this->lockFilePath)) {
-            return unlink($this->lockFilePath);
+        $allRemoved = true;
+        foreach ($this->lockFilePaths as $path) {
+            if (file_exists($path)) {
+                if (!@unlink($path)) {
+                    $allRemoved = false;
+                }
+            }
         }
-        return true;
+        return $allRemoved;
     }
 
     public function ensureEnvExists(): void

@@ -36,6 +36,8 @@ class AdminDashboardController extends Controller
         $deliveredOrdersCount = Order::where('status', 'delivered')->count();
         $cancelledOrdersCount = Order::where('status', 'cancelled')->count();
         $pendingReviewsCount = \App\Models\Review::where('is_approved', false)->count();
+        $pendingReturnsCount = OrderReturn::whereIn('status', ['requested', 'approved'])->count();
+        $openTicketsCount = SupportTicket::whereIn('status', ['open', 'pending'])->count();
 
         $recentOrders = Order::with(['items', 'customer'])
             ->orderByDesc('id')
@@ -53,6 +55,8 @@ class AdminDashboardController extends Controller
             'deliveredOrdersCount',
             'cancelledOrdersCount',
             'pendingReviewsCount',
+            'pendingReturnsCount',
+            'openTicketsCount',
             'recentOrders',
             'currency'
         ));
@@ -91,6 +95,11 @@ class AdminDashboardController extends Controller
     public function settingsPlugin()
     {
         return view('admin.settings.plugin');
+    }
+
+    public function settingsWhatsapp()
+    {
+        return view('admin.settings.whatsapp');
     }
 
     public function settingsPayment()
@@ -538,34 +547,135 @@ class AdminDashboardController extends Controller
         return response()->json(['success' => true, 'message' => 'SEO settings saved successfully.']);
     }
 
+    // Plugin Settings (Storefront Floating Widgets / Integrations)
     public function settingsPluginData()
     {
         $waNumber = StoreSetting::getValue('wa_number') ?: StoreSetting::getValue('whatsapp_number', '');
         $waMsg    = StoreSetting::getValue('wa_message') ?: StoreSetting::getValue('whatsapp_default_message', '');
 
         $data = [
-            'wa_enabled'  => StoreSetting::getValue('wa_enabled', !empty($waNumber) ? '1' : '0'),
-            'wa_number'   => $waNumber,
-            'wa_message'  => $waMsg,
+            'wa_enabled' => StoreSetting::getValue('wa_enabled', !empty($waNumber) ? '1' : '0'),
+            'wa_number'  => $waNumber,
+            'wa_message' => $waMsg,
         ];
         return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function settingsPluginSave(Request $request)
     {
+        $request->validate([
+            'wa_enabled' => 'nullable',
+            'wa_number'  => 'nullable|string|max:30',
+            'wa_message' => 'nullable|string|max:500',
+        ]);
+
         $enabled = ($request->wa_enabled == '1' || $request->wa_enabled === true || $request->wa_enabled === 'true') ? '1' : '0';
         $number  = trim($request->wa_number ?? '');
         $message = trim($request->wa_message ?? '');
 
+        $normalized = !empty($number) ? StoreSetting::normalizePhoneNumber($number) : '';
+
         StoreSetting::setValue('wa_enabled', $enabled);
         StoreSetting::setValue('wa_number', $number);
         StoreSetting::setValue('wa_message', $message);
-
-        // Keep both keys in sync across the application
-        StoreSetting::setValue('whatsapp_number', $enabled === '1' ? $number : '');
+        StoreSetting::setValue('whatsapp_number', $enabled === '1' ? ($normalized ?: $number) : '');
         StoreSetting::setValue('whatsapp_default_message', $message);
+        StoreSetting::clearCache();
 
         return response()->json(['success' => true, 'message' => 'Plugin settings saved successfully.']);
+    }
+
+    // WhatsApp Notification API Settings (Fast2SMS API credentials via .env, Admin Mobile Number configurable)
+    public function settingsWhatsappData()
+    {
+        $walletBalance = \App\Services\WaWalletService::getBalance();
+        $recentLogs = \App\Models\WaMessageLog::recent(10);
+        $successCount = \App\Models\WaMessageLog::successCount();
+
+        $authKey = (string) (config('services.whatsapp.fast2sms_auth_key') ?: env('WA_FAST2SMS_AUTH_KEY', env('FAST2SMS_DEV_AUTH_KEY', '')));
+        $phoneId = (string) (config('services.whatsapp.phone_number_id') ?: env('WA_PHONE_NUMBER_ID', ''));
+        $senderNumber = (string) (config('services.whatsapp.sender_number') ?: env('WA_SENDER_NUMBER', ''));
+        $adminPhone = \App\Services\WhatsAppService::getAdminPhone();
+        $customerNotify = \App\Services\WhatsAppService::isCustomerNotifyEnabled();
+        $engineDisabled = \App\Services\WhatsAppService::isDisabled();
+
+        $data = [
+            'notif_global_status'     => !$engineDisabled,
+            'notif_admin_phone'       => $adminPhone,
+            'notif_customer_notify'   => $customerNotify,
+            'auth_key_configured'    => !empty($authKey),
+            'phone_number_id'         => $phoneId,
+            'sender_number'           => $senderNumber,
+            'engine_disabled'         => $engineDisabled,
+            'wallet_balance'          => $walletBalance,
+            'recent_logs'             => $recentLogs,
+            'success_count'           => $successCount,
+        ];
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function settingsWhatsappSave(Request $request)
+    {
+        $request->validate([
+            'notif_admin_phone' => 'nullable|string|max:30',
+            'admin_phone'       => 'nullable|string|max:30',
+        ]);
+
+        $adminPhone = trim($request->notif_admin_phone ?? ($request->admin_phone ?? ''));
+        $normalized = !empty($adminPhone) ? StoreSetting::normalizePhoneNumber($adminPhone) : '';
+        StoreSetting::setValue('wa_admin_phone', $normalized ?: $adminPhone);
+        StoreSetting::clearCache();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Admin WhatsApp mobile number saved successfully.',
+        ]);
+    }
+
+    public function settingsPluginTestWa(Request $request)
+    {
+        $phone = trim($request->admin_phone ?: \App\Services\WhatsAppService::getAdminPhone());
+        if (empty($phone)) {
+            return response()->json(['success' => false, 'message' => 'Please provide or configure WA_ADMIN_PHONE in your .env file.'], 422);
+        }
+
+        $storeName = StoreSetting::getStoreName();
+        $ok = \App\Services\WhatsAppService::sendToCustomer(
+            $phone,
+            'Admin',
+            'TEST-' . rand(1000, 9999),
+            'Rs. 0.00',
+            $storeName
+        );
+
+        if ($ok) {
+            return response()->json([
+                'success' => true,
+                'message' => "Test WhatsApp notification sent successfully to {$phone}!",
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send test notification. Please verify WA_FAST2SMS_AUTH_KEY and WA_PHONE_NUMBER_ID in .env.',
+        ], 400);
+    }
+
+    public function settingsPluginWalletTopup(Request $request)
+    {
+        $request->validate([
+            'action' => 'required|in:credit,debit',
+            'amount' => 'required|numeric|min:1',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $res = \App\Services\WaWalletService::manualTransaction(
+            $request->action,
+            (float) $request->amount,
+            $request->description ?: ''
+        );
+
+        return response()->json($res);
     }
 
     public function generateSitemap(Request $request)

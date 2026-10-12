@@ -78,7 +78,7 @@
  </div>
  <div style="display:flex; gap:10px; flex-wrap:wrap;">
  @if($whatsappNumber)
- <a class="wa-btn" target="_blank" rel="noopener" href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $whatsappNumber) }}?text={{ urlencode($whatsappText) }}">
+ <a class="wa-btn" target="_blank" rel="noopener" href="{{ \App\Models\StoreSetting::getWhatsAppUrl($whatsappText) }}">
  <i class="fab fa-whatsapp" style="font-size:18px;"></i> WhatsApp us
  </a>
  @endif
