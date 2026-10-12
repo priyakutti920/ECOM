@@ -67,5 +67,9 @@ return [
         'template_name' => env('WA_TEMPLATE_NAME', 'order_notify'),
         // Cloud API compatibility
         'token' => env('WA_API_TOKEN', ''),
+        // Separate UPI Gateway Key & URLs for WhatsApp Wallet Recharge / Add Amount
+        'upi_key' => env('WA_UPI_KEY', env('WA_UPI_API_KEY', '')),
+        'upi_create_order_url' => env('WA_UPI_CREATE_ORDER_URL', 'https://upicheckout.online/api/create-order'),
+        'upi_status_check_url' => env('WA_UPI_STATUS_CHECK_URL', 'https://upicheckout.online/api/check-order-status'),
     ],
 ];

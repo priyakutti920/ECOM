@@ -145,13 +145,84 @@
     <div class="wallet-stat-card">
         <div>
             <div class="wallet-stat-lbl">WhatsApp Notification Credit Balance</div>
-            <div class="wallet-stat-val" id="wallet-balance-val">₹100.00</div>
-            <div style="font-size: 11px; opacity: 0.85; margin-top: 3px;">Estimated Messages: <strong id="wallet-est-msgs">200</strong> (~₹0.50 / msg)</div>
+            <div class="wallet-stat-val" id="wallet-balance-val">₹0.00</div>
+            <div style="font-size: 11px; opacity: 0.9; margin-top: 3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span>Estimated Messages: <strong id="wallet-est-msgs">0</strong> (~₹0.50 / msg, 2 messages per ₹1)</span>
+                <span id="wa-upi-badge" style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:12px; font-size:10px; font-weight:700;">
+                    <i class="fas fa-qrcode"></i> UPI Gateway Ready
+                </span>
+            </div>
         </div>
-        <div>
-            <button type="button" class="btn-test-wa" id="btn-topup-modal" style="background:#fff; color:#065f46; font-weight:700;">
-                <i class="fas fa-plus-circle"></i> Adjust Balance
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn-test-wa" id="btn-add-amount-modal" style="background:#fff; color:#065f46; font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+                <i class="fas fa-wallet"></i> Add Amount (UPI)
             </button>
+        </div>
+    </div>
+
+    {{-- Add Amount (UPI Gateway) Modal --}}
+    <div id="wa-add-amount-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:99999; align-items:center; justify-content:center; padding:16px;">
+        <div style="background:#fff; border-radius:12px; max-width:480px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow:hidden;">
+            <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; background:#f8fafc;">
+                <h4 style="margin:0; font-size:15px; font-weight:700; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-wallet" style="color:#10b981;"></i> Add WhatsApp Notification Credit
+                </h4>
+                <button type="button" id="btn-close-add-modal" style="background:none; border:none; font-size:20px; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+            <div style="padding:20px;">
+                <p style="margin:0 0 14px; font-size:13px; color:#64748b;">
+                    Recharge wallet using UPI payment gateway. Rate: <strong>2 messages = ₹1.00</strong> (₹0.50 per notification).
+                </p>
+
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">Select Recharge Amount:</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+                    <button type="button" class="btn-amt-preset" data-amt="50" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; font-weight:600; cursor:pointer; font-size:13px;">₹50</button>
+                    <button type="button" class="btn-amt-preset" data-amt="100" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; background:#10b981; color:#fff; font-weight:600; cursor:pointer; font-size:13px;">₹100</button>
+                    <button type="button" class="btn-amt-preset" data-amt="200" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; font-weight:600; cursor:pointer; font-size:13px;">₹200</button>
+                    <button type="button" class="btn-amt-preset" data-amt="500" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; font-weight:600; cursor:pointer; font-size:13px;">₹500</button>
+                    <button type="button" class="btn-amt-preset" data-amt="1000" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc; font-weight:600; cursor:pointer; font-size:13px;">₹1000</button>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label for="wa-custom-amount" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">Custom Amount (₹):</label>
+                    <input type="number" id="wa-custom-amount" class="settings-input" style="max-width:100%; font-size:15px; font-weight:700; padding:9px 12px;" value="100" min="1" step="1">
+                </div>
+
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; margin-bottom:14px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; color:#166534; font-weight:600;">
+                        <span>Estimated Messages Credited:</span>
+                        <span id="wa-modal-est-msgs" style="font-size:14px; font-weight:800;">200 messages</span>
+                    </div>
+                </div>
+
+                <div id="wa-upi-info-note" style="font-size:11px; color:#64748b; margin-bottom:14px; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-key" style="color:#0284c7;"></i>
+                    <span>UPI gateway uses dedicated separate key configured in <code>.env</code> (<code>WA_UPI_KEY</code>).</span>
+                </div>
+
+                <div id="upi-pending-section" style="display:none; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; padding:12px; margin-bottom:14px;">
+                    <div style="font-size:12px; font-weight:700; color:#b45309; margin-bottom:6px;">
+                        <i class="fas fa-spinner fa-spin"></i> UPI Payment Order: <span id="upi-pending-order-id">-</span>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <a href="#" id="upi-pay-link" target="_blank" class="btn-test-wa" style="background:#d97706; color:#fff; border:none; text-decoration:none; padding:6px 12px; font-size:12px;">
+                            <i class="fas fa-external-link-alt"></i> Complete Payment
+                        </a>
+                        <button type="button" id="btn-verify-upi" class="btn-test-wa" style="background:#fff; color:#b45309; border:1px solid #d97706; padding:6px 12px; font-size:12px;">
+                            <i class="fas fa-sync"></i> Verify Status
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button type="button" id="btn-direct-add" class="btn-test-wa" style="background:#f1f5f9; color:#334155; font-size:13px;">
+                        Direct Credit
+                    </button>
+                    <button type="button" id="btn-pay-upi" class="btn-save-settings" style="background:#10b981; padding:8px 16px; font-size:13px;">
+                        <i class="fas fa-qrcode"></i> Pay via UPI
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -225,6 +296,13 @@ $(function () {
                 var bal = parseFloat(d.wallet_balance || 0);
                 $('#wallet-balance-val').text('₹' + bal.toFixed(2));
                 $('#wallet-est-msgs').text(Math.floor(bal / 0.50));
+
+                if (d.wa_upi_configured) {
+                    var keyText = d.wa_upi_has_separate_key ? ' (WA_UPI_KEY)' : '';
+                    $('#wa-upi-badge').html('<i class="fas fa-qrcode"></i> UPI Gateway Active' + keyText).show();
+                } else {
+                    $('#wa-upi-badge').html('<i class="fas fa-info-circle"></i> UPI (Direct Topup)').show();
+                }
 
                 // Render Logs
                 var logs = d.recent_logs || [];
@@ -316,27 +394,141 @@ $(function () {
         });
     });
 
-    // Wallet Topup adjustment prompt
-    $(document).on('click', '#btn-topup-modal', function () {
-        var amt = prompt('Enter credit amount to top up (Rs.):', '50.00');
-        if (!amt || isNaN(parseFloat(amt)) || parseFloat(amt) <= 0) return;
+    // Add Amount Modal Open / Close
+    $(document).on('click', '#btn-add-amount-modal', function () {
+        $('#wa-add-amount-modal').css('display', 'flex');
+        updateModalCalculations();
+    });
+
+    $(document).on('click', '#btn-close-add-modal', function () {
+        $('#wa-add-amount-modal').hide();
+        $('#upi-pending-section').hide();
+    });
+
+    function updateModalCalculations() {
+        var amt = parseFloat($('#wa-custom-amount').val()) || 0;
+        var msgs = Math.floor(amt / 0.50);
+        $('#wa-modal-est-msgs').text(msgs + ' messages');
+    }
+
+    $(document).on('input', '#wa-custom-amount', updateModalCalculations);
+
+    $(document).on('click', '.btn-amt-preset', function () {
+        $('.btn-amt-preset').css({ 'background': '#f8fafc', 'color': '#334155' });
+        $(this).css({ 'background': '#10b981', 'color': '#fff' });
+        var val = $(this).data('amt');
+        $('#wa-custom-amount').val(val);
+        updateModalCalculations();
+    });
+
+    // Pay via UPI Gateway
+    $(document).on('click', '#btn-pay-upi', function () {
+        var $btn = $(this);
+        var amt = parseFloat($('#wa-custom-amount').val());
+        if (!amt || amt <= 0) {
+            toast('Please enter a valid amount.', 'error');
+            return;
+        }
+
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing…');
 
         $.ajax({
-            url: '{{ route("admin.settings.plugin-wallet-topup") }}',
+            url: '{{ route("admin.settings.whatsapp-add-amount") }}',
             method: 'POST',
             data: {
                 _token: $('meta[name="csrf-token"]').attr('content'),
-                action: 'credit',
-                amount: parseFloat(amt),
-                description: 'Manual wallet credit by admin'
+                amount: amt,
+                mode: 'upi'
             },
             success: function (res) {
-                toast(res.message || 'Wallet balance updated successfully.', 'success');
+                if (res.requires_upi && res.payment_url) {
+                    $('#upi-pending-order-id').text(res.order_id);
+                    $('#upi-pay-link').attr('href', res.payment_url);
+                    $('#upi-pending-section').show();
+                    window.open(res.payment_url, '_blank');
+                    toast('UPI payment window opened. Please complete payment and click "Verify Status".', 'success');
+                } else {
+                    toast(res.message || 'Amount credited successfully!', 'success');
+                    $('#wa-add-amount-modal').hide();
+                    loadWhatsAppSettings();
+                }
+            },
+            error: function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Failed to initiate UPI payment.';
+                toast(msg, 'error');
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="fas fa-qrcode"></i> Pay via UPI');
+            }
+        });
+    });
+
+    // Direct Add Amount
+    $(document).on('click', '#btn-direct-add', function () {
+        var $btn = $(this);
+        var amt = parseFloat($('#wa-custom-amount').val());
+        if (!amt || amt <= 0) {
+            toast('Please enter a valid amount.', 'error');
+            return;
+        }
+
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Crediting…');
+
+        $.ajax({
+            url: '{{ route("admin.settings.whatsapp-add-amount") }}',
+            method: 'POST',
+            data: {
+                _token: $('meta[name="csrf-token"]').attr('content'),
+                amount: amt,
+                mode: 'direct'
+            },
+            success: function (res) {
+                toast(res.message || 'Amount added to WhatsApp wallet!', 'success');
+                $('#wa-add-amount-modal').hide();
                 loadWhatsAppSettings();
             },
             error: function (xhr) {
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Failed to update wallet balance.';
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Failed to add amount.';
                 toast(msg, 'error');
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('Direct Credit');
+            }
+        });
+    });
+
+    // Verify UPI Payment
+    $(document).on('click', '#btn-verify-upi', function () {
+        var $btn = $(this);
+        var orderId = $('#upi-pending-order-id').text();
+        var amt = parseFloat($('#wa-custom-amount').val());
+
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Checking…');
+
+        $.ajax({
+            url: '{{ route("admin.settings.whatsapp-verify-upi") }}',
+            method: 'POST',
+            data: {
+                _token: $('meta[name="csrf-token"]').attr('content'),
+                order_id: orderId,
+                amount: amt
+            },
+            success: function (res) {
+                if (res.is_paid) {
+                    toast(res.message || 'Payment confirmed! Wallet recharged.', 'success');
+                    $('#wa-add-amount-modal').hide();
+                    $('#upi-pending-section').hide();
+                    loadWhatsAppSettings();
+                } else {
+                    toast(res.message || 'Payment is still pending. Please complete transaction.', 'error');
+                }
+            },
+            error: function (xhr) {
+                var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Status check failed.';
+                toast(msg, 'error');
+            },
+            complete: function () {
+                $btn.prop('disabled', false).html('<i class="fas fa-sync"></i> Verify Status');
             }
         });
     });

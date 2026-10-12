@@ -99,6 +99,7 @@ class AdminDashboardController extends Controller
 
     public function settingsWhatsapp()
     {
+        $this->autoSyncPendingUpiTransactions();
         return view('admin.settings.whatsapp');
     }
 
@@ -588,6 +589,8 @@ class AdminDashboardController extends Controller
     // WhatsApp Notification API Settings (Fast2SMS API credentials via .env, Admin Mobile Number configurable)
     public function settingsWhatsappData()
     {
+        $this->autoSyncPendingUpiTransactions();
+
         $walletBalance = \App\Services\WaWalletService::getBalance();
         $recentLogs = \App\Models\WaMessageLog::recent(10);
         $successCount = \App\Models\WaMessageLog::successCount();
@@ -598,6 +601,10 @@ class AdminDashboardController extends Controller
         $adminPhone = \App\Services\WhatsAppService::getAdminPhone();
         $customerNotify = \App\Services\WhatsAppService::isCustomerNotifyEnabled();
         $engineDisabled = \App\Services\WhatsAppService::isDisabled();
+
+        $upiService = \App\Services\UpiPaymentService::forWhatsApp();
+        $waUpiConfigured = $upiService->isConfigured();
+        $waUpiKey = config('services.whatsapp.upi_key') ?: env('WA_UPI_KEY', env('WA_UPI_API_KEY', ''));
 
         $data = [
             'notif_global_status'     => !$engineDisabled,
@@ -610,6 +617,8 @@ class AdminDashboardController extends Controller
             'wallet_balance'          => $walletBalance,
             'recent_logs'             => $recentLogs,
             'success_count'           => $successCount,
+            'wa_upi_configured'       => $waUpiConfigured,
+            'wa_upi_has_separate_key' => !empty($waUpiKey),
         ];
         return response()->json(['success' => true, 'data' => $data]);
     }
@@ -676,6 +685,194 @@ class AdminDashboardController extends Controller
         );
 
         return response()->json($res);
+    }
+
+    public function settingsWhatsappAddAmount(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'mode'   => 'nullable|string|in:upi,direct',
+        ]);
+
+        $amount = round((float) $request->amount, 2);
+        $mode = $request->input('mode', 'upi');
+
+        $upi = \App\Services\UpiPaymentService::forWhatsApp();
+
+        // If mode is UPI and UPI service is configured
+        if ($mode === 'upi' && $upi->isConfigured()) {
+            $orderId = 'WA_TOPUP_' . time() . '_' . strtoupper(\Illuminate\Support\Str::random(6));
+            $adminPhone = \App\Services\WhatsAppService::getAdminPhone();
+            $redirectUrl = route('admin.settings.whatsapp-callback', ['order_id' => $orderId]);
+
+            $upiRes = $upi->createOrder([
+                'order_id'        => $orderId,
+                'amount'          => $amount,
+                'customer_mobile' => $adminPhone,
+                'redirect_url'    => $redirectUrl,
+                'remark1'         => 'WA Wallet Topup',
+                'remark2'         => 'Admin Topup',
+            ]);
+
+            if (!empty($upiRes['success'])) {
+                // Record pending transaction
+                \App\Services\WaWalletService::createTransaction(
+                    'credit',
+                    $amount,
+                    "WhatsApp wallet top-up via UPI (#{$orderId})",
+                    $orderId,
+                    'upi',
+                    'pending'
+                );
+
+                return response()->json([
+                    'success'      => true,
+                    'requires_upi' => true,
+                    'order_id'     => $orderId,
+                    'payment_url'  => $upiRes['payment_url'] ?? '',
+                    'message'      => 'UPI order initiated. Please complete payment.',
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $upiRes['message'] ?? 'Failed to initiate UPI transaction.',
+            ], 400);
+        }
+
+        // Direct / manual mode
+        $ok = \App\Services\WaWalletService::addFunds(
+            $amount,
+            "WhatsApp Wallet Top-up (direct)",
+            'manual',
+            'WA_DIRECT_' . time()
+        );
+
+        if ($ok) {
+            return response()->json([
+                'success'      => true,
+                'requires_upi' => false,
+                'message'      => '₹' . number_format($amount, 2) . ' credited to WhatsApp wallet balance!',
+                'new_balance'  => \App\Services\WaWalletService::getBalance(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to credit wallet.',
+        ], 500);
+    }
+
+    public function settingsWhatsappVerifyUpi(Request $request)
+    {
+        $request->validate([
+            'order_id' => 'required|string',
+            'amount'   => 'nullable|numeric',
+        ]);
+
+        $orderId = trim($request->order_id);
+        $amount = (float) $request->input('amount', 0);
+
+        $upi = \App\Services\UpiPaymentService::forWhatsApp();
+        $status = $upi->checkStatus($orderId);
+
+        if (!empty($status['is_paid'])) {
+            $txn = \App\Models\WaTransaction::where('payment_reference', $orderId)->first();
+            if ($txn && $txn->status === 'completed') {
+                return response()->json([
+                    'success'     => true,
+                    'is_paid'     => true,
+                    'message'     => 'Payment verified. WhatsApp wallet balance updated.',
+                    'new_balance' => \App\Services\WaWalletService::getBalance(),
+                ]);
+            }
+
+            if ($txn) {
+                $txn->update([
+                    'status'       => 'completed',
+                    'completed_at' => now(),
+                ]);
+            } else {
+                \App\Services\WaWalletService::addFunds(
+                    $amount > 0 ? $amount : (float) ($status['amount'] ?? 0),
+                    "WhatsApp wallet top-up via UPI (#{$orderId})",
+                    'upi',
+                    $orderId
+                );
+            }
+
+            return response()->json([
+                'success'     => true,
+                'is_paid'     => true,
+                'message'     => 'Payment confirmed! ₹' . number_format($amount, 2) . ' credited to wallet.',
+                'new_balance' => \App\Services\WaWalletService::getBalance(),
+            ]);
+        }
+
+        return response()->json([
+            'success'    => false,
+            'is_paid'    => false,
+            'is_pending' => !empty($status['is_pending']),
+            'message'    => !empty($status['is_pending']) ? 'UPI payment is pending confirmation.' : 'UPI payment was not completed.',
+        ]);
+    }
+
+    public function settingsWhatsappCallback(Request $request)
+    {
+        $orderId = $request->get('order_id') ?: $request->get('client_txn_id');
+        if (!empty($orderId)) {
+            $upi = \App\Services\UpiPaymentService::forWhatsApp();
+            $status = $upi->checkStatus($orderId);
+            if (!empty($status['is_paid'])) {
+                $txn = \App\Models\WaTransaction::where('payment_reference', $orderId)->first();
+                if ($txn && $txn->status !== 'completed') {
+                    $txn->update([
+                        'status'       => 'completed',
+                        'completed_at' => now(),
+                    ]);
+                }
+                return redirect()->route('admin.settings.whatsapp')->with('success', 'UPI Payment verified! WhatsApp wallet credited.');
+            }
+        }
+
+        $this->autoSyncPendingUpiTransactions();
+        return redirect()->route('admin.settings.whatsapp')->with('info', 'Redirected from payment gateway. Please check updated balance.');
+    }
+
+    private function autoSyncPendingUpiTransactions(): void
+    {
+        try {
+            $pendingTxns = \App\Models\WaTransaction::where('payment_gateway', 'upi')
+                ->where('status', 'pending')
+                ->where('created_at', '>=', now()->subHours(24))
+                ->get();
+
+            if ($pendingTxns->isEmpty()) {
+                return;
+            }
+
+            $upi = \App\Services\UpiPaymentService::forWhatsApp();
+            if (!$upi->isConfigured()) {
+                return;
+            }
+
+            foreach ($pendingTxns as $txn) {
+                if (empty($txn->payment_reference)) continue;
+                $status = $upi->checkStatus($txn->payment_reference);
+                if (!empty($status['is_paid'])) {
+                    $txn->update([
+                        'status'       => 'completed',
+                        'completed_at' => now(),
+                    ]);
+                } elseif (!empty($status['is_failed'])) {
+                    $txn->update([
+                        'status' => 'failed',
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore background sync issues
+        }
     }
 
     public function generateSitemap(Request $request)

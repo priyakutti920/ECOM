@@ -237,6 +237,12 @@ class WhatsAppService
             return false;
         }
 
+        // Wallet deduction (Rs 0.50 / fifty paise)
+        $cost = WaWalletService::getCostPerMessage();
+        if (WaWalletService::canDeduct($cost)) {
+            WaWalletService::deduct($cost, "WhatsApp message to {$normalizedPhone} ({$orderId})", $orderId);
+        }
+
         $variables = implode('|', [
             $storeName, $orderId, $name, $normalizedPhone, $amount,
         ]);

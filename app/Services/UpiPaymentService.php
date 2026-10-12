@@ -9,6 +9,9 @@ use Illuminate\Support\Str;
 class UpiPaymentService
 {
     private ?PaymentGateway $gateway = null;
+    private ?string $customApiKey = null;
+    private ?string $customCreateOrderUrl = null;
+    private ?string $customStatusCheckUrl = null;
 
     public function __construct(?string $gatewaySlug = 'upi')
     {
@@ -18,13 +21,43 @@ class UpiPaymentService
             ->first();
     }
 
+    public static function forWhatsApp(): self
+    {
+        $instance = new self('upi');
+
+        $waKey = config('services.whatsapp.upi_key') ?: env('WA_UPI_KEY', env('WA_UPI_API_KEY', ''));
+        $createUrl = config('services.whatsapp.upi_create_order_url') ?: env('WA_UPI_CREATE_ORDER_URL', 'https://upicheckout.online/api/create-order');
+        $statusUrl = config('services.whatsapp.upi_status_check_url') ?: env('WA_UPI_STATUS_CHECK_URL', 'https://upicheckout.online/api/check-order-status');
+
+        if (!empty($waKey)) {
+            $instance->customApiKey = $waKey;
+            $instance->customCreateOrderUrl = $createUrl;
+            $instance->customStatusCheckUrl = $statusUrl;
+        }
+
+        return $instance;
+    }
+
+    public function getApiKey(): ?string
+    {
+        return $this->customApiKey ?: ($this->gateway->credentials['api_key'] ?? null);
+    }
+
+    public function getCreateOrderUrl(): ?string
+    {
+        return $this->customCreateOrderUrl ?: ($this->gateway->credentials['create_order_url'] ?? null);
+    }
+
+    public function getStatusCheckUrl(): ?string
+    {
+        return $this->customStatusCheckUrl ?: ($this->gateway->credentials['status_check_url'] ?? null);
+    }
+
     public function isConfigured(): bool
     {
-        if (!$this->gateway) return false;
-        $creds = $this->gateway->credentials ?? [];
-        return !empty($creds['create_order_url'])
-            && !empty($creds['status_check_url'])
-            && !empty($creds['api_key']);
+        return !empty($this->getApiKey())
+            && !empty($this->getCreateOrderUrl())
+            && !empty($this->getStatusCheckUrl());
     }
 
     public function createOrder(array $data): array
@@ -33,16 +66,15 @@ class UpiPaymentService
             return ['success' => false, 'message' => 'UPI gateway is not configured.'];
         }
 
-        $creds = $this->gateway->credentials;
         $orderId = $data['order_id'] ?? (string) time() . Str::random(6);
         $amount = $data['amount'] ?? 0;
         $customerMobile = $data['customer_mobile'] ?? '';
-        $redirectUrl = $creds['redirect_url'] ?? ($data['redirect_url'] ?? url('/'));
+        $redirectUrl = $data['redirect_url'] ?? ($this->gateway->credentials['redirect_url'] ?? url('/'));
         $remark1 = $data['remark1'] ?? 'order';
         $remark2 = $data['remark2'] ?? '';
 
         $payload = [
-            'user_token'       => $creds['api_key'],
+            'user_token'       => $this->getApiKey(),
             'order_id'         => $orderId,
             'amount'           => (string) $amount,
             'customer_mobile'  => $customerMobile,
@@ -54,7 +86,7 @@ class UpiPaymentService
         try {
             $response = Http::timeout(15)
                 ->asForm()
-                ->post($creds['create_order_url'], $payload);
+                ->post($this->getCreateOrderUrl(), $payload);
 
             $body = $response->json();
 
@@ -85,13 +117,11 @@ class UpiPaymentService
             return ['success' => false, 'message' => 'UPI gateway is not configured.'];
         }
 
-        $creds = $this->gateway->credentials;
-
         try {
             $response = Http::timeout(15)
                 ->asForm()
-                ->post($creds['status_check_url'], [
-                    'user_token' => $creds['api_key'],
+                ->post($this->getStatusCheckUrl(), [
+                    'user_token' => $this->getApiKey(),
                     'order_id'   => $orderId,
                 ]);
 

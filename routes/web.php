@@ -306,6 +306,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::post('/settings/whatsapp-save', [AdminDashboardController::class, 'settingsWhatsappSave'])->name('settings.whatsapp-save');
  Route::post('/settings/plugin/test-whatsapp', [AdminDashboardController::class, 'settingsPluginTestWa'])->name('settings.plugin-test-wa');
  Route::post('/settings/plugin/wallet-topup', [AdminDashboardController::class, 'settingsPluginWalletTopup'])->name('settings.plugin-wallet-topup');
+ Route::post('/settings/whatsapp/add-amount', [AdminDashboardController::class, 'settingsWhatsappAddAmount'])->name('settings.whatsapp-add-amount');
+ Route::post('/settings/whatsapp/verify-upi', [AdminDashboardController::class, 'settingsWhatsappVerifyUpi'])->name('settings.whatsapp-verify-upi');
+ Route::match(['get', 'post'], '/settings/whatsapp/callback', [AdminDashboardController::class, 'settingsWhatsappCallback'])->name('settings.whatsapp-callback');
  Route::get('/settings/payment', [AdminDashboardController::class, 'settingsPayment'])->name('settings.payment');
  Route::get('/settings/payment-data', [AdminDashboardController::class, 'settingsPaymentData'])->name('settings.payment-data');
  Route::post('/settings/payment-toggle', [AdminDashboardController::class, 'settingsPaymentToggle'])->name('settings.payment-toggle');
