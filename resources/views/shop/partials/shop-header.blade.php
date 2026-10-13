@@ -31,20 +31,10 @@
       </div>
 
 
-      <!-- Right: Relevant, Wishlist, Cart -->
+      <!-- Right: Wishlist, User, Cart -->
       <div class="header-actions">
-        <!-- Relevant Action -->
-        <a href="{{ url('/products') }}" class="header-action-item" title="Relevant" aria-label="Relevant Products">
-          <div class="header-action-icon-wrap">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3C12 7.97 7.97 12 3 12C7.97 12 12 16.03 12 21C12 16.03 16.03 12 21 12C16.03 12 12 7.97 12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M19 3C19 4.66 17.66 6 16 6C17.66 6 19 7.34 19 9C19 7.34 20.34 6 22 6C20.34 6 19 4.66 19 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-        </a>
-
         <!-- Wishlist Action -->
-        <a href="{{ route('shop.wishlist') }}" class="header-action-item" title="Wishlist" aria-label="My Wishlist">
+        <a href="{{ route('shop.wishlist') }}" class="header-action-item {{ request()->is('wishlist*') ? 'active' : '' }}" title="Wishlist" aria-label="My Wishlist">
           <div class="header-action-icon-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
               <path d="M12.62 20.81C12.28 20.93 11.72 20.93 11.38 20.81C8.48 19.82 2 15.69 2 8.69C2 5.6 4.49 3.1 7.56 3.1C9.38 3.1 10.99 3.98 12 5.34C13.01 3.98 14.63 3.1 16.44 3.1C19.51 3.1 22 5.6 22 8.69C22 15.69 15.52 19.82 12.62 20.81Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -175,12 +165,12 @@
       </li>
 
       <li>
-        <a href="{{ url('/products') }}" class="{{ request()->is('products*') ? 'active' : '' }}" title="Relevant" aria-label="Relevant Products">
+        <a href="{{ route('shop.wishlist') }}" class="{{ request()->is('wishlist*') ? 'active' : '' }}" title="Wishlist" aria-label="Wishlist">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-            <path d="M12 3C12 7.97 7.97 12 3 12C7.97 12 12 16.03 12 21C12 16.03 16.03 12 21 12C16.03 12 12 7.97 12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M19 3C19 4.66 17.66 6 16 6C17.66 6 19 7.34 19 9C19 7.34 20.34 6 22 6C20.34 6 19 4.66 19 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12.62 20.81C12.28 20.93 11.72 20.93 11.38 20.81C8.48 19.82 2 15.69 2 8.69C2 5.6 4.49 3.1 7.56 3.1C9.38 3.1 10.99 3.98 12 5.34C13.01 3.98 14.63 3.1 16.44 3.1C19.51 3.1 22 5.6 22 8.69C22 15.69 15.52 19.82 12.62 20.81Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>Relevant</span>
+          <span>Wishlist</span>
+          <span class="count wishlist-count-badge" style="display:none">0</span>
         </a>
       </li>
 

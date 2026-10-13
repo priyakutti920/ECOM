@@ -294,11 +294,61 @@
     .user-kpi-grid { grid-template-columns: 1fr; gap: 10px; }
     .user-kpi-card { padding: 12px 14px; }
 }
+
+/* Edit Access Action Button */
+.btn-edit-user-access {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #0284c7;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    padding: 4px 10px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    text-decoration: none !important;
+}
+.btn-edit-user-access:hover {
+    background: #0284c7;
+    color: #ffffff !important;
+    border-color: #0284c7;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+.btn-edit-user-access:hover i {
+    color: #ffffff !important;
+}
 </style>
 @endpush
 
 @section('content')
 <div style="max-width: 1320px; margin: 0 auto;">
+
+    {{-- Flash Messages --}}
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible" style="border-radius:6px; margin-bottom:18px;">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <i class="fas fa-check-circle"></i> {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible" style="border-radius:6px; margin-bottom:18px;">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible" style="border-radius:6px; margin-bottom:18px;">
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <ul style="margin:0; padding-left:18px;">
+                @foreach($errors->all() as $err)
+                    <li>{{ $err }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     {{-- Page Header --}}
     <div class="user-page-header">
@@ -398,6 +448,7 @@
                         <th style="width: 110px; text-align:center;">Paid Orders</th>
                         <th style="width: 130px; text-align:right;">Total Spent</th>
                         <th style="width: 130px;">Joined</th>
+                        <th style="width: 120px; text-align:center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -468,10 +519,22 @@
                                 {{ $u->created_at?->format('d M Y') ?? '—' }}
                             </span>
                         </td>
+                        <td style="text-align: center;">
+                            <button type="button" class="btn-edit-user-access"
+                                    data-id="{{ $u->id }}"
+                                    data-name="{{ $u->name }}"
+                                    data-email="{{ $u->email }}"
+                                    data-mobile="{{ $u->mobile }}"
+                                    data-is-admin="{{ $isAdmin ? '1' : '0' }}"
+                                    data-is-current="{{ $u->id === auth()->id() ? '1' : '0' }}"
+                                    title="Edit Access & Profile">
+                                <i class="fas fa-user-edit text-primary"></i> Edit Access
+                            </button>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8">
+                        <td colspan="9">
                             <div class="user-empty-state">
                                 <div class="user-empty-icon">
                                     <i class="fas fa-user-slash"></i>
@@ -505,4 +568,113 @@
     </div>
 
 </div>
+
+{{-- Edit User Access & Profile Modal --}}
+<div class="modal fade" id="editUserAccessModal" tabindex="-1" role="dialog" aria-labelledby="editUserAccessModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content" style="border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+            <form id="editUserAccessForm" method="POST" action="">
+                @csrf
+                @method('PUT')
+                <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; padding: 14px 18px;">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="font-size: 24px; margin-top: -2px;">&times;</button>
+                    <h4 class="modal-title" id="editUserAccessModalLabel" style="font-size: 16px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-user-shield text-primary"></i> Edit User Access &amp; Profile
+                    </h4>
+                </div>
+                <div class="modal-body" style="padding: 18px 20px;">
+                    <div id="modalUserAlert" class="alert alert-danger" style="display: none; font-size: 13px;"></div>
+
+                    <div class="form-group">
+                        <label for="edit_user_name" style="font-size: 13px; font-weight: 600; color: #334155;">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit_user_name" name="name" required style="border-radius: 6px; height: 38px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_user_email" style="font-size: 13px; font-weight: 600; color: #334155;">Email Address <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="edit_user_email" name="email" required style="border-radius: 6px; height: 38px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit_user_mobile" style="font-size: 13px; font-weight: 600; color: #334155;">Mobile Number</label>
+                        <input type="text" class="form-control" id="edit_user_mobile" name="mobile" placeholder="10-digit mobile number" style="border-radius: 6px; height: 38px;">
+                    </div>
+
+                    {{-- Administrator Role / Access Toggle --}}
+                    <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-top: 14px;">
+                        <label style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 6px; display: block;">
+                            <i class="fas fa-shield-alt" style="color: #9333ea;"></i> Administrator Access
+                        </label>
+                        <div class="checkbox" style="margin: 0;">
+                            <label style="font-size: 13px; color: #334155; font-weight: 500; cursor: pointer;">
+                                <input type="checkbox" id="edit_user_is_admin" name="is_admin" value="1" style="margin-top: 3px;">
+                                Grant full administrator privileges (access to Admin Panel)
+                            </label>
+                        </div>
+                        <div id="selfAdminWarning" style="display: none; margin-top: 6px; font-size: 12px; color: #b45309;">
+                            <i class="fas fa-info-circle"></i> You are currently signed in with this account. Administrator access cannot be removed from yourself.
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0; margin-top: 14px;">
+                        <label for="edit_user_password" style="font-size: 13px; font-weight: 600; color: #334155;">New Password <span class="text-muted" style="font-weight: 400; font-size: 12px;">(optional — leave blank to keep unchanged)</span></label>
+                        <input type="password" class="form-control" id="edit_user_password" name="password" minlength="6" placeholder="Enter new password (min. 6 characters)" style="border-radius: 6px; height: 38px;">
+                    </div>
+                </div>
+                <div class="modal-footer" style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; padding: 12px 18px;">
+                    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal" style="height: 36px; padding: 0 16px;">Cancel</button>
+                    <button type="submit" id="saveUserAccessBtn" class="btn btn-primary btn-sm" style="height: 36px; padding: 0 18px;">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+(function() {
+    $(document).on('click', '.btn-edit-user-access', function() {
+        var btn = $(this);
+        var id = btn.data('id');
+        var name = btn.data('name');
+        var email = btn.data('email');
+        var mobile = btn.data('mobile') || '';
+        var isAdmin = String(btn.data('is-admin')) === '1';
+        var isCurrent = String(btn.data('is-current')) === '1';
+
+        $('#editUserAccessForm').attr('action', '{{ url("admin/users") }}/' + id);
+        $('#edit_user_name').val(name);
+        $('#edit_user_email').val(email);
+        $('#edit_user_mobile').val(mobile);
+        $('#edit_user_password').val('');
+        $('#modalUserAlert').hide().text('');
+
+        var adminCheck = $('#edit_user_is_admin');
+        adminCheck.prop('checked', isAdmin);
+
+        if (isCurrent) {
+            adminCheck.prop('disabled', true);
+            $('#selfAdminWarning').show();
+            if (!$('#selfAdminHidden').length) {
+                $('#editUserAccessForm').append('<input type="hidden" id="selfAdminHidden" name="is_admin" value="1">');
+            }
+        } else {
+            adminCheck.prop('disabled', false);
+            $('#selfAdminWarning').hide();
+            $('#selfAdminHidden').remove();
+        }
+
+        $('#editUserAccessModal').modal('show');
+    });
+
+    $('#editUserAccessForm').on('submit', function(e) {
+        var $form = $(this);
+        var $btn = $('#saveUserAccessBtn');
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+    });
+})();
+</script>
+@endpush
 @endsection

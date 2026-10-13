@@ -36,28 +36,43 @@ class TargetedUiFixTest extends TestCase
     }
 
     /**
-     * Requirement 1: Compare is removed and replaced by Relevant in both desktop header and mobile taskbar.
+     * Requirement 1 & 5: Compare is removed from desktop header and mobile taskbar.
+     * Relevant is not present. Single Wishlist is present in desktop header and Wishlist action is present in mobile taskbar.
      */
-    public function test_compare_replaced_by_relevant_in_navigation_and_taskbar(): void
+    public function test_compare_removed_and_wishlist_configured_in_navigation_and_taskbar(): void
     {
         $response = $this->get('/');
         $response->assertStatus(200);
         $content = $response->getContent();
 
-        // 1. Confirm Compare is no longer displayed in the target taskbar or header
+        // 1. Confirm Compare is no longer displayed anywhere in taskbar or header
         $this->assertStringNotContainsString('<span>Compare</span>', $content, 'Visible Compare label must be removed from taskbar');
         $this->assertStringNotContainsString('title="Compare"', $content, 'Compare title action must be removed from header');
         $this->assertStringNotContainsString('aria-label="Compare Products"', $content, 'Compare aria label must be removed');
 
-        // 2. Confirm Relevant appears in its place
-        $this->assertStringContainsString('<span>Relevant</span>', $content, 'Visible Relevant label must appear in taskbar');
-        $this->assertStringContainsString('title="Relevant"', $content, 'Relevant title action must appear in header');
-        $this->assertStringContainsString('aria-label="Relevant Products"', $content);
+        // 2. Confirm Relevant is not displayed anywhere in taskbar or header
+        $this->assertStringNotContainsString('<span>Relevant</span>', $content, 'Relevant label must not be in taskbar');
+        $this->assertStringNotContainsString('title="Relevant"', $content, 'Relevant title action must not be in header');
+        $this->assertStringNotContainsString('aria-label="Relevant Products"', $content, 'Relevant aria label must not be in header');
 
-        // 3. Confirm Relevant destination works
-        $relevantRes = $this->get('/products');
-        $relevantRes->assertStatus(200);
-        $relevantRes->assertSee('Classic Cotton Shirt', false);
+        // 3. Confirm desktop header actions contain single Wishlist (no duplicates)
+        preg_match('/<div class="header-actions[^>]*>(.*?)<\/div>\s*<\/div>\s*<\/div>/s', $content, $headerActionMatches);
+        $this->assertNotEmpty($headerActionMatches, 'header-actions container must exist');
+        $headerActionHtml = $headerActionMatches[0];
+        $this->assertStringContainsString('title="Wishlist"', $headerActionHtml, 'Header must contain Wishlist action');
+        $this->assertStringContainsString('href="' . route('shop.wishlist') . '"', $headerActionHtml);
+        $this->assertEquals(1, substr_count($headerActionHtml, 'title="Wishlist"'), 'Header must contain exactly one Wishlist action');
+
+        // 4. Confirm mobile bottom taskbar contains Wishlist action
+        preg_match('/<section class="bottom-navigation-wrap[^>]*>(.*?)<\/section>/s', $content, $bottomNavMatches);
+        $this->assertNotEmpty($bottomNavMatches, 'bottom-navigation-wrap must exist');
+        $bottomNavHtml = $bottomNavMatches[1];
+        $this->assertStringContainsString('<span>Wishlist</span>', $bottomNavHtml, 'Bottom navigation must have Wishlist item');
+        $this->assertStringContainsString('href="' . route('shop.wishlist') . '"', $bottomNavHtml, 'Wishlist item must navigate to /wishlist');
+
+        // 5. Confirm Wishlist page loads cleanly
+        $wishlistRes = $this->get('/wishlist');
+        $wishlistRes->assertStatus(200);
     }
 
     /**

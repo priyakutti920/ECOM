@@ -348,8 +348,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
  Route::get('/payments', [\App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
  Route::get('/payments/export', [\App\Http\Controllers\Admin\PaymentController::class, 'export'])->name('payments.export');
 
- // Users
- Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('users.index');
+    // Users
+    Route::get('/users', [\App\Http\Controllers\Admin\UserController::class, 'index'])->name('users.index');
+    Route::match(['put', 'patch', 'post'], '/users/{user}', [\App\Http\Controllers\Admin\UserController::class, 'update'])->name('users.update');
 
  // Product Reviews Moderation
  Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
