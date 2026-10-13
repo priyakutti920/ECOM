@@ -4,7 +4,7 @@
 
 @push('styles')
 <style>
-.coupon-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; overflow: hidden; }
+.coupon-table { width: 100%; min-width: 760px; border-collapse: collapse; background: #fff; }
 .coupon-table th { background: #f6f8fa; text-align: left; font-size: 12px; color: #555; padding: 10px 12px; border-bottom: 1px solid #e7e7e7; }
 .coupon-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
 .coupon-table tr:hover td { background: #fafbfc; }
@@ -18,8 +18,14 @@
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
 .toolbar form { display: flex; gap: 6px; }
 .toolbar input[type=text] { padding: 7px 10px; border: 1px solid #d5d9d9; border-radius: 6px; font-size: 13px; min-width: 240px; }
-.toolbar button { padding: 7px 14px; background: #3a7bd5; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.toolbar button { padding: 7px 14px; background: #3a7bd5; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .empty { padding: 30px; text-align: center; color: #999; }
+
+@media (max-width: 600px) {
+    .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .toolbar form { width: 100%; }
+    .toolbar input[type=text] { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; }
+}
 </style>
 @endpush
 
@@ -36,7 +42,11 @@
         </form>
     </div>
 
-    <table class="coupon-table">
+    <div class="table-responsive">
+        <div class="mobile-scroll-hint">
+            <i class="fas fa-arrows-alt-h"></i> Scroll right to view coupon details, status, and issued dates &rarr;
+        </div>
+        <table class="coupon-table">
         <thead>
             <tr>
                 <th>Code</th>
@@ -106,6 +116,7 @@
         @endforelse
         </tbody>
     </table>
+    </div>
 
     <div style="margin-top:14px;">{{ $coupons->links() }}</div>
 

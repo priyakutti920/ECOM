@@ -42,7 +42,7 @@
     .ord-info-row .val { color:#222; }
 
     /* Items table */
-    .ord-items-table { width:100%; border-collapse:collapse; }
+    .ord-items-table { width:100%; min-width:460px; border-collapse:collapse; }
     .ord-items-table th, .ord-items-table td { padding:10px 12px; font-size:13px; text-align:left; }
     .ord-items-table thead th { background:#fafafa; border-bottom:1px solid #eee; font-weight:600; color:#555; text-transform:uppercase; font-size:11px; letter-spacing:0.3px; }
     .ord-items-table tbody tr { border-top:1px solid #f0f0f0; }
@@ -184,6 +184,12 @@
     .ord-modal .btn-primary { background:#3a7bd5; color:#fff; border:1px solid #3a7bd5; }
     .ord-modal .btn-secondary { background:#fff; color:#333; border:1px solid #ddd; }
     .ord-modal .btn-danger { background:#c0392b; color:#fff; border:1px solid #c0392b; }
+
+    @media (max-width: 576px) {
+        .ord-show-head { flex-direction: column; align-items: stretch; gap: 12px; }
+        .ord-show-head .right { text-align: left; }
+        .ord-show-head .right > div { justify-content: flex-start !important; }
+    }
 </style>
 @endpush
 
@@ -356,7 +362,8 @@
             <div class="panel">
                 <div class="panel-head"><i class="fas fa-box"></i> Items in this order</div>
                 <div class="panel-body" style="padding:0;">
-                    <table class="ord-items-table">
+                    <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+                        <table class="ord-items-table">
                         <thead>
                             <tr>
                                 <th class="img-cell"></th>
@@ -388,6 +395,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
 
                     <div class="ord-totals" style="margin:0 16px 16px;">
                         <div class="row"><span>Subtotal</span><span>₹{{ number_format($order->subtotal, 2) }}</span></div>

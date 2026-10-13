@@ -32,7 +32,7 @@
     /* Tables */
     .inv-card { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 24px; overflow: hidden; }
     .inv-card-head { padding: 14px 18px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; font-weight: 700; font-size: 14px; color: #1f2937; display: flex; justify-content: space-between; align-items: center; }
-    .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .inv-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px; }
     .inv-table th { background: #fafafa; padding: 12px 16px; text-align: left; font-weight: 600; color: #4b5563; border-bottom: 1px solid #e5e7eb; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
     .inv-table td { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; color: #1f2937; }
     .inv-table tr:last-child td { border-bottom: none; }
@@ -61,6 +61,18 @@
     .form-group label { display: block; font-size: 12.5px; font-weight: 600; color: #374151; margin-bottom: 5px; }
     .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+
+    @media (max-width: 768px) {
+        .inv-toolbar { flex-direction: column; align-items: stretch; gap: 12px; max-width: 100%; }
+        .inv-tabs { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+        .inv-tabs a { flex-shrink: 0; }
+        .inv-search { width: 100%; }
+        .inv-search input { flex: 1; width: 100%; }
+    }
+    @media (max-width: 480px) {
+        .kpi-grid { grid-template-columns: 1fr; gap: 10px; }
+        .kpi-card { padding: 14px 16px; }
+    }
 </style>
 @endpush
 
@@ -140,7 +152,10 @@
         <span><i class="fas fa-list"></i> Product Inventory Levels</span>
         <span style="font-size:12px; color:#6b7280; font-weight:normal;">Showing {{ $products->firstItem() ?? 0 }} to {{ $products->lastItem() ?? 0 }} of {{ $products->total() }}</span>
     </div>
-    <div style="overflow-x:auto;">
+    <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+        <div class="mobile-scroll-hint">
+            <i class="fas fa-arrows-alt-h"></i> Scroll right to view current stock, low stock alert, and adjust stock actions &rarr;
+        </div>
         <table class="inv-table">
             <thead>
                 <tr>
@@ -246,7 +261,10 @@
     <div class="inv-card-head">
         <span><i class="fas fa-history"></i> Stock Movements Audit Ledger (Last 25 Events)</span>
     </div>
-    <div style="overflow-x:auto;">
+    <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+        <div class="mobile-scroll-hint">
+            <i class="fas fa-arrows-alt-h"></i> Scroll right to view movement details, stock before/after, and audit notes &rarr;
+        </div>
         <table class="inv-table">
             <thead>
                 <tr>

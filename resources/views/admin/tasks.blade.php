@@ -64,11 +64,16 @@
         transition: background .15s;
     }
     .task-btn:hover { background: #e3ecf8; color: #2f6bc4; }
+
+    @media (max-width: 480px) {
+        .task-grid { grid-template-columns: 1fr; gap: 12px; }
+        .task-card { padding: 14px 16px; }
+    }
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid" style="padding: 24px 20px;">
+<div class="container-fluid" style="padding: 0;">
 
     <div style="margin-bottom: 24px;">
         <h2 style="margin:0; font-weight:700; font-size:22px; color:#222;">

@@ -13,6 +13,7 @@ use App\Models\Coupon;
 use App\Models\Review;
 use App\Models\User;
 use App\Models\Invoice;
+use App\Models\StoreSetting;
 use App\Http\Controllers\InvoiceController;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\DB;
@@ -209,6 +210,9 @@ if ($product) {
 // TEST 5: Auto-Invoice Creation with State GST Logic
 // -----------------------------------------------------------
 echo "\n--- TEST 5: Auto-Invoice Creation & GST Logic ---\n";
+$origGst = StoreSetting::getValue('gst_percentage');
+StoreSetting::setValue('gst_percentage', '5');
+
 // Intra-state (Tamil Nadu) -> CGST + SGST
 $orderTN = Order::create([
     'order_code' => 'TEST-TN-' . strtoupper(Str::random(6)),
@@ -267,6 +271,12 @@ assertTest("KA Order has CGST = 0 and SGST = 0", (float) $invoiceKA->cgst === 0.
 
 $orderTN->delete();
 $orderKA->delete();
+if ($origGst !== null) {
+    StoreSetting::setValue('gst_percentage', $origGst);
+} else {
+    StoreSetting::where('key', 'gst_percentage')->delete();
+    StoreSetting::clearCache();
+}
 
 // -----------------------------------------------------------
 // TEST 6: Forgot Password Flow & Password Reset

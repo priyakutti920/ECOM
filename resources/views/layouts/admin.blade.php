@@ -938,6 +938,78 @@
             outline: 2px solid var(--admin-primary);
             box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.15);
         }
+
+        /* ── Global Responsive Content & Table Handling ── */
+        .admin-content {
+            width: 100%;
+            max-width: 100%;
+            min-height: calc(100vh - 54px);
+            padding: 20px 24px;
+            box-sizing: border-box;
+        }
+        @media (max-width: 991px) {
+            .admin-content {
+                padding: 16px 14px;
+            }
+        }
+        @media (max-width: 576px) {
+            .admin-content {
+                padding: 12px 8px;
+            }
+        }
+
+        /* Universal Table Responsive Wrapper */
+        .table-responsive {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 16px;
+            border: 1px solid var(--admin-card-border);
+            border-radius: var(--admin-radius);
+            background: #ffffff;
+        }
+        .table-responsive > table {
+            margin-bottom: 0;
+            width: 100%;
+        }
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .mobile-scroll-hint {
+            display: none;
+            font-size: 11px;
+            color: var(--admin-text-muted);
+            padding: 6px 10px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--admin-card-border);
+            align-items: center;
+            gap: 6px;
+        }
+        @media (max-width: 768px) {
+            .mobile-scroll-hint {
+                display: flex;
+            }
+            .admin-content .row {
+                margin-left: 0;
+                margin-right: 0;
+            }
+            .admin-content .row > [class*="col-"] {
+                padding-left: 0;
+                padding-right: 0;
+            }
+        }
     </style>
 
     @stack('styles')

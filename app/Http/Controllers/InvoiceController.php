@@ -132,7 +132,7 @@ class InvoiceController extends Controller
         // Authoritative financial calculation
         $calc = \App\Services\Order\OrderFinancialCalculator::calculateForOrder($order);
 
-        $itemsList = $order->items->map(function ($it) {
+        $itemsList = $order->items->map(function ($it) use ($calc) {
             $desc = $it->product_name;
             if ($it->variation_name) {
                 $desc .= ' (' . $it->variation_name . ')';

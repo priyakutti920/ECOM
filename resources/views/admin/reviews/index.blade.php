@@ -12,7 +12,7 @@
 .rv-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .rv-filter-group { display: flex; gap: 8px; align-items: center; }
 .rv-filter-group input, .rv-filter-group select { padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #fff; }
-.rv-table { width: 100%; border-collapse: collapse; }
+.rv-table { width: 100%; min-width: 900px; border-collapse: collapse; }
 .rv-table th, .rv-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #f1f5f9; font-size: 13px; vertical-align: top; }
 .rv-table th { background: #f8fafc; font-weight: 700; color: #475569; }
 .rv-table tr:hover td { background: #fafafa; }
@@ -27,11 +27,23 @@
 .btn-rejt:hover { background: #d97706; }
 .btn-del { background: #ef4444; color: #fff; }
 .btn-del:hover { background: #dc2626; }
+
+@media (max-width: 768px) {
+    .rv-filters { flex-direction: column; align-items: stretch; gap: 10px; }
+    .rv-filter-group { flex-direction: column; align-items: stretch; width: 100%; gap: 8px; }
+    .rv-filter-group input, .rv-filter-group select { width: 100% !important; max-width: 100%; box-sizing: border-box; }
+    .rv-filters button[type="submit"] { width: 100%; }
+}
+@media (max-width: 480px) {
+    .rv-card { padding: 14px 10px; }
+    .rv-stats { gap: 10px; }
+    .rv-stat-box { min-width: 100%; }
+}
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid" style="padding: 20px;">
+<div class="container-fluid" style="padding: 0;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
         <div>
             <h2 style="margin:0; font-size:22px; font-weight:700; color:#1e293b;">Product Reviews & Ratings</h2>
@@ -83,7 +95,10 @@
             <button type="submit" class="btn btn-primary" style="padding:6px 16px; font-size:13px; font-weight:600; border-radius:6px;">Filter</button>
         </form>
 
-        <div style="overflow-x:auto;">
+        <div class="table-responsive">
+            <div class="mobile-scroll-hint">
+                <i class="fas fa-arrows-alt-h"></i> Scroll right to view ratings, customer details, and action buttons &rarr;
+            </div>
             <table class="rv-table">
                 <thead>
                     <tr>

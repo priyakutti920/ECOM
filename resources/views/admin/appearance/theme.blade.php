@@ -448,6 +448,66 @@
     from { opacity: 0; transform: translateY(12px) scale(0.96); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ── Mobile Responsive Refinements ── */
+@media (max-width: 768px) {
+    .theme-header-bar {
+        padding: 16px 14px;
+    }
+    .presets-card {
+        padding: 16px 14px;
+    }
+    .panel-card-body {
+        padding: 16px 14px;
+    }
+}
+@media (max-width: 640px) {
+    .theme-header-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .theme-header-actions {
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 8px;
+    }
+    .theme-header-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+        text-align: center;
+        justify-content: center;
+    }
+}
+@media (max-width: 480px) {
+    .theme-customizer-wrap {
+        padding: 4px 0 24px;
+    }
+    .preset-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .style-options-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .color-field-label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+    }
+    .theme-header-actions .btn {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .mockup-header-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .mockup-search-box {
+        max-width: 100%;
+    }
+}
 </style>
 @endpush
 

@@ -34,7 +34,12 @@
     .ord-filters .btn { padding:7px 14px; font-size:13px; }
     .ord-filters .btn-reset { color:#666; text-decoration:none; }
 
-    .ord-table { width:100%; border-collapse:separate; border-spacing:0; background:#fff; border:1px solid #e7e7e7; border-radius:6px; overflow:visible; }
+    @media (max-width: 768px) {
+        .ord-filters { flex-direction: column; align-items: stretch; width: 100%; }
+        .ord-filters input, .ord-filters select, .ord-filters .btn { width: 100% !important; box-sizing: border-box; }
+    }
+
+    .ord-table { width:100%; min-width: 980px; border-collapse:separate; border-spacing:0; background:#fff; border:1px solid #e7e7e7; border-radius:6px; }
     .ord-table th, .ord-table td { padding:12px 14px; font-size:13px; text-align:left; vertical-align:top; }
     .ord-table thead th { background:#fafafa; border-bottom:1px solid #e7e7e7; font-weight:600; color:#333; text-transform:uppercase; font-size:11px; letter-spacing:0.4px; }
     .ord-table tbody tr { border-top:1px solid #f0f0f0; }
@@ -142,7 +147,10 @@
             <div>No orders found.</div>
         </div>
     @else
-        <div style="overflow:visible;">
+        <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+            <div class="mobile-scroll-hint">
+                <i class="fas fa-arrows-alt-h"></i> Scroll right to view customer address, items, amount, paid status, and actions &rarr;
+            </div>
             <table class="ord-table">
                 <thead>
                     <tr>

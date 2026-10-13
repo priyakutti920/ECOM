@@ -165,6 +165,43 @@
     align-items: center;
     margin-bottom: 10px;
 }
+
+@media (max-width: 600px) {
+    .custom-link-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .custom-link-row select {
+        grid-column: 1 / 2;
+    }
+    .custom-link-row button {
+        grid-column: 2 / 3;
+        width: 100%;
+    }
+    .category-select-grid {
+        grid-template-columns: 1fr;
+    }
+    .nav-manager-wrap {
+        padding: 4px 0 24px;
+    }
+    .panel-nav-body {
+        padding: 14px 12px;
+    }
+    .nav-actions-group {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .nav-actions-group a,
+    .nav-actions-group button {
+        flex: 1 1 auto;
+        text-align: center;
+    }
+}
+.nav-actions-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
 </style>
 @endpush
 
@@ -180,7 +217,7 @@
                 Customize the main horizontal category bar, promo notice, and menu links shown across your online storefront.
             </p>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div class="nav-actions-group">
             <a href="{{ url('/') }}" target="_blank" class="btn btn-default">
                 <i class="fas fa-external-link-alt"></i> View Storefront
             </a>

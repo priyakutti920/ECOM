@@ -324,7 +324,7 @@
                     <br>
 
                     <strong>Date:</strong>
-                    {{ $order->created_at->format('d/m/Y') }}
+                    {{ $order->created_at ? $order->created_at->format('d/m/Y') : date('d/m/Y') }}
                     <br>
 
                     <strong>Order ID:</strong>

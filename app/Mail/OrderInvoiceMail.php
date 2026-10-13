@@ -27,7 +27,7 @@ class OrderInvoiceMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            view: 'emails.order_invoice',
+            markdown: 'emails.order_invoice',
             with: [
                 'order'   => $this->order,
                 'storeName' => \App\Models\StoreSetting::getStoreName(),

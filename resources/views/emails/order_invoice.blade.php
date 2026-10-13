@@ -11,7 +11,7 @@ A copy of your invoice is attached to this email as a PDF.
 **Order:** {{ $order->order_code }}
 **Total paid:** ₹{{ number_format($order->total, 2) }}
 **Payment method:** {{ ucfirst($order->payment_method) }}@if($order->payment_utr) (UTR: {{ $order->payment_utr }})@endif
-**Placed on:** {{ $order->created_at->format('d M Y, h:i A') }}
+**Placed on:** {{ $order->created_at ? $order->created_at->format('d M Y, h:i A') : date('d M Y, h:i A') }}
 @endcomponent
 
 You can also view and track your order anytime from your account:

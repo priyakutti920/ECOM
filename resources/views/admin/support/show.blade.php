@@ -42,6 +42,18 @@
 .btn-submit:hover { background: #2f6bc4; }
 
 .closed-banner { background: #e2e3e5; color: #383d41; padding: 10px 16px; border-radius: 6px; font-size: 12.5px; margin-bottom: 12px; }
+
+@media (max-width: 576px) {
+    .head { flex-direction: column; align-items: stretch; gap: 12px; }
+    .head .right { width: 100%; }
+    .status-form { width: 100%; }
+    .status-form select { flex: 1; height: 34px; font-size: 13px; }
+    .status-form button { height: 34px; padding: 0 14px; font-size: 13px; }
+    .thread, .reply-box { padding: 14px 12px; }
+    .msg { gap: 8px; }
+    .msg .av { width: 28px; height: 28px; font-size: 11px; }
+    .msg .bubble { padding: 8px 12px; font-size: 13px; }
+}
 </style>
 @endpush
 

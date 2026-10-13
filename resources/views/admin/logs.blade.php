@@ -11,7 +11,7 @@
         overflow: hidden;
         box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
-    .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .log-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 13px; }
     .log-table th, .log-table td { padding: 12px 16px; text-align: left; }
     .log-table thead th { background: #fafafa; border-bottom: 1px solid #eee; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #666; }
     .log-table tbody tr { border-top: 1px solid #f2f2f2; }
@@ -22,7 +22,7 @@
 @endpush
 
 @section('content')
-<div class="container-fluid" style="padding: 24px 20px;">
+<div class="container-fluid" style="padding: 0;">
 
     <div style="margin-bottom: 20px;">
         <h2 style="margin:0; font-weight:700; font-size:22px; color:#222;">
@@ -40,7 +40,11 @@
                 No activity logs recorded yet.
             </div>
         @else
-            <table class="log-table">
+            <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+                <div class="mobile-scroll-hint">
+                    <i class="fas fa-arrows-alt-h"></i> Scroll right to view order details, events, and staff actions &rarr;
+                </div>
+                <table class="log-table">
                 <thead>
                     <tr>
                         <th style="width:140px;">Timestamp</th>
@@ -70,6 +74,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         @endif
     </div>
 

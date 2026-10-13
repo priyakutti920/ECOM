@@ -161,6 +161,7 @@
 }
 .user-data-table {
     width: 100%;
+    min-width: 860px;
     margin-bottom: 0;
     border-collapse: separate;
     border-spacing: 0;
@@ -281,6 +282,18 @@
     color: #64748b;
     margin: 0 0 16px;
 }
+
+@media (max-width: 768px) {
+    .user-filter-bar { flex-direction: column; align-items: stretch; gap: 12px; max-width: 100%; }
+    .user-tabs { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-bottom: 4px; }
+    .user-tab-btn { flex-shrink: 0; }
+    .user-search-form { width: 100%; }
+    .user-search-input { width: 100% !important; min-width: 0 !important; flex: 1; }
+}
+@media (max-width: 480px) {
+    .user-kpi-grid { grid-template-columns: 1fr; gap: 10px; }
+    .user-kpi-card { padding: 12px 14px; }
+}
 </style>
 @endpush
 
@@ -370,7 +383,10 @@
 
     {{-- Users Data Table Card --}}
     <div class="user-table-card">
-        <div class="table-responsive">
+        <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+            <div class="mobile-scroll-hint">
+                <i class="fas fa-arrows-alt-h"></i> Scroll right to view contact information, orders count, total spent, and join date &rarr;
+            </div>
             <table class="user-data-table">
                 <thead>
                     <tr>

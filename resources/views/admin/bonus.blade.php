@@ -134,6 +134,14 @@
 @media (max-width: 600px) {
     .bonus-cards { grid-template-columns:1fr; }
 }
+@media (max-width: 480px) {
+    .bonus-card { padding: 16px 14px; }
+    .bonus-modal { width: 92vw; border-radius: 8px; }
+    .bonus-modal .modal-header { padding: 14px 16px; }
+    .bonus-modal .modal-body { padding: 16px; }
+    .bonus-modal .modal-footer { padding: 12px 16px; flex-direction: column-reverse; }
+    .bonus-modal .modal-footer button { width: 100%; justify-content: center; text-align: center; }
+}
 </style>
 @endpush
 

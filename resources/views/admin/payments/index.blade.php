@@ -139,6 +139,7 @@
     }
     .pay-table {
         width: 100%;
+        min-width: 860px;
         border-collapse: collapse;
         font-size: 13px;
     }
@@ -327,11 +328,24 @@
         width: 100%; padding: 8px 12px; border: 1px solid #ddd;
         border-radius: 5px; font-size: 13px; box-sizing: border-box; margin-bottom: 12px;
     }
+    @media (max-width: 768px) {
+        .pay-page-header { flex-direction: column; align-items: stretch; gap: 12px; }
+        .pay-actions-top { width: 100%; }
+        .pay-actions-top a, .pay-actions-top button { flex: 1; justify-content: center; text-align: center; }
+        .pay-filters { flex-direction: column; align-items: stretch; width: 100%; }
+        .pay-filters input, .pay-filters select, .pay-filters button, .pay-filters .search-input {
+            width: 100% !important; min-width: 0 !important; box-sizing: border-box;
+        }
+    }
+    @media (max-width: 480px) {
+        .metric-grid { grid-template-columns: 1fr; gap: 10px; }
+        .metric-card { padding: 14px 16px; }
+    }
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid" style="padding: 20px 24px;">
+<div class="container-fluid" style="padding: 0;">
 
     {{-- Flash Notifications --}}
     @if(session('success'))
@@ -476,7 +490,10 @@
                 <p>There are no transactions matching your current filter criteria.</p>
             </div>
         @else
-            <div style="overflow-x:auto;">
+            <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+                <div class="mobile-scroll-hint">
+                    <i class="fas fa-arrows-alt-h"></i> Scroll right to view customer, amount, method, UTR reference, status, and actions &rarr;
+                </div>
                 <table class="pay-table">
                     <thead>
                         <tr>

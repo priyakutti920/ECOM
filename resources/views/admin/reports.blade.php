@@ -12,6 +12,12 @@
         flex-wrap: wrap;
         gap: 12px;
     }
+    .rep-filter-btns {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
     .rep-filter-btns a {
         display: inline-block;
         padding: 6px 14px;
@@ -22,7 +28,8 @@
         color: #555;
         border: 1px solid #ddd;
         background: #fff;
-        margin-left: 4px;
+        margin-left: 0;
+        white-space: nowrap;
     }
     .rep-filter-btns a.active {
         background: #3a7bd5;
@@ -58,15 +65,30 @@
         font-weight: 700;
         color: #333;
     }
-    .rep-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rep-table { width: 100%; min-width: 440px; border-collapse: collapse; font-size: 13px; }
     .rep-table th, .rep-table td { padding: 12px 16px; text-align: left; }
     .rep-table thead th { background: #fafafa; border-bottom: 1px solid #eee; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #666; }
     .rep-table tbody tr { border-top: 1px solid #f2f2f2; }
+
+    @media (max-width: 600px) {
+        .rep-filter-btns {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            flex-wrap: nowrap;
+            padding-bottom: 6px;
+        }
+    }
+    @media (max-width: 480px) {
+        .rep-metrics { grid-template-columns: 1fr; gap: 10px; }
+        .rep-card { padding: 14px 16px; }
+        .rep-val { font-size: 20px; }
+    }
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid" style="padding: 24px 20px;">
+<div class="container-fluid" style="padding: 0;">
 
     <div class="rep-header">
         <div>
@@ -114,24 +136,26 @@
                 @if($topItems->isEmpty())
                     <div style="padding: 30px; text-align: center; color: #999;">No product sales recorded in this period.</div>
                 @else
-                    <table class="rep-table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th style="width:100px;">Units Sold</th>
-                                <th style="width:120px;">Total Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($topItems as $item)
+                    <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+                        <table class="rep-table">
+                            <thead>
                                 <tr>
-                                    <td style="font-weight:600; color:#333;">{{ $item->product_name }}</td>
-                                    <td>{{ number_format($item->total_qty) }}</td>
-                                    <td style="font-weight:700; color:#2e7d32;">₹{{ number_format($item->total_amount, 2) }}</td>
+                                    <th>Product</th>
+                                    <th style="width:100px;">Units Sold</th>
+                                    <th style="width:120px;">Total Revenue</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach($topItems as $item)
+                                    <tr>
+                                        <td style="font-weight:600; color:#333;">{{ $item->product_name }}</td>
+                                        <td>{{ number_format($item->total_qty) }}</td>
+                                        <td style="font-weight:700; color:#2e7d32;">₹{{ number_format($item->total_amount, 2) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 @endif
             </div>
         </div>
@@ -141,27 +165,29 @@
                 <div class="table-card-head">
                     <i class="fas fa-pie-chart" style="color:#3a7bd5; margin-right:6px;"></i> Orders by Status
                 </div>
-                <table class="rep-table">
-                    <thead>
-                        <tr>
-                            <th>Status</th>
-                            <th style="width:100px; text-align:right;">Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach(['placed','accepted','dispatched','delivered','cancelled','refunded'] as $st)
+                <div class="table-responsive" style="margin-bottom:0; border:none; border-radius:0;">
+                    <table class="rep-table" style="min-width:280px;">
+                        <thead>
                             <tr>
-                                <td>
-                                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#888; margin-right:6px;"></span>
-                                    {{ ucfirst($st) }}
-                                </td>
-                                <td style="text-align:right; font-weight:600;">
-                                    {{ $ordersByStatus[$st] ?? 0 }}
-                                </td>
+                                <th>Status</th>
+                                <th style="width:100px; text-align:right;">Count</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach(['placed','accepted','dispatched','delivered','cancelled','refunded'] as $st)
+                                <tr>
+                                    <td>
+                                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#888; margin-right:6px;"></span>
+                                        {{ ucfirst($st) }}
+                                    </td>
+                                    <td style="text-align:right; font-weight:600;">
+                                        {{ $ordersByStatus[$st] ?? 0 }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

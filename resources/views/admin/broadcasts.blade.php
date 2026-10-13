@@ -20,11 +20,15 @@
     .btn-save {
         background: #3a7bd5; color: #fff; border: none; padding: 9px 20px; border-radius: 6px; font-weight: 600; cursor: pointer;
     }
+    @media (max-width: 576px) {
+        .bc-card { padding: 16px 14px; }
+        .btn-save { width: 100%; text-align: center; }
+    }
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid" style="padding: 24px 20px;">
+<div class="container-fluid" style="padding: 0;">
 
     <div style="margin-bottom: 20px;">
         <h2 style="margin:0; font-weight:700; font-size:22px; color:#222;">

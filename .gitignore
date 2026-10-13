@@ -25,4 +25,4 @@ Thumbs.db
 *.zip
 /storage/framework/*.php
 /storage/installed
-
+/storage/*.sql

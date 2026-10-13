@@ -6,7 +6,7 @@
 <style>
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
 .kpi { background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; }
-.kpi .icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.kpi .icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
 .kpi.c1 .icon { background: #fff8e1; color: #946a00; }
 .kpi.c2 .icon { background: #e3f2fd; color: #0a4b6e; }
 .kpi.c3 .icon { background: #e2e3e5; color: #383d41; }
@@ -14,13 +14,30 @@
 .kpi .num { font-size: 22px; font-weight: 700; color: #1a1a2e; }
 .kpi .lbl { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.4px; }
 
-.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
-.toolbar form { display: flex; gap: 6px; }
-.toolbar input[type=text], .toolbar select { padding: 7px 10px; border: 1px solid #d5d9d9; border-radius: 6px; font-size: 13px; }
-.toolbar input[type=text] { min-width: 260px; }
-.toolbar button { padding: 7px 14px; background: #3a7bd5; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+@media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+@media (max-width: 480px) {
+    .kpi-row { grid-template-columns: 1fr; gap: 8px; }
+    .kpi { padding: 12px 14px; }
+}
 
-table.data { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; overflow: hidden; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+.toolbar form { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+.toolbar input[type=text], .toolbar select { padding: 7px 10px; border: 1px solid #d5d9d9; border-radius: 6px; font-size: 13px; }
+.toolbar input[type=text] { flex: 1 1 240px; min-width: 0; }
+.toolbar select { flex: 0 1 auto; }
+.toolbar button { padding: 7px 14px; background: #3a7bd5; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+
+@media (max-width: 600px) {
+    .toolbar form { flex-direction: column; align-items: stretch; }
+    .toolbar input[type=text],
+    .toolbar select,
+    .toolbar button { width: 100%; box-sizing: border-box; }
+    .toolbar button { justify-content: center; text-align: center; }
+}
+
+table.data { width: 100%; min-width: 720px; border-collapse: collapse; background: #fff; }
 table.data th { background: #f6f8fa; text-align: left; font-size: 12px; color: #555; padding: 10px 12px; border-bottom: 1px solid #e7e7e7; }
 table.data td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; vertical-align: top; }
 table.data tr:hover td { background: #fafbfc; }
@@ -68,40 +85,45 @@ table.data tr:hover td { background: #fafbfc; }
  </form>
  </div>
 
- <table class="data">
- <thead>
- <tr>
- <th style="width:80px;">Ticket</th>
- <th>Subject</th>
- <th style="width:180px;">Customer</th>
- <th style="width:120px;">Status</th>
- <th style="width:130px;">Last activity</th>
- </tr>
- </thead>
- <tbody>
- @forelse($tickets as $t)
- <tr onclick="window.location='{{ route('admin.support.show', $t) }}'" style="cursor:pointer;">
- <td><a class="tk-id" href="{{ route('admin.support.show', $t) }}" onclick="event.stopPropagation();">#{{ $t->id }}</a></td>
- <td>
- <a class="tk-id" href="{{ route('admin.support.show', $t) }}" style="font-weight:600; font-size:13.5px;">{{ $t->subject }}</a>
- <div class="preview">
- <span class="cat-pill">{{ $t->category_label }}</span>
- @if($t->order_code) · Order <strong>{{ $t->order_code }}</strong> @endif
- @if($t->lastMessage) — {{ \Illuminate\Support\Str::limit($t->lastMessage->message, 100) }} @endif
+ <div class="table-responsive">
+     <div class="mobile-scroll-hint">
+         <i class="fas fa-arrows-alt-h"></i> Scroll right to view subject, customer details, and activity &rarr;
+     </div>
+     <table class="data">
+     <thead>
+     <tr>
+     <th style="width:80px;">Ticket</th>
+     <th>Subject</th>
+     <th style="width:180px;">Customer</th>
+     <th style="width:120px;">Status</th>
+     <th style="width:130px;">Last activity</th>
+     </tr>
+     </thead>
+     <tbody>
+     @forelse($tickets as $t)
+     <tr onclick="window.location='{{ route('admin.support.show', $t) }}'" style="cursor:pointer;">
+     <td><a class="tk-id" href="{{ route('admin.support.show', $t) }}" onclick="event.stopPropagation();">#{{ $t->id }}</a></td>
+     <td>
+     <a class="tk-id" href="{{ route('admin.support.show', $t) }}" style="font-weight:600; font-size:13.5px;">{{ $t->subject }}</a>
+     <div class="preview">
+     <span class="cat-pill">{{ $t->category_label }}</span>
+     @if($t->order_code) · Order <strong>{{ $t->order_code }}</strong> @endif
+     @if($t->lastMessage) — {{ \Illuminate\Support\Str::limit($t->lastMessage->message, 100) }} @endif
+     </div>
+     </td>
+     <td>
+     <div style="font-weight:600;">{{ $t->customer->name ?? '—' }}</div>
+     <div style="color:#888; font-size:11.5px;">{{ $t->customer->email ?? '' }}</div>
+     </td>
+     <td><span class="status-pill status-{{ $t->status }}">{{ $t->status_label }}</span></td>
+     <td><small>{{ $t->last_message_at ? $t->last_message_at->diffForHumans() : $t->created_at->diffForHumans() }}</small></td>
+     </tr>
+     @empty
+     <tr><td colspan="5" class="empty">No tickets found.</td></tr>
+     @endforelse
+     </tbody>
+     </table>
  </div>
- </td>
- <td>
- <div style="font-weight:600;">{{ $t->customer->name ?? '—' }}</div>
- <div style="color:#888; font-size:11.5px;">{{ $t->customer->email ?? '' }}</div>
- </td>
- <td><span class="status-pill status-{{ $t->status }}">{{ $t->status_label }}</span></td>
- <td><small>{{ $t->last_message_at ? $t->last_message_at->diffForHumans() : $t->created_at->diffForHumans() }}</small></td>
- </tr>
- @empty
- <tr><td colspan="5" class="empty">No tickets found.</td></tr>
- @endforelse
- </tbody>
- </table>
  <div style="margin-top:10px;">{{ $tickets->appends(request()->query())->links() }}</div>
 
 </div>
