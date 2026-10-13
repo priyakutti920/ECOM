@@ -96,6 +96,12 @@
         </div>
 
         <div class="bulk-card-body">
+            @if(isset($uploadMaxFilesizeBytes) && $uploadMaxFilesizeBytes < 10485760)
+                <div class="alert alert-warning" style="margin-bottom:14px; border-radius:6px; font-size:12.5px; border-left:4px solid #f59e0b; background:#fffbeb; color:#92400e; padding:10px 14px;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right:6px; color:#d97706;"></i>
+                    <strong>Server PHP Upload Limit:</strong> Current PHP <code>upload_max_filesize</code> is <strong>{{ $uploadMaxFilesize }}</strong> (post limit: <strong>{{ $postMaxSize }}</strong>). To upload files up to 10MB, increase <code>upload_max_filesize</code> in your <strong>cPanel &rarr; MultiPHP INI Editor</strong> or <code>.user.ini</code>.
+                </div>
+            @endif
             <div class="bulk-dropzone" id="bulkDropzone" onclick="document.getElementById('bulkFileInput').click()">
                 <input type="file" id="bulkFileInput" multiple accept="image/*,.jfif,.avif,.webp,.svg,.ico,.bmp,.tiff,.tif,.heic,.heif" style="display:none;" onchange="handleBulkFilesSelected(this.files)">
                 <div class="dropzone-icon">
@@ -1008,6 +1014,9 @@
 
 @push('scripts')
 <script>
+window.__serverUploadLimitBytes = {{ $uploadMaxFilesizeBytes ?? 10485760 }};
+window.__serverUploadLimitLabel = '{{ $uploadMaxFilesize ?? "10M" }}';
+
 var stagedFiles = [];
 var isBulkUploading = false;
 
@@ -1055,18 +1064,29 @@ dz.addEventListener('drop', function (e) {
 var fileSeq = 0;
 function handleBulkFilesSelected(fileList) {
     if (!fileList || !fileList.length) return;
+    var serverLimit = window.__serverUploadLimitBytes || 10485760;
+    var limitLabel = window.__serverUploadLimitLabel || '10MB';
     for (var i = 0; i < fileList.length; i++) {
         var f = fileList[i];
         fileSeq++;
         var isTooLarge = f.size > 10485760; // 10MB limit
+        var exceedsServer = (serverLimit < 10485760) && (f.size > serverLimit);
+        var hasError = isTooLarge || exceedsServer;
+        var errText = '';
+        if (isTooLarge) {
+            errText = 'File exceeds 10MB limit (' + (f.size / 1048576).toFixed(1) + 'MB).';
+        } else if (exceedsServer) {
+            errText = 'File (' + (f.size / 1048576).toFixed(1) + 'MB) exceeds server upload limit (' + limitLabel + '). Update in cPanel.';
+        }
+
         stagedFiles.push({
             id: 'f_' + Date.now() + '_' + fileSeq,
             file: f,
             name: f.name,
             size: f.size,
             type: f.type || 'image/jpeg',
-            status: isTooLarge ? 'error' : 'ready',
-            errorMsg: isTooLarge ? 'File exceeds 10MB limit (' + (f.size / 1048576).toFixed(1) + 'MB).' : ''
+            status: hasError ? 'error' : 'ready',
+            errorMsg: errText
         });
     }
     var inputEl = document.getElementById('bulkFileInput');

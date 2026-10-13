@@ -167,6 +167,10 @@ class AppearanceFilesController extends Controller
             return Category::select('id', 'name')->where('status', 0)->orderBy('name')->take(100)->get();
         });
 
+        $uploadMaxFilesize = ini_get('upload_max_filesize') ?: '2M';
+        $postMaxSize = ini_get('post_max_size') ?: '8M';
+        $uploadMaxFilesizeBytes = $this->parseIniSize($uploadMaxFilesize);
+
         return view('admin.appearance.files.index', compact(
             'files',
             'totalFiles',
@@ -178,7 +182,10 @@ class AppearanceFilesController extends Controller
             'currentFaviconUrl',
             'products',
             'categories',
-            'perPageParam'
+            'perPageParam',
+            'uploadMaxFilesize',
+            'postMaxSize',
+            'uploadMaxFilesizeBytes'
         ));
     }
 
@@ -189,6 +196,17 @@ class AppearanceFilesController extends Controller
     {
         $rawFiles = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : ($request->file('image') ? [$request->file('image')] : []));
         if (empty($rawFiles)) {
+            $contentLength = (int) ($request->server('CONTENT_LENGTH') ?? 0);
+            if ($contentLength > 0 && empty($request->all()) && empty($request->allFiles())) {
+                $postMax = ini_get('post_max_size') ?: '8M';
+                $msg = "Uploaded data exceeds server's post_max_size ({$postMax}). Please increase post_max_size in cPanel (MultiPHP INI Editor) or .user.ini.";
+                if ($request->wantsJson()) {
+                    return response()->json(['success' => false, 'message' => $msg], 422);
+                }
+
+                return back()->withErrors(['files' => $msg]);
+            }
+
             if ($request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Please select at least one file to upload.'], 422);
             }
@@ -239,7 +257,7 @@ class AppearanceFilesController extends Controller
             if (! $file->isValid()) {
                 $errCode = $file->getError();
                 $errMsg = match ($errCode) {
-                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').').',
+                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').'). Please update upload_max_filesize in cPanel (MultiPHP INI Editor) or .user.ini.',
                     UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
                     UPLOAD_ERR_PARTIAL => 'File was only partially uploaded.',
                     UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
@@ -388,9 +406,11 @@ class AppearanceFilesController extends Controller
         $files = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : ($request->file('image') ? [$request->file('image')] : []));
         if (empty($files)) {
             if (isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0 && empty($request->all())) {
+                $postMax = ini_get('post_max_size') ?: '8M';
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Upload batch exceeds server limit ('.ini_get('post_max_size').'). Please upload files in smaller batches.',
+                    'message' => "Upload batch exceeds server limit ({$postMax}). Increase post_max_size in cPanel (MultiPHP INI Editor) or .user.ini.",
                 ], 422);
             }
 
@@ -452,7 +472,7 @@ class AppearanceFilesController extends Controller
             if (! $file->isValid()) {
                 $errCode = $file->getError();
                 $errMsg = match ($errCode) {
-                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').').',
+                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').'). Please update upload_max_filesize in cPanel (MultiPHP INI Editor) or .user.ini.',
                     UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
                     UPLOAD_ERR_PARTIAL => 'File was only partially uploaded. Please try again.',
                     UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
@@ -661,9 +681,16 @@ class AppearanceFilesController extends Controller
         }
 
         if (! $file->isValid()) {
+            $errCode = $file->getError();
+            $msg = match ($errCode) {
+                UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').'). Please update upload_max_filesize in cPanel (MultiPHP INI Editor) or .user.ini.',
+                UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
+                default => 'Upload failed: '.$file->getErrorMessage(),
+            };
+
             return response()->json([
                 'success' => false,
-                'message' => 'Upload failed: '.$file->getErrorMessage(),
+                'message' => $msg,
             ], 422);
         }
 
@@ -1118,5 +1145,28 @@ class AppearanceFilesController extends Controller
         }
 
         return back()->with('success', $msg);
+    }
+
+    /**
+     * Parse human-readable ini size (e.g. 2M, 32M, 1G) to integer bytes.
+     */
+    protected function parseIniSize(string $size): int
+    {
+        $size = trim($size);
+        $last = strtolower($size[strlen($size) - 1] ?? '');
+        $val = (int) $size;
+        switch ($last) {
+            case 'g':
+                $val *= 1024 * 1024 * 1024;
+                break;
+            case 'm':
+                $val *= 1024 * 1024;
+                break;
+            case 'k':
+                $val *= 1024;
+                break;
+        }
+
+        return $val;
     }
 }
