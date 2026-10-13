@@ -252,11 +252,26 @@
             font-weight: 600;
         }
 
-        /* Hover dropdown trigger on desktop */
-        @media (min-width: 1200px) {
-            .admin-desktop-nav > li.dropdown:hover > .dropdown-menu {
-                display: block;
+        /* Dropdown open state animation & styling */
+        .admin-desktop-nav > li.dropdown.open > .dropdown-menu,
+        .admin-user-dropdown.open > .dropdown-menu {
+            display: block !important;
+            animation: navDropdownFade 0.16s ease-out;
+        }
+
+        @keyframes navDropdownFade {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
             }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        body.drawer-open {
+            overflow: hidden !important;
         }
 
         /* Subtle Vertical Divider */
@@ -566,6 +581,16 @@
             .admin-nav-sep { display: none !important; }
             .admin-user-name { display: none !important; }
             .util-btn-text { display: none !important; }
+        }
+
+        @media (max-width: 576px) {
+            .admin-nav-container { padding: 0 10px; gap: 8px; }
+            .admin-brand-left { gap: 6px; }
+            .admin-brand-logo { max-height: 24px; }
+            .admin-brand-text { font-size: 13.5px; }
+            .admin-brand-badge { font-size: 9px; padding: 1.5px 5px; }
+            .admin-nav-right { gap: 6px; }
+            .admin-nav-util-btn[title="View Storefront"] { display: none !important; }
         }
 
         /* ── Universal Media Card Styling (Used Globally) ── */
@@ -952,14 +977,13 @@
 
         {{-- Left: Mobile Drawer Trigger + Brand Logo --}}
         <div class="admin-brand-left">
-            <button type="button" class="admin-drawer-toggle" id="adminDrawerToggle" onclick="toggleAdminDrawer()" aria-label="Toggle navigation drawer">
+            <button type="button" class="admin-drawer-toggle" id="adminDrawerToggle" aria-label="Toggle navigation drawer" aria-expanded="false">
                 <i class="fas fa-bars"></i>
             </button>
             <a class="admin-brand-link" href="{{ route('admin.dashboard') }}">
                 @if($siteLogo)
                     <img src="{{ $siteLogo }}" alt="{{ $siteName }}" class="admin-brand-logo">
                 @endif
-                <span class="admin-brand-text">{{ $siteName }}</span>
                 <span class="admin-brand-badge">Admin</span>
             </a>
         </div>
@@ -1113,14 +1137,14 @@
 </nav>
 
 {{-- ── OFF-CANVAS MOBILE DRAWER (< 1200px) ── --}}
-<div class="admin-drawer-backdrop" id="adminDrawerBackdrop" onclick="closeAdminDrawer()"></div>
+<div class="admin-drawer-backdrop" id="adminDrawerBackdrop"></div>
 <aside class="admin-mobile-drawer" id="adminMobileDrawer" aria-label="Mobile Navigation">
     <div class="drawer-header">
         <div style="display:flex; align-items:center; gap:8px;">
             <i class="fas fa-shield-alt text-primary" style="font-size:18px;"></i>
             <span style="font-weight:700; font-size:14px;">{{ $siteName }} Admin</span>
         </div>
-        <button type="button" class="drawer-close-btn" onclick="closeAdminDrawer()" aria-label="Close Navigation">&times;</button>
+        <button type="button" class="drawer-close-btn" aria-label="Close Navigation">&times;</button>
     </div>
     <div class="drawer-body">
         <ul class="drawer-nav-list">
@@ -1128,54 +1152,52 @@
                 <a href="{{ route('admin.dashboard') }}"><span><i class="fas fa-tachometer-alt"></i> Dashboard</span></a>
             </li>
 
-            <li>
-                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('users-sub')">
-                    <span><i class="fas fa-users"></i> Users</span> <i class="fas fa-chevron-down" style="font-size:10px;"></i>
+            <li class="{{ $seg === 'users' ? 'active' : '' }}">
+                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('users-sub')" aria-expanded="{{ $seg === 'users' ? 'true' : 'false' }}">
+                    <span><i class="fas fa-users"></i> Users</span> <i class="fas {{ $seg === 'users' ? 'fa-chevron-up' : 'fa-chevron-down' }}" style="font-size:10px;"></i>
                 </button>
-                <ul class="drawer-sub-menu" id="users-sub" style="display:none;">
-                    <li><a href="{{ url('admin/users') }}"><i class="fas fa-user"></i> All Users</a></li>
+                <ul class="drawer-sub-menu" id="users-sub" style="{{ $seg === 'users' ? 'display:block;' : 'display:none;' }}">
+                    <li><a href="{{ route('admin.users.index') }}"><i class="fas fa-users text-primary"></i> All Users &amp; Admins</a></li>
+                    <li><a href="{{ route('admin.users.index', ['role' => 'customers']) }}"><i class="fas fa-user text-info"></i> Customers</a></li>
+                    <li><a href="{{ route('admin.users.index', ['role' => 'admins']) }}"><i class="fas fa-shield-alt" style="color:#9333ea;"></i> Administrators</a></li>
                 </ul>
             </li>
 
-            <li>
-                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('orders-sub')">
-                    <span><i class="fas fa-shopping-cart"></i> Orders</span> <i class="fas fa-chevron-down" style="font-size:10px;"></i>
+            <li class="{{ in_array($seg, ['orders','tasks','cancellations-returns']) ? 'active' : '' }}">
+                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('orders-sub')" aria-expanded="{{ in_array($seg, ['orders','tasks','cancellations-returns']) ? 'true' : 'false' }}">
+                    <span><i class="fas fa-shopping-cart"></i> Orders</span> <i class="fas {{ in_array($seg, ['orders','tasks','cancellations-returns']) ? 'fa-chevron-up' : 'fa-chevron-down' }}" style="font-size:10px;"></i>
                 </button>
-                <ul class="drawer-sub-menu" id="orders-sub" style="display:none;">
-                    <li><a href="{{ url('admin/orders') }}"><i class="fas fa-list"></i> Orders</a></li>
-                    <li><a href="{{ url('admin/cancellations-returns') }}"><i class="fas fa-undo"></i> Cancellations &amp; Returns</a></li>
-                    <li><a href="{{ url('admin/tasks') }}"><i class="fas fa-tasks"></i> Operational Tasks</a></li>
+                <ul class="drawer-sub-menu" id="orders-sub" style="{{ in_array($seg, ['orders','tasks','cancellations-returns']) ? 'display:block;' : 'display:none;' }}">
+                    <li class="{{ $seg === 'orders' ? 'active' : '' }}"><a href="{{ url('admin/orders') }}"><i class="fas fa-list"></i> Order Management</a></li>
+                    <li class="{{ $seg === 'cancellations-returns' ? 'active' : '' }}"><a href="{{ url('admin/cancellations-returns') }}"><i class="fas fa-undo"></i> Cancellations &amp; Returns</a></li>
+                    <li class="{{ $seg === 'tasks' ? 'active' : '' }}"><a href="{{ url('admin/tasks') }}"><i class="fas fa-tasks"></i> Operational Tasks</a></li>
                 </ul>
             </li>
 
-            <li class="{{ $seg === 'support' ? 'active' : '' }}">
-                <a href="{{ url('admin/support') }}"><span><i class="fas fa-headset"></i> Support Tickets</span></a>
-            </li>
-
-            <li>
-                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('products-sub')">
-                    <span><i class="fas fa-box"></i> Products &amp; Catalog</span> <i class="fas fa-chevron-down" style="font-size:10px;"></i>
+            <li class="{{ in_array($seg, ['categories', 'products', 'inventory', 'providers', 'reviews']) ? 'active' : '' }}">
+                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('products-sub')" aria-expanded="{{ in_array($seg, ['categories', 'products', 'inventory', 'providers', 'reviews']) ? 'true' : 'false' }}">
+                    <span><i class="fas fa-box"></i> Products &amp; Catalog</span> <i class="fas {{ in_array($seg, ['categories', 'products', 'inventory', 'providers', 'reviews']) ? 'fa-chevron-up' : 'fa-chevron-down' }}" style="font-size:10px;"></i>
                 </button>
-                <ul class="drawer-sub-menu" id="products-sub" style="display:none;">
-                    <li><a href="{{ url('admin/products') }}"><i class="fas fa-box-open"></i> All Products</a></li>
-                    <li><a href="{{ route('admin.inventory.index') }}"><i class="fas fa-warehouse"></i> Inventory Ledger</a></li>
-                    <li><a href="{{ url('admin/categories') }}"><i class="fas fa-folder"></i> Categories</a></li>
-                    <li><a href="{{ url('admin/providers') }}"><i class="fas fa-truck"></i> Providers</a></li>
-                    <li><a href="{{ route('admin.reviews.index') }}"><i class="fas fa-star"></i> Reviews</a></li>
+                <ul class="drawer-sub-menu" id="products-sub" style="{{ in_array($seg, ['categories', 'products', 'inventory', 'providers', 'reviews']) ? 'display:block;' : 'display:none;' }}">
+                    <li class="{{ $seg === 'products' ? 'active' : '' }}"><a href="{{ url('admin/products') }}"><i class="fas fa-box-open"></i> All Products</a></li>
+                    <li class="{{ $seg === 'inventory' ? 'active' : '' }}"><a href="{{ route('admin.inventory.index') }}"><i class="fas fa-warehouse"></i> Inventory Ledger</a></li>
+                    <li class="{{ $seg === 'categories' ? 'active' : '' }}"><a href="{{ url('admin/categories') }}"><i class="fas fa-folder"></i> Categories</a></li>
+                    <li class="{{ $seg === 'providers' ? 'active' : '' }}"><a href="{{ url('admin/providers') }}"><i class="fas fa-truck"></i> Providers</a></li>
+                    <li class="{{ $seg === 'reviews' ? 'active' : '' }}"><a href="{{ route('admin.reviews.index') }}"><i class="fas fa-star"></i> Reviews</a></li>
                 </ul>
             </li>
 
-            <li>
-                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('appearance-sub')">
-                    <span><i class="fas fa-paint-brush"></i> Appearance &amp; Media</span> <i class="fas fa-chevron-down" style="font-size:10px;"></i>
+            <li class="{{ in_array($seg, ['appearance', 'files', 'banners', 'navigation']) ? 'active' : '' }}">
+                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('appearance-sub')" aria-expanded="{{ in_array($seg, ['appearance', 'files', 'banners', 'navigation']) ? 'true' : 'false' }}">
+                    <span><i class="fas fa-paint-brush"></i> Appearance &amp; Media</span> <i class="fas {{ in_array($seg, ['appearance', 'files', 'banners', 'navigation']) ? 'fa-chevron-up' : 'fa-chevron-down' }}" style="font-size:10px;"></i>
                 </button>
-                <ul class="drawer-sub-menu" id="appearance-sub" style="display:none;">
-                    <li><a href="{{ route('admin.appearance.theme.index') }}"><i class="fas fa-palette"></i> Theme Customizer</a></li>
-                    <li><a href="{{ route('admin.appearance.files.index') }}"><i class="fas fa-photo-video"></i> Files &amp; Media</a></li>
-                    <li><a href="{{ url('admin/banners') }}"><i class="fas fa-image"></i> Banners</a></li>
-                    <li><a href="{{ route('admin.appearance.sections.index') }}"><i class="fas fa-layer-group"></i> Home Sections</a></li>
-                    <li><a href="{{ route('admin.appearance.footer.index') }}"><i class="fas fa-shoe-prints"></i> Footer Settings</a></li>
-                    <li><a href="{{ route('admin.navigation.index') }}"><i class="fas fa-compass"></i> Storefront Nav Bar</a></li>
+                <ul class="drawer-sub-menu" id="appearance-sub" style="{{ in_array($seg, ['appearance', 'files', 'banners', 'navigation']) ? 'display:block;' : 'display:none;' }}">
+                    <li class="{{ request()->is('admin/appearance/theme*') ? 'active' : '' }}"><a href="{{ route('admin.appearance.theme.index') }}"><i class="fas fa-palette text-info"></i> Theme Customizer</a></li>
+                    <li class="{{ request()->is('admin/appearance/files*') ? 'active' : '' }}"><a href="{{ route('admin.appearance.files.index') }}"><i class="fas fa-photo-video text-primary"></i> Files &amp; Media</a></li>
+                    <li class="{{ $seg === 'banners' ? 'active' : '' }}"><a href="{{ url('admin/banners') }}"><i class="fas fa-image text-success"></i> Store Banners</a></li>
+                    <li class="{{ request()->is('admin/appearance/sections*') ? 'active' : '' }}"><a href="{{ route('admin.appearance.sections.index') }}"><i class="fas fa-layer-group text-warning"></i> Home Sections</a></li>
+                    <li class="{{ request()->is('admin/appearance/footer*') ? 'active' : '' }}"><a href="{{ route('admin.appearance.footer.index') }}"><i class="fas fa-shoe-prints text-muted"></i> Footer Settings</a></li>
+                    <li class="{{ $seg === 'navigation' ? 'active' : '' }}"><a href="{{ route('admin.navigation.index') }}"><i class="fas fa-compass"></i> Storefront Nav Bar</a></li>
                 </ul>
             </li>
 
@@ -1183,36 +1205,31 @@
                 <a href="{{ route('admin.payments.index') }}"><span><i class="fas fa-credit-card"></i> Payments</span></a>
             </li>
 
-
-
-            <li>
-                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('more-sub')">
-                    <span><i class="fas fa-ellipsis-h"></i> Marketing &amp; Logs</span> <i class="fas fa-chevron-down" style="font-size:10px;"></i>
+            <li class="{{ in_array($seg, ['support','reports','broadcasts','coupons','bonuses','logs']) ? 'active' : '' }}">
+                <button type="button" class="drawer-accordion-btn" onclick="toggleDrawerSub('more-sub')" aria-expanded="{{ in_array($seg, ['support','reports','broadcasts','coupons','bonuses','logs']) ? 'true' : 'false' }}">
+                    <span><i class="fas fa-ellipsis-h"></i> More &amp; Reports</span> <i class="fas {{ in_array($seg, ['support','reports','broadcasts','coupons','bonuses','logs']) ? 'fa-chevron-up' : 'fa-chevron-down' }}" style="font-size:10px;"></i>
                 </button>
-                <ul class="drawer-sub-menu" id="more-sub" style="display:none;">
-                    <li><a href="{{ url('admin/reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <ul class="drawer-sub-menu" id="more-sub" style="{{ in_array($seg, ['support','reports','broadcasts','coupons','bonuses','logs']) ? 'display:block;' : 'display:none;' }}">
+                    <li><a href="{{ url('admin/support') }}"><i class="fas fa-headset text-info"></i> Support Tickets</a></li>
+                    <li><a href="{{ url('admin/reports') }}"><i class="fas fa-chart-bar"></i> Sales Reports</a></li>
                     <li><a href="{{ url('admin/broadcasts') }}"><i class="fas fa-bullhorn"></i> Broadcasts</a></li>
-                    <li><a href="{{ url('admin/coupons') }}"><i class="fas fa-ticket-alt"></i> Coupons</a></li>
+                    <li><a href="{{ url('admin/coupons') }}"><i class="fas fa-ticket-alt"></i> Discount Coupons</a></li>
                     <li><a href="{{ url('admin/bonuses') }}"><i class="fas fa-gift"></i> Bonuses</a></li>
-                    <li><a href="{{ url('admin/logs') }}"><i class="fas fa-clipboard-list"></i> User Logs</a></li>
+                    <li><a href="{{ url('admin/logs') }}"><i class="fas fa-clipboard-list"></i> Activity Logs</a></li>
                 </ul>
             </li>
 
-            <li class="{{ $seg === 'users' ? 'active' : '' }}">
-                <a href="{{ route('admin.users.index') }}"><span><i class="fas fa-users"></i> Users &amp; Admins</span></a>
-            </li>
-
             <li class="{{ $seg === 'settings' ? 'active' : '' }}">
-                <a href="{{ url('admin/settings') }}"><span><i class="fas fa-cog"></i> Settings</span></a>
+                <a href="{{ url('admin/settings') }}"><span><i class="fas fa-cog"></i> System Settings</span></a>
             </li>
 
             <li class="{{ $seg === 'account' ? 'active' : '' }}">
-                <a href="{{ url('admin/account') }}"><span><i class="fas fa-user-circle"></i> {{ auth()->user()->name ?? 'Account' }}</span></a>
+                <a href="{{ url('admin/account') }}"><span><i class="fas fa-user-circle"></i> Profile &amp; Account</span></a>
             </li>
 
             <li>
                 <a href="#" onclick="event.preventDefault(); document.getElementById('nav-logout-form').submit();" style="color:#ef4444 !important;">
-                    <span><i class="fas fa-sign-out-alt"></i> Logout</span>
+                    <span><i class="fas fa-sign-out-alt"></i> Sign Out</span>
                 </a>
             </li>
         </ul>
@@ -1338,35 +1355,100 @@
     });
 
     /* Drawer Toggle & Accessibility */
-    function toggleAdminDrawer() {
+    window.toggleAdminDrawer = function (e) {
+        if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+        }
         var drawer = document.getElementById('adminMobileDrawer');
         var backdrop = document.getElementById('adminDrawerBackdrop');
-        if (drawer.classList.contains('open')) {
-            closeAdminDrawer();
+        var toggleBtn = document.getElementById('adminDrawerToggle');
+        if (!drawer) return;
+        var isOpen = drawer.classList.contains('open');
+        if (isOpen) {
+            window.closeAdminDrawer();
         } else {
             drawer.classList.add('open');
-            backdrop.classList.add('show');
-            document.getElementById('adminDrawerToggle')?.setAttribute('aria-expanded', 'true');
+            if (backdrop) backdrop.classList.add('show');
+            document.body.classList.add('drawer-open');
+            toggleBtn?.setAttribute('aria-expanded', 'true');
         }
-    }
+    };
 
-    function closeAdminDrawer() {
-        document.getElementById('adminMobileDrawer')?.classList.remove('open');
-        document.getElementById('adminDrawerBackdrop')?.classList.remove('show');
-        document.getElementById('adminDrawerToggle')?.setAttribute('aria-expanded', 'false');
-    }
+    window.closeAdminDrawer = function () {
+        var drawer = document.getElementById('adminMobileDrawer');
+        var backdrop = document.getElementById('adminDrawerBackdrop');
+        var toggleBtn = document.getElementById('adminDrawerToggle');
+        drawer?.classList.remove('open');
+        backdrop?.classList.remove('show');
+        document.body.classList.remove('drawer-open');
+        toggleBtn?.setAttribute('aria-expanded', 'false');
+    };
 
-    function toggleDrawerSub(id) {
+    window.toggleDrawerSub = function (id) {
         var el = document.getElementById(id);
-        if (el) {
-            el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+        if (!el) return;
+        var isHidden = (el.style.display === 'none' || window.getComputedStyle(el).display === 'none');
+        el.style.display = isHidden ? 'block' : 'none';
+        var btn = el.previousElementSibling;
+        if (btn) {
+            btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+            var icon = btn.querySelector('.fa-chevron-down, .fa-chevron-up');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !isHidden);
+                icon.classList.toggle('fa-chevron-up', isHidden);
+            }
         }
-    }
+    };
 
-    // Close drawer on Escape key
+    // Close drawer and dropdowns on Escape key
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-            closeAdminDrawer();
+            window.closeAdminDrawer();
+            if (window.jQuery) {
+                $('.dropdown.open').removeClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'false');
+            }
+        }
+    });
+
+    /* Desktop Dropdown Hover & Click Synchronization */
+    var navDropTimer = null;
+    $(document).on('mouseenter', '.admin-desktop-nav > li.dropdown', function () {
+        if (window.innerWidth < 1200) return;
+        var $li = $(this);
+        clearTimeout(navDropTimer);
+        $('.admin-desktop-nav > li.dropdown').not($li).removeClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'false');
+        $li.addClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'true');
+    });
+
+    $(document).on('mouseleave', '.admin-desktop-nav > li.dropdown', function () {
+        if (window.innerWidth < 1200) return;
+        var $li = $(this);
+        navDropTimer = setTimeout(function () {
+            $li.removeClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'false');
+        }, 140);
+    });
+
+    // Explicit click toggle for desktop dropdowns and profile dropdown
+    $(document).on('click', '.admin-desktop-nav > li.dropdown > [data-toggle="dropdown"], .admin-user-dropdown > [data-toggle="dropdown"]', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var $parent = $(this).parent();
+        var wasOpen = $parent.hasClass('open');
+        $('.dropdown.open').not($parent).removeClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'false');
+        if (wasOpen) {
+            $parent.removeClass('open');
+            $(this).attr('aria-expanded', 'false');
+        } else {
+            $parent.addClass('open');
+            $(this).attr('aria-expanded', 'true');
+        }
+    });
+
+    // Close open dropdowns on click outside
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.dropdown').length) {
+            $('.dropdown.open').removeClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'false');
         }
     });
 
@@ -1721,6 +1803,26 @@
                 $bar.find('button, select').prop('disabled', false);
             }
         });
+    }
+
+    // Delegated click handler for mobile drawer toggle button
+    $(document).on('click', '#adminDrawerToggle, .admin-drawer-toggle', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleAdminDrawer(e);
+    });
+
+    // Close mobile drawer on backdrop click or close button
+    $(document).on('click', '#adminDrawerBackdrop, .drawer-close-btn', function (e) {
+        e.preventDefault();
+        closeAdminDrawer();
+    });
+
+    // Auto-close mobile drawer when tapping an actual navigation route
+    $(document).on('click', '.admin-mobile-drawer a[href]:not([href="#"]):not([data-toggle])', function () {
+        closeAdminDrawer();
+    });
+
     // Global AJAX CSRF Setup for all jQuery requests across Admin Panel
     if (window.jQuery) {
         $.ajaxSetup({

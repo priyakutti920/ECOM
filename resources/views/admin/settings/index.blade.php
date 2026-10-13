@@ -26,16 +26,20 @@
     .settings-page {
         background: #fff;
         max-width: 1140px;
+        width: 100%;
         margin: 16px auto;
         padding: 24px 28px;
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        box-sizing: border-box;
     }
 
     .settings-layout {
         display: flex;
         gap: 24px;
         align-items: flex-start;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .settings-sidebar {
@@ -107,6 +111,8 @@
     .settings-content {
         flex: 1;
         min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .settings-card {
@@ -185,25 +191,37 @@
 
     @media (max-width: 991px) {
         .settings-page {
-            margin: 10px auto;
-            padding: 16px 14px;
+            margin: 8px auto;
+            padding: 14px 12px;
             border-radius: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow-x: hidden;
         }
         .settings-layout {
             flex-direction: column;
             gap: 16px;
+            align-items: stretch !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
         }
         .settings-sidebar {
             width: 100% !important;
+            max-width: 100% !important;
             position: static !important; /* CRITICAL: Never sticky in mobile column flow */
             top: auto !important;
             padding: 0 !important;
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
+            box-sizing: border-box !important;
         }
         .settings-mobile-menu-btn {
             display: flex;
+            width: 100%;
+            box-sizing: border-box;
         }
         .settings-sidebar-body {
             display: none;
@@ -213,6 +231,8 @@
             padding: 8px 0;
             margin-top: 8px;
             box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            width: 100%;
+            box-sizing: border-box;
         }
         .settings-sidebar-body.open {
             display: block;
@@ -221,6 +241,26 @@
         @keyframes settingsFadeIn {
             from { opacity: 0; transform: translateY(-6px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        .settings-content {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .settings-page {
+            margin: 4px auto;
+            padding: 10px 8px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .settings-page {
+            margin: 2px auto;
+            padding: 6px 4px;
         }
     }
 </style>
@@ -316,5 +356,32 @@
             btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         }
     }
+
+    // Dismiss settings mobile menu on outside click or Escape
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.settings-sidebar').length) {
+            var body = document.getElementById('settingsSidebarBody');
+            var chevron = document.getElementById('settingsMenuChevron');
+            var btn = document.querySelector('.settings-mobile-menu-btn');
+            if (body && body.classList.contains('open')) {
+                body.classList.remove('open');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            }
+        }
+    });
+
+    $(document).on('keydown', function (e) {
+        if (e.key === 'Escape') {
+            var body = document.getElementById('settingsSidebarBody');
+            var chevron = document.getElementById('settingsMenuChevron');
+            var btn = document.querySelector('.settings-mobile-menu-btn');
+            if (body && body.classList.contains('open')) {
+                body.classList.remove('open');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            }
+        }
+    });
 </script>
 @endpush

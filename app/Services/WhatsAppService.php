@@ -43,12 +43,19 @@ class WhatsAppService
 
     public static function getAdminPhone(): string
     {
-        $dbPhone = StoreSetting::getValue('wa_admin_phone');
+        // Admin recipient comes EXCLUSIVELY from configured Admin WhatsApp Mobile Number setting
+        $dbPhone = StoreSetting::getValue('wa_admin_phone') ?: StoreSetting::getValue('wa_admin_mobile');
         if (!empty($dbPhone)) {
             return trim((string) $dbPhone);
         }
 
-        return trim((string) (config('services.whatsapp.admin_phone') ?: env('WA_ADMIN_PHONE', '')));
+        $cfgPhone = config('services.whatsapp.admin_phone');
+        if ($cfgPhone !== null) {
+            return trim((string) $cfgPhone);
+        }
+
+        $envPhone = env('WA_ADMIN_PHONE', env('WA_ADMIN_MOBILE', ''));
+        return trim((string) $envPhone);
     }
 
     public static function getSenderNumber(): string
@@ -76,6 +83,7 @@ class WhatsAppService
 
     /**
      * Send order notification to admin via Fast2SMS WhatsApp API.
+     * Recipient is strictly the configured Admin WhatsApp Mobile Number (NEVER the store number).
      */
     public static function sendOrderNotificationToAdmin(Order|Invoice|array $order, string $source = 'checkout'): bool
     {
@@ -89,16 +97,39 @@ class WhatsAppService
             return false;
         }
 
-        [$authKey, $phoneId, $adminPhone] = self::resolveCredentials();
-
-        if (empty($adminPhone) || empty($authKey) || empty($phoneId)) {
-            Log::warning("WhatsAppService: Missing admin phone or Fast2SMS credentials.");
+        $adminPhone = self::getAdminPhone();
+        if (empty($adminPhone)) {
+            Log::error("WhatsAppService: Admin WhatsApp Mobile Number is not configured. Admin notification will NOT be sent.");
+            WaMessageLog::createLog([
+                'telephone' => '',
+                'template_name' => self::getTemplateName(),
+                'order_id' => $orderData['id'] ?? null,
+                'invoice_id' => $orderData['invoice_id'] ?? null,
+                'status' => 'failed',
+                'source' => $source . '_admin_missing_config',
+                'response_body' => ['error' => 'Admin WhatsApp Mobile Number is not configured in settings or environment.'],
+            ]);
             return false;
         }
 
         $normalizedPhone = self::normalizePhone($adminPhone);
         if (strlen($normalizedPhone) < 10) {
-            Log::warning("WhatsAppService: Invalid admin phone number: {$adminPhone}");
+            Log::error("WhatsAppService: Configured Admin WhatsApp Mobile Number [{$adminPhone}] is invalid.");
+            WaMessageLog::createLog([
+                'telephone' => $adminPhone,
+                'template_name' => self::getTemplateName(),
+                'order_id' => $orderData['id'] ?? null,
+                'invoice_id' => $orderData['invoice_id'] ?? null,
+                'status' => 'failed',
+                'source' => $source . '_admin_invalid_phone',
+                'response_body' => ['error' => "Configured Admin WhatsApp Mobile Number [{$adminPhone}] is invalid."],
+            ]);
+            return false;
+        }
+
+        [$authKey, $phoneId] = self::resolveCredentials();
+        if (empty($authKey) || empty($phoneId)) {
+            Log::warning("WhatsAppService: Missing Fast2SMS API credentials (authKey/phoneId).");
             return false;
         }
 
@@ -338,6 +369,66 @@ class WhatsAppService
             'order_id' => null,
             'status' => $ok ? 'success' : 'failed',
             'source' => 'customer',
+            'response_body' => $response,
+        ]);
+
+        return $ok;
+    }
+
+    /**
+     * Send test WhatsApp notification directly to explicitly specified recipient.
+     * Logs action explicitly with source: test_admin.
+     */
+    public static function sendTestNotification(string $recipientPhone, ?string $testOrderId = null): bool
+    {
+        if (self::isDisabled()) {
+            return false;
+        }
+
+        [$authKey, $phoneId] = self::resolveCredentials();
+        if (empty($authKey) || empty($phoneId)) {
+            return false;
+        }
+
+        $normalizedPhone = self::normalizePhone($recipientPhone);
+        if (strlen($normalizedPhone) < 10) {
+            return false;
+        }
+
+        $orderId = $testOrderId ?: ('TEST-' . rand(1000, 9999));
+        $storeName = StoreSetting::getStoreName();
+        $messageId = self::getMessageId();
+        $templateName = self::getTemplateName();
+
+        if ($messageId === '35311' || $templateName === 'payment_completed') {
+            $variables = '1.00';
+        } elseif ($messageId === '37021' || $messageId === '37022') {
+            $variables = implode('|', [
+                $storeName, $orderId, 'Admin Test', 'Test Item', '1', '1.00', $storeName,
+            ]);
+        } else {
+            $variables = implode('|', [
+                $storeName, $orderId, 'Admin Test', $normalizedPhone, 'Rs.1.00',
+            ]);
+        }
+
+        $payload = [
+            'authorization' => $authKey,
+            'message_id' => $messageId,
+            'phone_number_id' => $phoneId,
+            'numbers' => $normalizedPhone,
+            'variables_values' => $variables,
+        ];
+
+        $response = self::callFast2SmsApi($payload);
+        $ok = self::isSuccess($response);
+
+        WaMessageLog::createLog([
+            'telephone' => $normalizedPhone,
+            'template_name' => $templateName,
+            'order_id' => null,
+            'status' => $ok ? 'success' : 'failed',
+            'source' => 'test_admin',
             'response_body' => $response,
         ]);
 

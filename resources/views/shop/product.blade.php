@@ -438,6 +438,23 @@
     .pdp-buybox { position: static; }
     .pdp-reviews-grid { grid-template-columns: 1fr; gap: 24px; }
 }
+@media (max-width: 576px) {
+    .pdp-main { padding: 14px 10px; gap: 16px; }
+    .pdp-title { font-size: 20px; }
+    .pdp-buybox { padding: 16px 12px; }
+    .pdp-buybox .price { font-size: 24px; }
+    .pdp-btn-add, .pdp-btn-buy, .pdp-btn-wish { min-height: 44px; }
+    .pdp-thumbs { gap: 6px; }
+    .pdp-thumb { width: 56px; height: 56px; }
+    .pdp-reviews-wrap { padding: 16px 12px; margin-top: 20px; }
+}
+@media (max-width: 360px) {
+    .pdp-main { padding: 10px 6px; }
+    .pdp-title { font-size: 18px; }
+    .pdp-buybox { padding: 12px 8px; }
+    .pdp-thumb { width: 48px; height: 48px; }
+    .pdp-qty-row { flex-wrap: wrap; }
+}
 </style>
 @endpush
 

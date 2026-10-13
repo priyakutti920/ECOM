@@ -22,7 +22,7 @@ class AddressController extends Controller
             'address_line_1'   => 'required|string|max:255',
             'address_line_2'   => 'nullable|string|max:255',
             'city'             => 'required|string|max:120',
-            'state'            => 'required|string|max:120',
+            'state'            => 'nullable|string|max:120',
             'pincode'          => 'required|string|regex:/^[0-9]{6}$/',
             'type'             => 'required|in:home,work',
             'is_default'       => 'sometimes|boolean',
@@ -50,6 +50,10 @@ class AddressController extends Controller
 
         $customerId = Auth::guard('customer')->id();
         $makeDefault = (bool) ($data['is_default'] ?? false);
+
+        if (empty($data['state'])) {
+            $data['state'] = CustomerAddress::getStateFromPincode($data['pincode']);
+        }
 
         $address = DB::transaction(function () use ($data, $customerId, $makeDefault) {
             // First address auto-becomes default
@@ -82,6 +86,10 @@ class AddressController extends Controller
 
         $makeDefault = (bool) ($data['is_default'] ?? false);
         $customerId = Auth::guard('customer')->id();
+
+        if (empty($data['state'])) {
+            $data['state'] = CustomerAddress::getStateFromPincode($data['pincode']);
+        }
 
         DB::transaction(function () use ($address, $data, $makeDefault, $customerId) {
             if ($makeDefault) {

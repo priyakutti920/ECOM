@@ -19,10 +19,14 @@ class WaTransaction extends Model
         'related_type',
         'related_invoice',
         'completed_at',
+        'verified_amount',
+        'gateway_status',
+        'raw_gateway_response',
     ];
 
     protected $casts = [
         'amount' => 'float',
+        'verified_amount' => 'float',
         'completed_at' => 'datetime',
     ];
 }

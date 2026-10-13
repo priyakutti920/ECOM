@@ -142,7 +142,7 @@ class CartController extends Controller
                 'address_line_1' => 'required|string|max:255',
                 'address_line_2' => 'nullable|string|max:255',
                 'city' => 'required|string|max:120',
-                'state' => 'required|string|max:120',
+                'state' => 'nullable|string|max:120',
                 'pincode' => 'required|string|regex:/^[0-9]{6}$/',
                 'mobile_primary' => 'required|string|regex:/^[0-9]{10}$/',
                 'mobile_alternate' => 'nullable|string|regex:/^[0-9]{10}$/',
@@ -153,8 +153,13 @@ class CartController extends Controller
                 'mobile_primary.regex' => 'Enter a valid 10-digit mobile number.',
             ]);
 
+            // Safely resolve state (from input or reliably derived from 6-digit PIN code)
+            $state = !empty($new['state'])
+                ? trim($new['state'])
+                : CustomerAddress::getStateFromPincode($new['pincode']);
+
             // Persist the new address (auto-default if it's the first one)
-            $address = DB::transaction(function () use ($new, $customerId) {
+            $address = DB::transaction(function () use ($new, $customerId, $state) {
                 $isFirst = ! CustomerAddress::forCustomer($customerId)->exists();
 
                 return CustomerAddress::create([
@@ -165,7 +170,7 @@ class CartController extends Controller
                     'address_line_1' => $new['address_line_1'],
                     'address_line_2' => $new['address_line_2'] ?? null,
                     'city' => $new['city'],
-                    'state' => $new['state'],
+                    'state' => $state,
                     'pincode' => $new['pincode'],
                     'type' => $new['address_type'],
                     'is_default' => $isFirst,

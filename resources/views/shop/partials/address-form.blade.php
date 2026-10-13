@@ -61,12 +61,6 @@
  @error('city') <span class="err">{{ $message }}</span> @enderror
  </div>
  <div class="form-field">
- <label>State <span class="req">*</span></label>
- <input type="text" name="state" maxlength="120" required
- value="{{ old('state', $address->state ?? '') }}">
- @error('state') <span class="err">{{ $message }}</span> @enderror
- </div>
- <div class="form-field">
  <label>PIN code <span class="req">*</span></label>
  <input type="text" name="pincode" maxlength="6" pattern="[0-9]{6}" required
  value="{{ old('pincode', $address->pincode ?? '') }}">

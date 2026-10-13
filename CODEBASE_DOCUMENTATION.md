@@ -5,7 +5,7 @@
 > **Database:** MySQL 8.0+  
 > **Domain:** [noolandcrop.in](https://noolandcrop.in)  
 > **Location:** Tirunelveli, Tamil Nadu, India  
-> **Last Verified & Tested:** October 2026 (147 Tests Passed · 870 Assertions)
+> **Last Verified & Tested:** October 2026 (194 Tests Passed · 1,095 Assertions)
 
 ---
 
@@ -669,9 +669,9 @@ php artisan test --filter=SecurityAndIntegrityTest
 php artisan test --filter=MultiPaymentGatewayTest
 ```
 
-### Verified Test Suites (147 Tests · 870 Assertions)
+### Verified Test Suites (194 Tests · 1,095 Assertions)
 - `SecurityAndIntegrityTest.php` (Zero PII leak, OTP rate limiting, webhook verification)
-- `LiveProductSearchTest.php` (Search bar consolidation, autocomplete API, category filter)
+- `LiveProductSearchTest.php` (Search bar consolidation, autocomplete API, category filter, starts-with sorting, like-wildcard sanitization)
 - `MultiPaymentGatewayTest.php` (UPI QR, Razorpay, Cashfree, COD flows)
 - `EcommerceFlowTest.php` (Cart, buy-now checkout, order placement)
 - `InventoryManagementTest.php` (Stock movements, deduction, return replenishment)
@@ -679,6 +679,8 @@ php artisan test --filter=MultiPaymentGatewayTest
 - `CourierIntegrationTest.php` (Shiprocket dispatch and AWB generation)
 - `ThemeAppearanceCustomizationTest.php` (Color tokens and theme persistence)
 - `BannerVisibilityAndMediaTest.php` (Media manager soft-delete and banners)
+- `WhatsAppIntegrationTest.php` (Phone normalization, wa.me URL builder, admin plugin settings)
+- `WhatsAppNotificationWalletTest.php` (UPI topup for WA wallet, credit ledger, per-message deductions)
 - `InstallerTest.php` (Installer flow and security lock)
 
 ---

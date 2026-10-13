@@ -92,9 +92,27 @@
 #new-address-block.collapsed { display: none; }
 
 @media (max-width: 768px) {
-    .buy-now-grid { grid-template-columns: 1fr; }
-    .buy-now-summary { position: static; }
-    .form-row { grid-template-columns: 1fr; }
+    .buy-now-page { padding: 14px 12px 60px; }
+    .buy-now-title { font-size: 20px; margin-bottom: 14px; }
+    .buy-now-grid { display: flex; flex-direction: column; gap: 16px; }
+    .buy-now-summary { order: -1; position: static; width: 100%; box-sizing: border-box; padding: 18px 16px; }
+    .buy-now-form { width: 100%; box-sizing: border-box; padding: 18px 16px; }
+    .form-row { grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+    .saved-address-list { grid-template-columns: 1fr; }
+    .address-type-row label { padding: 9px 10px; font-size: 13px; }
+    .payment-option-label { padding: 10px 12px !important; }
+}
+@media (max-width: 480px) {
+    .buy-now-page { padding: 10px 8px 50px; }
+    .buy-now-form, .buy-now-summary { padding: 14px 10px; }
+    .section-title { font-size: 15px; margin-bottom: 12px; }
+    .btn-place { font-size: 14px; padding: 12px; }
+}
+@media (max-width: 360px) {
+    .buy-now-page { padding: 8px 6px 40px; }
+    .buy-now-form, .buy-now-summary { padding: 12px 8px; }
+    .summary-item { gap: 8px; }
+    .summary-item img { width: 48px; height: 48px; }
 }
 </style>
 @endpush
@@ -175,65 +193,72 @@
  </button>
  @endif
 
- <div id="new-address-block" class="{{ $addresses->isEmpty() ? '' : 'collapsed' }}" style="{{ $addresses->isEmpty() ? '' : 'display:none;' }}">
- <div class="form-field">
- <label>Full Name <span class="req">*</span></label>
- <input type="text" name="full_name" id="bn-addr-name" maxlength="120" placeholder="Recipient's name" value="{{ old('full_name') }}">
- <div class="err-msg">Please enter the recipient's name</div>
- </div>
- <div class="form-field">
- <label>Address Line 1 <span class="req">*</span></label>
- <input type="text" name="address_line_1" id="bn-addr-l1" maxlength="255" placeholder="House no., building, street, area" value="{{ old('address_line_1') }}">
- <div class="err-msg">Please enter address line 1</div>
- </div>
- <div class="form-field">
- <label>Address Line 2 <span style="color: var(--medium-gray); font-weight:400;">(optional)</span></label>
- <input type="text" name="address_line_2" id="bn-addr-l2" maxlength="255" placeholder="Landmark, locality" value="{{ old('address_line_2') }}">
- </div>
- <div class="form-row">
- <div class="form-field">
- <label>City <span class="req">*</span></label>
- <input type="text" name="city" id="bn-addr-city" maxlength="120" placeholder="City" value="{{ old('city') }}">
- <div class="err-msg">Please enter the city</div>
- </div>
- <div class="form-field">
- <label>State <span class="req">*</span></label>
- <input type="text" name="state" id="bn-addr-state" maxlength="120" placeholder="State" value="{{ old('state') }}">
- <div class="err-msg">Please enter the state</div>
- </div>
- </div>
- <div class="form-row">
- <div class="form-field">
- <label>PIN code <span class="req">*</span></label>
- <input type="text" name="pincode" id="bn-addr-pin" maxlength="6" pattern="[0-9]{6}" placeholder="6 digit PIN" value="{{ old('pincode') }}" oninput="if(this.value.length===6) updateCheckoutPincodeEta(this.value)">
- <div class="err-msg">Enter a valid 6-digit PIN</div>
- </div>
- <div class="form-field">
- <label>Mobile Number <span class="req">*</span></label>
- <input type="tel" name="mobile_primary" id="bn-addr-mobile" maxlength="10" pattern="[0-9]{10}" placeholder="10 digit mobile" value="{{ old('mobile_primary') }}">
- <div class="err-msg">Enter a valid 10-digit mobile number</div>
- </div>
- </div>
- <div class="form-row">
- <div class="form-field">
- <label>Alternate Number <span style="color: var(--medium-gray); font-weight:400;">(optional)</span></label>
- <input type="tel" name="mobile_alternate" id="bn-addr-mobile-alt" maxlength="10" pattern="[0-9]{10}" placeholder="10 digit alternate" value="{{ old('mobile_alternate') }}">
- <div class="err-msg">Enter a valid 10-digit number</div>
- </div>
- <div class="form-field">
- <label>Address Type <span class="req">*</span></label>
- <div class="address-type-row">
- <label>
- <input type="radio" name="address_type" value="home" {{ old('address_type', 'home') === 'home' ? 'checked' : '' }}>
- <i class="fas fa-home"></i> Home
- </label>
- <label>
- <input type="radio" name="address_type" value="work" {{ old('address_type') === 'work' ? 'checked' : '' }}>
- <i class="fas fa-briefcase"></i> Work
- </label>
- </div>
- </div>
- </div>
+ <div id="new-address-block" class="{{ $addresses->isEmpty() ? '' : 'collapsed' }}" style="{{ $addresses->isEmpty() ? 'display:block;' : 'display:none;' }}">
+  @if($addresses->isEmpty())
+  <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px 14px; margin-bottom:16px; font-size:13px; color:#0369a1; display:flex; align-items:center; gap:8px;">
+    <i class="fas fa-info-circle" style="font-size:16px; flex-shrink:0;"></i>
+    <span><strong>Add Delivery Address:</strong> Please enter your delivery address below to complete your order.</span>
+  </div>
+  @endif
+
+  <div class="form-row">
+    <div class="form-field">
+      <label>Full Name <span class="req">*</span></label>
+      <input type="text" name="full_name" id="bn-addr-name" maxlength="120" placeholder="Recipient's full name" value="{{ old('full_name') }}">
+      <div class="err-msg">Please enter recipient's full name</div>
+    </div>
+    <div class="form-field">
+      <label>Mobile Number <span class="req">*</span></label>
+      <input type="tel" name="mobile_primary" id="bn-addr-mobile" maxlength="10" pattern="[0-9]{10}" placeholder="10-digit mobile number" value="{{ old('mobile_primary') }}">
+      <div class="err-msg">Enter a valid 10-digit mobile number</div>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-field">
+      <label>PIN Code <span class="req">*</span></label>
+      <input type="text" name="pincode" id="bn-addr-pin" maxlength="6" pattern="[0-9]{6}" placeholder="6-digit PIN code" value="{{ old('pincode') }}" oninput="if(this.value.length===6) updateCheckoutPincodeEta(this.value)">
+      <div class="err-msg">Enter a valid 6-digit PIN code</div>
+    </div>
+    <div class="form-field">
+      <label>City / Town / Village <span class="req">*</span></label>
+      <input type="text" name="city" id="bn-addr-city" maxlength="120" placeholder="City, town, or village" value="{{ old('city') }}">
+      <div class="err-msg">Please enter city / town / village</div>
+    </div>
+  </div>
+
+  <div class="form-field">
+    <label>House Number / Flat / Building <span class="req">*</span></label>
+    <input type="text" name="address_line_1" id="bn-addr-l1" maxlength="255" placeholder="House no., building, flat, or apartment" value="{{ old('address_line_1') }}">
+    <div class="err-msg">Please enter house number / flat / building</div>
+  </div>
+
+  <div class="form-field">
+    <label>Street / Area / Locality <span class="req">*</span></label>
+    <input type="text" name="address_line_2" id="bn-addr-l2" maxlength="255" placeholder="Street, area, locality, or landmark" value="{{ old('address_line_2') }}">
+    <div class="err-msg">Please enter street / area / locality</div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-field">
+      <label>Alternate Mobile Number <span style="color: var(--medium-gray); font-weight:400;">(optional)</span></label>
+      <input type="tel" name="mobile_alternate" id="bn-addr-mobile-alt" maxlength="10" pattern="[0-9]{10}" placeholder="10-digit alternate number" value="{{ old('mobile_alternate') }}">
+      <div class="err-msg">Enter a valid 10-digit alternate number</div>
+    </div>
+    <div class="form-field">
+      <label>Address Type <span class="req">*</span></label>
+      <div class="address-type-row">
+        <label>
+          <input type="radio" name="address_type" value="home" {{ old('address_type', 'home') === 'home' ? 'checked' : '' }}>
+          <i class="fas fa-home"></i> Home
+        </label>
+        <label>
+          <input type="radio" name="address_type" value="work" {{ old('address_type') === 'work' ? 'checked' : '' }}>
+          <i class="fas fa-briefcase"></i> Work
+        </label>
+      </div>
+    </div>
+  </div>
  </div>
 
  <!-- Payment Method Selection -->
@@ -602,12 +627,20 @@ async function bnLoad() {
 // Address picker — toggle the "new address" block
 function bnNewAddressVisible() {
  const blk = document.getElementById('new-address-block');
- return blk && blk.style.display !== 'none';
+ if (!blk) return false;
+ const hasSaved = document.querySelectorAll('input[name="address_id"]').length > 0;
+ if (!hasSaved) return true;
+ return blk.style.display !== 'none';
 }
 
 function bnToggleNewAddress() {
  const blk = document.getElementById('new-address-block');
  const btn = document.getElementById('btn-toggle-new');
+ const hasSaved = document.querySelectorAll('input[name="address_id"]').length > 0;
+ if (!hasSaved) {
+  if (blk) blk.style.display = 'block';
+  return;
+ }
  const opening = blk.style.display === 'none' || !blk.style.display;
  blk.style.display = opening ? 'block' : 'none';
  if (btn) {
@@ -625,14 +658,24 @@ function bnToggleNewAddress() {
  // Re-select the default when collapsing
  const def = document.querySelector('input[name="address_id"][data-default="1"]')
  || document.querySelector('input[name="address_id"]');
- if (def) def.checked = true;
+ if (def) {
+  def.checked = true;
+  if (def.dataset.pincode) updateCheckoutPincodeEta(def.dataset.pincode);
+ }
  }
 }
 
 // When a saved address is picked, hide the new-address block
 function bnOnAddressChange() {
+ const hasSaved = document.querySelectorAll('input[name="address_id"]').length > 0;
  const blk = document.getElementById('new-address-block');
  const btn = document.getElementById('btn-toggle-new');
+
+ if (!hasSaved) {
+  if (blk) blk.style.display = 'block';
+  return;
+ }
+
  if (blk) blk.style.display = 'none';
  if (btn) {
  btn.classList.remove('open');
@@ -752,11 +795,11 @@ function bnValidate() {
  if (newOpen) {
  const newFields = [
  {id: 'bn-addr-name', pattern: /^.+$/},
- {id: 'bn-addr-l1', pattern: /^.+$/},
- {id: 'bn-addr-city', pattern: /^.+$/},
- {id: 'bn-addr-state', pattern: /^.+$/},
- {id: 'bn-addr-pin', pattern: /^[0-9]{6}$/},
  {id: 'bn-addr-mobile', pattern: /^[0-9]{10}$/},
+ {id: 'bn-addr-pin', pattern: /^[1-9][0-9]{5}$/},
+ {id: 'bn-addr-city', pattern: /^.+$/},
+ {id: 'bn-addr-l1', pattern: /^.+$/},
+ {id: 'bn-addr-l2', pattern: /^.+$/},
  ];
  newFields.forEach(f => {
  const el = document.getElementById(f.id);
@@ -797,7 +840,7 @@ function bnValidate() {
 }
 
 // Live validation: clear error on input
-['bn-name','bn-mobile','bn-email','bn-addr-name','bn-addr-l1','bn-addr-l2','bn-addr-city','bn-addr-state','bn-addr-pin','bn-addr-mobile','bn-addr-mobile-alt'].forEach(id => {
+['bn-name','bn-mobile','bn-email','bn-addr-name','bn-addr-mobile','bn-addr-pin','bn-addr-city','bn-addr-l1','bn-addr-l2','bn-addr-mobile-alt'].forEach(id => {
  const el = document.getElementById(id);
  if (!el) return;
  el.addEventListener('input', () => {

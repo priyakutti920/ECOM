@@ -616,6 +616,17 @@
     .content-card { padding: 22px 18px; }
     .form-grid { grid-template-columns: 1fr; }
 }
+@media (max-width: 576px) {
+    .account-container { padding: 10px 8px; margin: 12px auto; }
+    .content-card { padding: 16px 12px; }
+    .avatar-upload-section { flex-direction: column; align-items: flex-start; gap: 12px; padding: 12px 14px; }
+    .address-list { grid-template-columns: 1fr; }
+    .address-form-wrap { padding: 14px 10px; }
+}
+@media (max-width: 360px) {
+    .content-card { padding: 12px 8px; }
+    .card-head-row { flex-direction: column; align-items: flex-start; }
+}
 </style>
 @endpush
 
