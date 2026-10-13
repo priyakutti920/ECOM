@@ -49,6 +49,9 @@ Route::post('/api/cart/items', [CartController::class, 'items'])->name('api.cart
 // Wishlist read API (public; returns empty list if guest)
 Route::get('/api/wishlist/items', [LoginController::class, 'getWishlistItems'])->name('api.wishlist.items');
 
+// CSRF Token refresh / keepalive endpoint
+Route::get('/csrf-token', fn () => response()->json(['token' => csrf_token()]))->name('csrf.token');
+
 // Customer registration & login
 Route::get('/register', [LoginController::class, 'showRegister'])->name('shop.register');
 Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:10,1')->name('shop.register.post');
@@ -212,12 +215,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
  : redirect()->route('admin.login')
  );
 
- Route::middleware('guest')->group(function () {
- Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
- Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:5,1');
- Route::post('/setup', [AdminAuthController::class, 'setup'])->middleware('throttle:5,1')->name('setup');
- Route::get('/setup', [AdminAuthController::class, 'showSetupForm'])->name('setup.form');
- });
+    Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:5,1')->name('login.post');
+    Route::post('/setup', [AdminAuthController::class, 'setup'])->middleware('throttle:5,1')->name('setup');
+    Route::get('/setup', [AdminAuthController::class, 'showSetupForm'])->name('setup.form');
 
  Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
 

@@ -1783,10 +1783,11 @@
     background: var(--color-primary);
   }
   .footer-col ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-  .footer-col ul li a { color: var(--color-muted); transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; }
+  .footer-col ul li a { color: var(--color-muted); transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; word-break: break-word; overflow-wrap: anywhere; }
   .footer-col ul li a:hover { color: var(--color-primary); transform: translateX(3px); }
-  .contact-info li { display: flex; align-items: flex-start; gap: 10px; color: var(--color-muted); line-height: 1.4; margin-bottom: 12px; }
-  .contact-info li i { font-size: 18px; color: var(--color-primary); margin-top: 2px; }
+  .contact-info li { display: flex; align-items: flex-start; gap: 10px; color: var(--color-muted); line-height: 1.4; margin-bottom: 12px; word-break: break-word; overflow-wrap: anywhere; }
+  .contact-info li i { font-size: 18px; color: var(--color-primary); margin-top: 2px; flex-shrink: 0; }
+  .footer-social-icon:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12); }
   .footer-bottom {
     background: #f8fafc;
     border-top: 1px solid var(--color-border);
@@ -1802,7 +1803,7 @@
     gap: 12px;
   }
   .footer-text a { color: var(--color-heading); font-weight: 600; }
-  .footer-payment-badges { display: flex; align-items: center; gap: 8px; }
+  .footer-payment-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
   /* ── 10. Toast Notification ───────────────────────── */
   .toast-wrap { position: fixed; top: 20px; right: 20px; z-index: 99999; }
@@ -1835,13 +1836,16 @@
     .navigation-wrap { display: none; }
     .products-grid { grid-template-columns: repeat(3, 1fr); }
     .footer-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+    .footer-bottom { padding: 18px 0 28px; }
     .header-actions .header-action-item:not(.header-cart) { display: none; }
   }
   @media (max-width: 576px) {
     .products-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     .features-grid { grid-template-columns: 1fr; }
-    .footer-grid { grid-template-columns: 1fr; gap: 20px; }
-    .footer-bottom-inner { flex-direction: column; text-align: center; }
+    .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+    .footer-bottom-inner { flex-direction: column; text-align: center; justify-content: center; gap: 14px; }
+    .footer-bottom-inner .footer-text { align-items: center; text-align: center; }
+    .footer-payment-badges { justify-content: center; width: 100%; }
   }
   </style>
   @stack('styles')

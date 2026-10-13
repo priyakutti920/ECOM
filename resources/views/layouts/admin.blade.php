@@ -1721,6 +1721,39 @@
                 $bar.find('button, select').prop('disabled', false);
             }
         });
+    // Global AJAX CSRF Setup for all jQuery requests across Admin Panel
+    if (window.jQuery) {
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+
+        // Global session expiry handler for admin AJAX requests
+        $(document).ajaxError(function (event, jqXHR, ajaxSettings, thrownError) {
+            if (jqXHR.status === 419) {
+                if (typeof adminToast === 'function') {
+                    adminToast('Your session has expired. Redirecting to login...', 'error');
+                }
+                setTimeout(function () {
+                    window.location.href = "{{ route('admin.login') }}";
+                }, 1200);
+            }
+        });
+
+        // Periodic session keepalive every 15 minutes to keep active admin tabs fresh
+        setInterval(function () {
+            fetch("{{ route('csrf.token') }}", { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data && data.token) {
+                        $('meta[name="csrf-token"]').attr('content', data.token);
+                        $('input[name="_token"]').val(data.token);
+                        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': data.token } });
+                    }
+                })
+                .catch(function () {});
+        }, 15 * 60 * 1000);
     }
 </script>
 

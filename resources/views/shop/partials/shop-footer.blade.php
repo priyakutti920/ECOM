@@ -70,14 +70,14 @@
                 <ul style="display:flex; gap:12px; list-style:none; padding:0;">
                   @if(!empty($instagramUrl))
                     <li>
-                      <a href="{{ $instagramUrl }}" title="Instagram" target="_blank" rel="noopener noreferrer" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#e1306c; font-size:18px; transition:all 0.2s ease;">
+                      <a href="{{ $instagramUrl }}" title="Instagram" target="_blank" rel="noopener noreferrer" class="footer-social-icon" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#e1306c; font-size:18px; transition:all 0.2s ease;">
                         <i class="lab la-instagram"></i>
                       </a>
                     </li>
                   @endif
                   @if(!empty($waNumber))
                     <li>
-                      <a href="{{ \App\Models\StoreSetting::normalizePhoneNumber($waNumber) ? 'https://wa.me/' . \App\Models\StoreSetting::normalizePhoneNumber($waNumber) : '#' }}" title="WhatsApp" target="_blank" rel="noopener noreferrer" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#25D366; font-size:18px; transition:all 0.2s ease;">
+                      <a href="{{ \App\Models\StoreSetting::normalizePhoneNumber($waNumber) ? 'https://wa.me/' . \App\Models\StoreSetting::normalizePhoneNumber($waNumber) : '#' }}" title="WhatsApp" target="_blank" rel="noopener noreferrer" class="footer-social-icon" style="width:36px; height:36px; border-radius:50%; background:#f1f5f9; display:inline-flex; align-items:center; justify-content:center; color:#25D366; font-size:18px; transition:all 0.2s ease;">
                         <i class="lab la-whatsapp"></i>
                       </a>
                     </li>

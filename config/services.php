@@ -63,8 +63,8 @@ return [
         'admin_phone' => env('WA_ADMIN_PHONE', ''),
         'customer_notify_enabled' => filter_var(env('WA_CUSTOMER_NOTIFY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'engine_disabled' => filter_var(env('WA_ENGINE_DISABLED', false), FILTER_VALIDATE_BOOLEAN),
-        'message_id' => env('WA_MESSAGE_ID', '24059'),
-        'template_name' => env('WA_TEMPLATE_NAME', 'order_notify'),
+        'message_id' => env('WA_MESSAGE_ID', '35311'),
+        'template_name' => env('WA_TEMPLATE_NAME', 'payment_completed'),
         // Cloud API compatibility
         'token' => env('WA_API_TOKEN', ''),
         // Separate UPI Gateway Key & URLs for WhatsApp Wallet Recharge / Add Amount

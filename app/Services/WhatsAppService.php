@@ -13,9 +13,17 @@ use Illuminate\Support\Facades\Storage;
 
 class WhatsAppService
 {
-    private const TEMPLATE_NAME = 'order_notify';
-    private const MESSAGE_ID = '24059';
     private const FAST2SMS_API_URL = 'https://www.fast2sms.com/dev/whatsapp';
+
+    public static function getMessageId(): string
+    {
+        return trim((string) (config('services.whatsapp.message_id') ?: env('WA_MESSAGE_ID', '35311')));
+    }
+
+    public static function getTemplateName(): string
+    {
+        return trim((string) (config('services.whatsapp.template_name') ?: env('WA_TEMPLATE_NAME', 'payment_completed')));
+    }
 
     /**
      * Resolve Fast2SMS WhatsApp credentials purely from .env / config('services.whatsapp').
@@ -108,28 +116,54 @@ class WhatsAppService
         $storeName = StoreSetting::getStoreName();
         $adminName = str_replace(['|', "\n"], ['-', ' | '], $storeName);
 
-        $variables = implode('|', [
-            $adminName, $orderId, $customerName, $customerMobile, $amountStr,
-        ]);
+        $messageId = self::getMessageId();
+        $templateName = self::getTemplateName();
+
+        if ($messageId === '35311' || $templateName === 'payment_completed') {
+            $cleanAmount = is_numeric($orderData['total_amount'] ?? 0)
+                ? (float) $orderData['total_amount']
+                : (float) preg_replace('/[^\d.]/', '', (string) ($orderData['total_amount'] ?? 0));
+            $variables = number_format($cleanAmount ?: 1.00, 2);
+        } elseif ($messageId === '37021' || $messageId === '37022') {
+            $firstItem = $orderData['items'][0] ?? [];
+            $itemName = $firstItem['name'] ?? 'Apparel';
+            $itemQty = (string) ($firstItem['qty'] ?? '1');
+            $variables = implode('|', [
+                $storeName,
+                $orderId,
+                $customerName,
+                $itemName,
+                $itemQty,
+                number_format((float) ($orderData['total_amount'] ?? 0), 2),
+                $storeName,
+            ]);
+        } else {
+            $variables = implode('|', [
+                $adminName, $orderId, $customerName, $customerMobile, $amountStr,
+            ]);
+        }
 
         $pdfUrl = self::savePdfToStorage($orderData);
 
         $payload = [
             'authorization' => $authKey,
-            'message_id' => self::MESSAGE_ID,
+            'message_id' => $messageId,
             'phone_number_id' => $phoneId,
             'numbers' => $normalizedPhone,
             'variables_values' => $variables,
-            'media_url' => $pdfUrl ?: '',
-            'document_filename' => 'invoice_' . $orderId . '.pdf',
         ];
+
+        if (!empty($pdfUrl) && $messageId !== '35311') {
+            $payload['media_url'] = $pdfUrl;
+            $payload['document_filename'] = 'invoice_' . $orderId . '.pdf';
+        }
 
         $response = self::callFast2SmsApi($payload);
         $ok = self::isSuccess($response);
 
         WaMessageLog::createLog([
             'telephone' => $normalizedPhone,
-            'template_name' => self::TEMPLATE_NAME,
+            'template_name' => $templateName,
             'order_id' => $orderData['id'] ?? null,
             'invoice_id' => $orderData['invoice_id'] ?? null,
             'status' => $ok ? 'success' : 'failed',
@@ -188,26 +222,54 @@ class WhatsAppService
         $customerName = $orderData['customer_name'] ?: 'Customer';
         $amountStr = 'Rs.' . number_format((float) ($orderData['total_amount'] ?? 0), 2);
 
-        $variables = implode('|', [
-            $storeName, $orderId, $customerName, $normalizedPhone, $amountStr,
-        ]);
+        $messageId = self::getMessageId();
+        $templateName = self::getTemplateName();
+
+        if ($messageId === '35311' || $templateName === 'payment_completed') {
+            $cleanAmount = is_numeric($orderData['total_amount'] ?? 0)
+                ? (float) $orderData['total_amount']
+                : (float) preg_replace('/[^\d.]/', '', (string) ($orderData['total_amount'] ?? 0));
+            $variables = number_format($cleanAmount ?: 1.00, 2);
+        } elseif ($messageId === '37021' || $messageId === '37022') {
+            $firstItem = $orderData['items'][0] ?? [];
+            $itemName = $firstItem['name'] ?? 'Apparel';
+            $itemQty = (string) ($firstItem['qty'] ?? '1');
+            $variables = implode('|', [
+                $storeName,
+                $orderId,
+                $customerName,
+                $itemName,
+                $itemQty,
+                number_format((float) ($orderData['total_amount'] ?? 0), 2),
+                $storeName,
+            ]);
+        } else {
+            $variables = implode('|', [
+                $storeName, $orderId, $customerName, $normalizedPhone, $amountStr,
+            ]);
+        }
+
+        $pdfUrl = self::savePdfToStorage($orderData);
 
         $payload = [
             'authorization' => $authKey,
-            'message_id' => self::MESSAGE_ID,
+            'message_id' => $messageId,
             'phone_number_id' => $phoneId,
             'numbers' => $normalizedPhone,
             'variables_values' => $variables,
-            'media_url' => $pdfUrl ?: '',
-            'document_filename' => 'invoice_' . $orderId . '.pdf',
         ];
+
+        if (!empty($pdfUrl) && $messageId !== '35311') {
+            $payload['media_url'] = $pdfUrl;
+            $payload['document_filename'] = 'invoice_' . $orderId . '.pdf';
+        }
 
         $response = self::callFast2SmsApi($payload);
         $ok = self::isSuccess($response);
 
         WaMessageLog::createLog([
             'telephone' => $normalizedPhone,
-            'template_name' => self::TEMPLATE_NAME,
+            'template_name' => $templateName,
             'order_id' => $orderData['id'] ?? null,
             'invoice_id' => $orderData['invoice_id'] ?? null,
             'status' => $ok ? 'success' : 'failed',
@@ -243,13 +305,25 @@ class WhatsAppService
             WaWalletService::deduct($cost, "WhatsApp message to {$normalizedPhone} ({$orderId})", $orderId);
         }
 
-        $variables = implode('|', [
-            $storeName, $orderId, $name, $normalizedPhone, $amount,
-        ]);
+        $messageId = self::getMessageId();
+        $templateName = self::getTemplateName();
+
+        if ($messageId === '35311' || $templateName === 'payment_completed') {
+            $cleanAmount = is_numeric($amount) ? (float) $amount : (float) preg_replace('/[^\d.]/', '', (string) $amount);
+            $variables = number_format($cleanAmount ?: 1.00, 2);
+        } elseif ($messageId === '37021' || $messageId === '37022') {
+            $variables = implode('|', [
+                $storeName, $orderId, $name, 'Standard', '1', $amount, $storeName,
+            ]);
+        } else {
+            $variables = implode('|', [
+                $storeName, $orderId, $name, $normalizedPhone, $amount,
+            ]);
+        }
 
         $payload = [
             'authorization' => $authKey,
-            'message_id' => self::MESSAGE_ID,
+            'message_id' => $messageId,
             'phone_number_id' => $phoneId,
             'numbers' => $normalizedPhone,
             'variables_values' => $variables,
@@ -260,7 +334,7 @@ class WhatsAppService
 
         WaMessageLog::createLog([
             'telephone' => $normalizedPhone,
-            'template_name' => self::TEMPLATE_NAME,
+            'template_name' => $templateName,
             'order_id' => null,
             'status' => $ok ? 'success' : 'failed',
             'source' => 'customer',

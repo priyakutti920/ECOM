@@ -27,6 +27,12 @@
                 </div>
             @endif
 
+            @if (session('info'))
+                <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm text-blue-600">{{ session('info') }}</p>
+                </div>
+            @endif
+
             @if (session('status'))
                 <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p class="text-sm text-green-600">{{ session('status') }}</p>
@@ -39,7 +45,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('admin.login', [], false) }}" novalidate>
+            <form method="POST" action="{{ route('admin.login', [], false) }}" novalidate id="adminLoginForm">
                 @csrf
 
                 {{-- Email --}}
@@ -112,9 +118,10 @@
                 {{-- Submit --}}
                 <button
                     type="submit"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    id="submitBtn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center justify-center gap-2"
                 >
-                    Sign In
+                    <span id="btnText">Sign In</span>
                 </button>
             </form>
         </div>
@@ -126,12 +133,58 @@
         const eyeOpen = document.getElementById('eyeOpen');
         const eyeSlash = document.getElementById('eyeSlash');
 
-        toggle.addEventListener('click', function () {
-            const isPassword = passwordInput.type === 'password';
-            passwordInput.type = isPassword ? 'text' : 'password';
-            eyeOpen.classList.toggle('hidden', isPassword);
-            eyeSlash.classList.toggle('hidden', !isPassword);
+        if (toggle && passwordInput) {
+            toggle.addEventListener('click', function () {
+                const isPassword = passwordInput.type === 'password';
+                passwordInput.type = isPassword ? 'text' : 'password';
+                eyeOpen.classList.toggle('hidden', isPassword);
+                eyeSlash.classList.toggle('hidden', !isPassword);
+            });
+        }
+
+        // Prevent duplicate form submission & race conditions causing HTTP 419
+        const loginForm = document.getElementById('adminLoginForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+
+        if (loginForm && submitBtn) {
+            loginForm.addEventListener('submit', function () {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                if (btnText) {
+                    btnText.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>Signing in...';
+                }
+            });
+        }
+
+        // Silent CSRF Token Refresh on Tab Visibility & Idle Expiry Prevention
+        async function refreshCsrfToken() {
+            try {
+                const response = await fetch("{{ route('csrf.token') }}", {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.token) {
+                        const metaToken = document.querySelector('meta[name="csrf-token"]');
+                        if (metaToken) metaToken.setAttribute('content', data.token);
+                        const inputToken = document.querySelector('input[name="_token"]');
+                        if (inputToken) inputToken.value = data.token;
+                    }
+                }
+            } catch (err) {}
+        }
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+                refreshCsrfToken();
+            }
         });
+
+        // Periodic keepalive every 15 minutes while login page is open
+        setInterval(refreshCsrfToken, 15 * 60 * 1000);
     </script>
 
 </body>

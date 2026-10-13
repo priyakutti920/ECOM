@@ -653,7 +653,7 @@ class AdminDashboardController extends Controller
             $phone,
             'Admin',
             'TEST-' . rand(1000, 9999),
-            'Rs. 0.00',
+            '1.00',
             $storeName
         );
 
@@ -664,9 +664,14 @@ class AdminDashboardController extends Controller
             ]);
         }
 
+        $latestLog = \App\Models\WaMessageLog::latest()->first();
+        $detail = ($latestLog && !empty($latestLog->response_body['message'][0]))
+            ? $latestLog->response_body['message'][0]
+            : 'Please verify WA_FAST2SMS_AUTH_KEY, WA_PHONE_NUMBER_ID, and WA_MESSAGE_ID in .env.';
+
         return response()->json([
             'success' => false,
-            'message' => 'Failed to send test notification. Please verify WA_FAST2SMS_AUTH_KEY and WA_PHONE_NUMBER_ID in .env.',
+            'message' => 'Failed to send test notification: ' . $detail,
         ], 400);
     }
 

@@ -38,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+        $render419 = function (\Illuminate\Http\Request $request) {
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -46,8 +46,40 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 419);
             }
 
-            return redirect()->back()
+            if ($request->is('admin*')) {
+                $target = ($request->is('admin/login') || !\Illuminate\Support\Facades\Auth::check())
+                    ? route('admin.login')
+                    : (url()->previous() ?: route('admin.login'));
+
+                return redirect()->to($target)
+                    ->withInput($request->except('_token', 'password', 'password_confirmation'))
+                    ->with('error', 'Your session expired or security token timed out. Please try again.');
+            }
+
+            if ($request->is('login*') || $request->is('register*')) {
+                return redirect()->route('shop.login.email')
+                    ->withInput($request->except('_token', 'password', 'password_confirmation'))
+                    ->with('error', 'Your session expired or security token timed out. Please try again.');
+            }
+
+            $prev = url()->previous();
+            $target = ($prev && $prev !== $request->fullUrl() && parse_url($prev, PHP_URL_HOST) === $request->getHost())
+                ? $prev
+                : route('shop.home');
+
+            return redirect()->to($target)
                 ->withInput($request->except('_token', 'password', 'password_confirmation'))
                 ->with('error', 'Your session expired or security token timed out. Please try again.');
+        };
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) use ($render419) {
+            if ($e->getStatusCode() === 419) {
+                return $render419($request);
+            }
+            return null;
+        });
+
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) use ($render419) {
+            return $render419($request);
         });
     })->create();

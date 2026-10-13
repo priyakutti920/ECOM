@@ -20,7 +20,7 @@ class EnsureCustomerAuthenticated
             }
 
             return redirect()
-                ->route('shop.login.email')
+                ->guest(route('shop.login.email'))
                 ->with('info', 'Please login to continue.');
         }
 
