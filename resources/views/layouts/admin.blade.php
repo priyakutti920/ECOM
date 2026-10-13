@@ -1378,7 +1378,7 @@
                         Replacing <strong id="uniReplaceName" style="color:#0f172a;"></strong> will automatically update all references across Banners, Categories, Products, and Store Settings.
                     </p>
                     <div class="form-group">
-                        <label style="font-weight:600; font-size:12px;">Choose New Image File (JPG, PNG, WebP, max 20MB)</label>
+                        <label style="font-weight:600; font-size:12px;">Choose New Image File (JPG, PNG, WebP, max 10MB)</label>
                         <input type="file" name="image" id="uniReplaceInput" class="form-control" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" required onchange="previewUniReplace(this)">
                     </div>
                     <div id="uniReplacePreviewWrap" style="display:none; text-align:center; padding:12px; background:#f1f5f9; border-radius:6px;">
@@ -1614,6 +1614,11 @@
 
         if (!fileInput.files || !fileInput.files[0]) {
             adminToast('Please select a file to replace.', 'error');
+            return;
+        }
+
+        if (fileInput.files[0].size > 10485760) {
+            adminToast('File exceeds 10MB limit (' + (fileInput.files[0].size / 1048576).toFixed(1) + 'MB).', 'error');
             return;
         }
 

@@ -795,7 +795,7 @@ span.error-msg { font-size:11px; color:#c0392b; display:block; margin-top:2px; }
                 <div class="media-upload-dropzone" id="mediaModalDropzone">
                     <i class="fas fa-cloud-upload-alt fa-3x" style="color:#3a7bd5; margin-bottom:12px;"></i>
                     <h4 style="margin:0 0 6px; font-size:16px; font-weight:700; color:#1e293b;">Drag &amp; drop images here, or browse</h4>
-                    <p style="font-size:12px; color:#888; margin:0 0 16px;">Supports JPG, PNG, WEBP, GIF, SVG up to 20MB. Uploads directly to Appearance Files.</p>
+                    <p style="font-size:12px; color:#888; margin:0 0 16px;">Supports JPG, PNG, WEBP, GIF, SVG up to 10MB. Uploads directly to Appearance Files.</p>
                     <input type="file" id="mediaModalFileInput" accept="image/*" multiple style="display:none;">
                     <button type="button" class="btn btn-primary" style="padding:8px 20px; font-size:13px; font-weight:600;" onclick="document.getElementById('mediaModalFileInput').click()">
                         <i class="fas fa-folder-open"></i> Browse Files from Computer

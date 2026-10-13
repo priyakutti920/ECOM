@@ -8,8 +8,11 @@ use App\Models\Category;
 use App\Models\MediaFile;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductVariation;
+use App\Models\ProductVariationImage;
 use App\Models\StoreSetting;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -40,8 +43,8 @@ class AppearanceFilesController extends Controller
             $q = trim($request->input('q'));
             $query->where(function ($sq) use ($q) {
                 $sq->where('name', 'like', "%{$q}%")
-                   ->orWhere('filename', 'like', "%{$q}%")
-                   ->orWhere('path', 'like', "%{$q}%");
+                    ->orWhere('filename', 'like', "%{$q}%")
+                    ->orWhere('path', 'like', "%{$q}%");
             });
         }
 
@@ -55,12 +58,12 @@ class AppearanceFilesController extends Controller
             if ($request->type === 'image') {
                 $query->where(function ($sq) {
                     $sq->where('mime_type', 'like', 'image/%')
-                       ->orWhere('filename', 'like', '%.png')
-                       ->orWhere('filename', 'like', '%.jpg')
-                       ->orWhere('filename', 'like', '%.jpeg')
-                       ->orWhere('filename', 'like', '%.webp')
-                       ->orWhere('filename', 'like', '%.svg')
-                       ->orWhere('filename', 'like', '%.ico');
+                        ->orWhere('filename', 'like', '%.png')
+                        ->orWhere('filename', 'like', '%.jpg')
+                        ->orWhere('filename', 'like', '%.jpeg')
+                        ->orWhere('filename', 'like', '%.webp')
+                        ->orWhere('filename', 'like', '%.svg')
+                        ->orWhere('filename', 'like', '%.ico');
                 });
             }
         }
@@ -131,11 +134,11 @@ class AppearanceFilesController extends Controller
             $trashedCount = MediaFile::onlyTrashed()->count();
             $totalBytes = (int) MediaFile::sum('size');
             if ($totalBytes >= 1048576) {
-                $totalStorage = number_format($totalBytes / 1048576, 1) . ' MB';
+                $totalStorage = number_format($totalBytes / 1048576, 1).' MB';
             } elseif ($totalBytes >= 1024) {
-                $totalStorage = number_format($totalBytes / 1024, 0) . ' KB';
+                $totalStorage = number_format($totalBytes / 1024, 0).' KB';
             } else {
-                $totalStorage = $totalBytes . ' B';
+                $totalStorage = $totalBytes.' B';
             }
 
             $folders = MediaFile::select('folder')
@@ -189,9 +192,10 @@ class AppearanceFilesController extends Controller
             if ($request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Please select at least one file to upload.'], 422);
             }
+
             return back()->withErrors(['files' => 'Please select at least one file to upload.']);
         }
-        if (!is_array($rawFiles)) {
+        if (! is_array($rawFiles)) {
             $rawFiles = [$rawFiles];
         }
 
@@ -203,19 +207,19 @@ class AppearanceFilesController extends Controller
         $disk = Storage::disk('public');
         $allowedExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'svg', 'ico', 'avif', 'bmp', 'tiff', 'tif', 'heic', 'heif', 'pdf', 'txt'];
         $extMimes = [
-            'jpg'  => 'image/jpeg',
+            'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
-            'jpe'  => 'image/jpeg',
+            'jpe' => 'image/jpeg',
             'jfif' => 'image/jpeg',
-            'png'  => 'image/png',
+            'png' => 'image/png',
             'webp' => 'image/webp',
-            'gif'  => 'image/gif',
-            'svg'  => 'image/svg+xml',
-            'ico'  => 'image/x-icon',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
             'avif' => 'image/avif',
-            'bmp'  => 'image/bmp',
+            'bmp' => 'image/bmp',
             'tiff' => 'image/tiff',
-            'tif'  => 'image/tiff',
+            'tif' => 'image/tiff',
             'heic' => 'image/heic',
             'heif' => 'image/heif',
         ];
@@ -223,80 +227,86 @@ class AppearanceFilesController extends Controller
         $publicStorage = public_path('storage');
         $appStorage = storage_path('app/public');
         $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
-        $publicDir = public_path('storage/' . $folder);
+        $publicDir = public_path('storage/'.$folder);
 
         foreach ($rawFiles as $file) {
-            if (!$file || !($file instanceof \Illuminate\Http\UploadedFile)) {
+            if (! $file || ! ($file instanceof UploadedFile)) {
                 continue;
             }
 
             $originalName = $file->getClientOriginalName() ?: 'Uploaded file';
 
-            if (!$file->isValid()) {
+            if (! $file->isValid()) {
                 $errCode = $file->getError();
                 $errMsg = match ($errCode) {
-                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size (' . ini_get('upload_max_filesize') . ').',
+                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').').',
                     UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
                     UPLOAD_ERR_PARTIAL => 'File was only partially uploaded.',
                     UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
                     UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder on server.',
                     UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
-                    default => 'Upload error: ' . $file->getErrorMessage(),
+                    default => 'Upload error: '.$file->getErrorMessage(),
                 };
                 $failed[] = ['name' => $originalName, 'error' => $errMsg];
+
                 continue;
             }
 
             $ext = strtolower(trim($file->getClientOriginalExtension() ?: ''));
-            if (!$ext) {
+            if (! $ext) {
                 $ext = strtolower(trim($file->guessExtension() ?: 'jpg'));
             }
 
             if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm', 'vbs', 'com', 'scr'])) {
                 $failed[] = ['name' => $originalName, 'error' => 'Executable scripts and code files are strictly forbidden.'];
+
                 continue;
             }
 
-            if (!in_array($ext, $allowedExts)) {
+            if (! in_array($ext, $allowedExts)) {
                 $failed[] = ['name' => $originalName, 'error' => "Unsupported format (.{$ext}). Allowed: JPG, PNG, WebP, GIF, SVG, AVIF, JFIF, BMP, TIFF, HEIC, ICO."];
+
                 continue;
             }
 
-            $size = (int)$file->getSize();
-            if ($size > 26214400) { // 25 MB limit
-                $failed[] = ['name' => $originalName, 'error' => 'File exceeds 25MB limit (' . round($size / 1048576, 1) . 'MB).'];
+            $size = (int) $file->getSize();
+            if ($size > 10485760) { // 10 MB limit
+                $failed[] = ['name' => $originalName, 'error' => 'File exceeds 10MB limit ('.round($size / 1048576, 1).'MB).'];
+
                 continue;
             }
 
             $cleanBase = Str::slug(pathinfo($originalName, PATHINFO_FILENAME));
-            $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(8) . '.' . $ext;
+            $filename = time().'_'.($cleanBase ? substr($cleanBase, 0, 30).'_' : '').Str::random(8).'.'.$ext;
 
             try {
                 $path = $file->storeAs($folder, $filename, 'public');
-                if (!$path || !$disk->exists($path)) {
+                if (! $path || ! $disk->exists($path)) {
                     throw new \Exception('Failed to write file to disk.');
                 }
             } catch (\Throwable $e) {
-                $failed[] = ['name' => $originalName, 'error' => 'Storage error: ' . $e->getMessage()];
+                $failed[] = ['name' => $originalName, 'error' => 'Storage error: '.$e->getMessage()];
+
                 continue;
             }
 
             // Mirror to public/storage only if not already symlinked/junctioned
-            if (!$isLinked && is_dir($publicStorage)) {
-                if (!is_dir($publicDir)) {
+            if (! $isLinked && is_dir($publicStorage)) {
+                if (! is_dir($publicDir)) {
                     @mkdir($publicDir, 0755, true);
                 }
-                @copy($disk->path($path), public_path('storage/' . $path));
+                @copy($disk->path($path), public_path('storage/'.$path));
             }
 
             $clientMime = strtolower($file->getClientMimeType() ?: '');
             $realMime = '';
             try {
                 $realMime = strtolower($file->getMimeType() ?: '');
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
 
             $mime = $realMime ?: $clientMime;
-            if (empty($mime) || $mime === 'application/octet-stream' || !str_starts_with($mime, 'image/')) {
+            if (empty($mime) || $mime === 'application/octet-stream' || ! str_starts_with($mime, 'image/')) {
                 $mime = $extMimes[$ext] ?? 'image/jpeg';
             }
             if (in_array($mime, ['image/jfif', 'image/pjpeg', 'image/x-jfif'])) {
@@ -311,7 +321,8 @@ class AppearanceFilesController extends Controller
                     $width = $info[0] ?? null;
                     $height = $info[1] ?? null;
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
 
             $cleanName = mb_substr(pathinfo($originalName, PATHINFO_FILENAME) ?: $filename, 0, 200);
 
@@ -329,7 +340,8 @@ class AppearanceFilesController extends Controller
                 ]);
             } catch (\Throwable $e) {
                 @$disk->delete($path);
-                $failed[] = ['name' => $originalName, 'error' => 'Database error: ' . $e->getMessage()];
+                $failed[] = ['name' => $originalName, 'error' => 'Database error: '.$e->getMessage()];
+
                 continue;
             }
 
@@ -346,22 +358,23 @@ class AppearanceFilesController extends Controller
         }
 
         if (empty($uploaded)) {
-            $msg = 'Upload failed: ' . (!empty($failed) ? implode('; ', array_column($failed, 'error')) : 'No valid files could be processed.');
+            $msg = 'Upload failed: '.(! empty($failed) ? implode('; ', array_column($failed, 'error')) : 'No valid files could be processed.');
             if ($request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $msg, 'failed' => $failed], 422);
             }
+
             return back()->with('error', $msg);
         }
 
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => count($uploaded) . ' file(s) uploaded successfully.',
+                'message' => count($uploaded).' file(s) uploaded successfully.',
                 'files' => $uploaded,
             ]);
         }
 
-        return back()->with('success', count($uploaded) . ' file(s) uploaded successfully.');
+        return back()->with('success', count($uploaded).' file(s) uploaded successfully.');
     }
 
     /**
@@ -374,19 +387,20 @@ class AppearanceFilesController extends Controller
 
         $files = $request->file('files') ?: ($request->file('file') ? [$request->file('file')] : ($request->file('image') ? [$request->file('image')] : []));
         if (empty($files)) {
-            if (isset($_SERVER['CONTENT_LENGTH']) && (int)$_SERVER['CONTENT_LENGTH'] > 0 && empty($request->all())) {
+            if (isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0 && empty($request->all())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Upload batch exceeds server limit (' . ini_get('post_max_size') . '). Please upload files in smaller batches.',
+                    'message' => 'Upload batch exceeds server limit ('.ini_get('post_max_size').'). Please upload files in smaller batches.',
                 ], 422);
             }
+
             return response()->json([
                 'success' => false,
                 'message' => 'No files were provided for upload.',
             ], 422);
         }
 
-        if (!is_array($files)) {
+        if (! is_array($files)) {
             $files = [$files];
         }
 
@@ -398,26 +412,26 @@ class AppearanceFilesController extends Controller
             'image/pjpeg', 'image/jfif', 'image/x-jfif', 'image/x-png', 'image/vnd.microsoft.icon', 'image/ico',
             'image/svg', 'text/xml', 'text/plain', 'image/avif', 'image/bmp', 'image/x-ms-bmp',
             'image/tiff', 'image/x-tiff', 'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence',
-            'application/octet-stream'
+            'application/octet-stream',
         ];
         $allowedExts = [
             'jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'svg', 'ico', 'avif',
-            'bmp', 'tiff', 'tif', 'heic', 'heif'
+            'bmp', 'tiff', 'tif', 'heic', 'heif',
         ];
         $extMimes = [
-            'jpg'  => 'image/jpeg',
+            'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
-            'jpe'  => 'image/jpeg',
+            'jpe' => 'image/jpeg',
             'jfif' => 'image/jpeg',
-            'png'  => 'image/png',
+            'png' => 'image/png',
             'webp' => 'image/webp',
-            'gif'  => 'image/gif',
-            'svg'  => 'image/svg+xml',
-            'ico'  => 'image/x-icon',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
             'avif' => 'image/avif',
-            'bmp'  => 'image/bmp',
+            'bmp' => 'image/bmp',
             'tiff' => 'image/tiff',
-            'tif'  => 'image/tiff',
+            'tif' => 'image/tiff',
             'heic' => 'image/heic',
             'heif' => 'image/heif',
         ];
@@ -425,39 +439,40 @@ class AppearanceFilesController extends Controller
         $publicStorage = public_path('storage');
         $appStorage = storage_path('app/public');
         $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
-        $publicDir = public_path('storage/' . $folder);
+        $publicDir = public_path('storage/'.$folder);
 
         foreach ($files as $file) {
-            if (!$file || !($file instanceof \Illuminate\Http\UploadedFile)) {
+            if (! $file || ! ($file instanceof UploadedFile)) {
                 continue;
             }
 
             $origName = $file->getClientOriginalName() ?: 'Uploaded image';
 
             // 0. PHP upload validity check
-            if (!$file->isValid()) {
+            if (! $file->isValid()) {
                 $errCode = $file->getError();
                 $errMsg = match ($errCode) {
-                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size (' . ini_get('upload_max_filesize') . ').',
+                    UPLOAD_ERR_INI_SIZE => 'File exceeds server maximum upload size ('.ini_get('upload_max_filesize').').',
                     UPLOAD_ERR_FORM_SIZE => 'File exceeds form maximum upload size.',
                     UPLOAD_ERR_PARTIAL => 'File was only partially uploaded. Please try again.',
                     UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
                     UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder on server.',
                     UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
-                    default => 'Upload error: ' . $file->getErrorMessage(),
+                    default => 'Upload error: '.$file->getErrorMessage(),
                 };
                 $failed[] = [
                     'name' => $origName,
                     'error' => $errMsg,
                 ];
+
                 continue;
             }
 
             $ext = strtolower(trim($file->getClientOriginalExtension() ?: ''));
-            if (!$ext) {
+            if (! $ext) {
                 $ext = strtolower(trim($file->guessExtension() ?: 'jpg'));
             }
-            $size = (int)$file->getSize();
+            $size = (int) $file->getSize();
 
             // 1. Executable and script rejection
             if (in_array($ext, ['php', 'phtml', 'phar', 'sh', 'exe', 'bat', 'cmd', 'js', 'html', 'htm', 'vbs', 'com', 'scr'])) {
@@ -465,24 +480,27 @@ class AppearanceFilesController extends Controller
                     'name' => $origName,
                     'error' => 'Executable scripts and code files are strictly forbidden.',
                 ];
+
                 continue;
             }
 
             // 2. Extension check
-            if (!in_array($ext, $allowedExts)) {
+            if (! in_array($ext, $allowedExts)) {
                 $failed[] = [
                     'name' => $origName,
                     'error' => "Unsupported format (.{$ext}). Allowed: JPG, PNG, WebP, GIF, SVG, AVIF, JFIF, BMP, TIFF, HEIC, ICO.",
                 ];
+
                 continue;
             }
 
-            // 3. File size check (12 MB)
-            if ($size > 12582912) {
+            // 3. File size check (10 MB)
+            if ($size > 10485760) {
                 $failed[] = [
                     'name' => $origName,
-                    'error' => 'File exceeds 12MB limit.',
+                    'error' => 'File exceeds 10MB limit.',
                 ];
+
                 continue;
             }
 
@@ -491,7 +509,8 @@ class AppearanceFilesController extends Controller
             $realMime = '';
             try {
                 $realMime = strtolower($file->getMimeType() ?: '');
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
 
             $isImageMime = str_starts_with($clientMime, 'image/') || str_starts_with($realMime, 'image/');
             $isInAllowed = in_array($clientMime, $allowedMimes) || in_array($realMime, $allowedMimes);
@@ -504,42 +523,44 @@ class AppearanceFilesController extends Controller
                 }
             } else {
                 $info = @getimagesize($file->getRealPath());
-                if ($info && !empty($info[0]) && !empty($info[1])) {
+                if ($info && ! empty($info[0]) && ! empty($info[1])) {
                     $isImageFile = true;
                 }
             }
 
-            if (!$isImageMime && !$isInAllowed && !$isImageFile && !isset($extMimes[$ext])) {
+            if (! $isImageMime && ! $isInAllowed && ! $isImageFile && ! isset($extMimes[$ext])) {
                 $failed[] = [
                     'name' => $origName,
                     'error' => 'File type verification failed: not a valid image format.',
                 ];
+
                 continue;
             }
 
             // 5. Store file safely
             $cleanBase = Str::slug(pathinfo($origName, PATHINFO_FILENAME));
-            $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(8) . '.' . $ext;
+            $filename = time().'_'.($cleanBase ? substr($cleanBase, 0, 30).'_' : '').Str::random(8).'.'.$ext;
 
             try {
                 $path = $file->storeAs($folder, $filename, 'public');
-                if (!$path || !$disk->exists($path)) {
+                if (! $path || ! $disk->exists($path)) {
                     throw new \Exception('Failed to write file to public storage disk.');
                 }
             } catch (\Throwable $e) {
                 $failed[] = [
                     'name' => $origName,
-                    'error' => 'Storage error: ' . $e->getMessage(),
+                    'error' => 'Storage error: '.$e->getMessage(),
                 ];
+
                 continue;
             }
 
             // Mirror to public/storage only if not already symlinked/junctioned
-            if (!$isLinked && is_dir($publicStorage)) {
-                if (!is_dir($publicDir)) {
+            if (! $isLinked && is_dir($publicStorage)) {
+                if (! is_dir($publicDir)) {
                     @mkdir($publicDir, 0755, true);
                 }
-                @copy($disk->path($path), public_path('storage/' . $path));
+                @copy($disk->path($path), public_path('storage/'.$path));
             }
 
             // Dimensions
@@ -551,11 +572,12 @@ class AppearanceFilesController extends Controller
                     $width = $info[0] ?? null;
                     $height = $info[1] ?? null;
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
 
             // Normalized MIME
             $finalMime = $realMime ?: $clientMime;
-            if (empty($finalMime) || $finalMime === 'application/octet-stream' || !str_starts_with($finalMime, 'image/')) {
+            if (empty($finalMime) || $finalMime === 'application/octet-stream' || ! str_starts_with($finalMime, 'image/')) {
                 $finalMime = $extMimes[$ext] ?? 'image/jpeg';
             }
             if (in_array($finalMime, ['image/jfif', 'image/pjpeg', 'image/x-jfif'])) {
@@ -580,8 +602,9 @@ class AppearanceFilesController extends Controller
                 @$disk->delete($path);
                 $failed[] = [
                     'name' => $origName,
-                    'error' => 'Database error: ' . $e->getMessage(),
+                    'error' => 'Database error: '.$e->getMessage(),
                 ];
+
                 continue;
             }
 
@@ -605,7 +628,7 @@ class AppearanceFilesController extends Controller
         if ($totalSuccess === 0 && $totalFailed > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Upload failed: ' . implode('; ', array_column($failed, 'error')),
+                'message' => 'Upload failed: '.implode('; ', array_column($failed, 'error')),
                 'data' => [
                     'uploaded' => [],
                     'failed' => $failed,
@@ -615,7 +638,7 @@ class AppearanceFilesController extends Controller
 
         return response()->json([
             'success' => $totalSuccess > 0,
-            'message' => "{$totalSuccess} file(s) imported successfully." . ($totalFailed > 0 ? " ({$totalFailed} failed)" : ''),
+            'message' => "{$totalSuccess} file(s) imported successfully.".($totalFailed > 0 ? " ({$totalFailed} failed)" : ''),
             'data' => [
                 'uploaded' => $uploaded,
                 'failed' => $failed,
@@ -629,7 +652,7 @@ class AppearanceFilesController extends Controller
     public function replace(Request $request, $id)
     {
         $file = $request->file('image') ?: $request->file('file');
-        if (!$file) {
+        if (! $file) {
             return response()->json([
                 'success' => false,
                 'message' => 'The image or file field is required.',
@@ -637,26 +660,26 @@ class AppearanceFilesController extends Controller
             ], 422);
         }
 
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Upload failed: ' . $file->getErrorMessage(),
+                'message' => 'Upload failed: '.$file->getErrorMessage(),
             ], 422);
         }
 
         $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
         $allowedExts = ['jpg', 'jpeg', 'jpe', 'jfif', 'png', 'webp', 'gif', 'svg', 'ico', 'avif', 'bmp', 'tiff', 'tif', 'heic', 'heif'];
-        if (!in_array($ext, $allowedExts)) {
+        if (! in_array($ext, $allowedExts)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unsupported format. Allowed: JPG, PNG, WebP, GIF, SVG, AVIF, JFIF, BMP, TIFF, HEIC, ICO.',
             ], 422);
         }
 
-        if ($file->getSize() > 26214400) {
+        if ($file->getSize() > 10485760) {
             return response()->json([
                 'success' => false,
-                'message' => 'File exceeds 25MB limit.',
+                'message' => 'File exceeds 10MB limit.',
             ], 422);
         }
 
@@ -666,19 +689,19 @@ class AppearanceFilesController extends Controller
 
         $origName = $file->getClientOriginalName();
         $cleanBase = Str::slug(pathinfo($origName, PATHINFO_FILENAME));
-        $filename = time() . '_' . ($cleanBase ? substr($cleanBase, 0, 30) . '_' : '') . Str::random(8) . '.' . $ext;
+        $filename = time().'_'.($cleanBase ? substr($cleanBase, 0, 30).'_' : '').Str::random(8).'.'.$ext;
         $newPath = $file->storeAs($folder, $filename, 'public');
 
         // Mirror to public/storage only if not already symlinked/junctioned
         $publicStorage = public_path('storage');
         $appStorage = storage_path('app/public');
         $isLinked = is_link($publicStorage) || (realpath($publicStorage) && realpath($publicStorage) === realpath($appStorage));
-        if (!$isLinked && is_dir($publicStorage)) {
-            $publicDir = public_path('storage/' . $folder);
-            if (!is_dir($publicDir)) {
+        if (! $isLinked && is_dir($publicStorage)) {
+            $publicDir = public_path('storage/'.$folder);
+            if (! is_dir($publicDir)) {
                 @mkdir($publicDir, 0755, true);
             }
-            @copy(Storage::disk('public')->path($newPath), public_path('storage/' . $newPath));
+            @copy(Storage::disk('public')->path($newPath), public_path('storage/'.$newPath));
         }
 
         $size = $file->getSize() ?: 0;
@@ -702,8 +725,8 @@ class AppearanceFilesController extends Controller
         ]);
 
         // Propagate updates to referencing models
-        $oldStoragePath = 'storage/' . ltrim($oldPath, '/');
-        $newStoragePath = 'storage/' . ltrim($newPath, '/');
+        $oldStoragePath = 'storage/'.ltrim($oldPath, '/');
+        $newStoragePath = 'storage/'.ltrim($newPath, '/');
 
         Banner::where('image', $oldPath)->orWhere('image', $oldStoragePath)->update(['image' => $newPath]);
         Category::where('image', $oldPath)->orWhere('image', $oldStoragePath)->update(['image' => $newPath]);
@@ -749,6 +772,7 @@ class AppearanceFilesController extends Controller
         if ($action === 'logo') {
             StoreSetting::setValue('logo', $media->path);
             StoreSetting::clearCache();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Store Logo updated successfully! It is now active on the store.',
@@ -759,6 +783,7 @@ class AppearanceFilesController extends Controller
         if ($action === 'favicon') {
             StoreSetting::setValue('favicon', $media->path);
             StoreSetting::clearCache();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Store Favicon updated successfully! It is now active on the store.',
@@ -776,6 +801,7 @@ class AppearanceFilesController extends Controller
                 'is_active' => true,
             ]);
             StoreSetting::clearCache();
+
             return response()->json([
                 'success' => true,
                 'message' => 'New Homepage Banner created from media asset!',
@@ -789,6 +815,7 @@ class AppearanceFilesController extends Controller
             $category = Category::findOrFail($categoryId);
             $category->update(['image' => $media->path]);
             StoreSetting::clearCache();
+
             return response()->json([
                 'success' => true,
                 'message' => "Category \"{$category->name}\" image updated successfully!",
@@ -802,6 +829,7 @@ class AppearanceFilesController extends Controller
             if ($user) {
                 $user->update(['avatar' => $media->path]);
             }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Your admin avatar has been updated!',
@@ -850,19 +878,19 @@ class AppearanceFilesController extends Controller
 
         if ($action === 'variation') {
             $variationId = (int) $request->input('variation_id');
-            $variation = \App\Models\ProductVariation::findOrFail($variationId);
+            $variation = ProductVariation::findOrFail($variationId);
             $isPrimary = $request->boolean('is_primary');
 
             if ($isPrimary) {
-                \App\Models\ProductVariationImage::where('product_variation_id', $variationId)->update(['is_primary' => false]);
+                ProductVariationImage::where('product_variation_id', $variationId)->update(['is_primary' => false]);
             }
 
-            $existingCount = \App\Models\ProductVariationImage::where('product_variation_id', $variationId)->count();
+            $existingCount = ProductVariationImage::where('product_variation_id', $variationId)->count();
             if ($existingCount === 0) {
                 $isPrimary = true;
             }
 
-            $vimg = \App\Models\ProductVariationImage::create([
+            $vimg = ProductVariationImage::create([
                 'product_variation_id' => $variationId,
                 'image' => $media->path,
                 'sort_order' => $isPrimary ? 0 : ($existingCount + 1),
@@ -928,8 +956,8 @@ class AppearanceFilesController extends Controller
 
         // Check if referenced before permanent delete, unless force is explicitly requested
         $refs = $media->getReferences();
-        if (!empty($refs) && !$request->boolean('force')) {
-            $msg = 'Cannot permanently delete this file because it is currently assigned to: ' . implode(', ', $refs) . '. Please detach or reassign it first.';
+        if (! empty($refs) && ! $request->boolean('force')) {
+            $msg = 'Cannot permanently delete this file because it is currently assigned to: '.implode(', ', $refs).'. Please detach or reassign it first.';
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
@@ -938,6 +966,7 @@ class AppearanceFilesController extends Controller
                     'references' => $refs,
                 ], 422);
             }
+
             return back()->with('error', $msg);
         }
 
@@ -948,15 +977,15 @@ class AppearanceFilesController extends Controller
         if ($media->path && Storage::disk('public')->exists($media->path)) {
             Storage::disk('public')->delete($media->path);
         }
-        if ($media->path && file_exists(public_path('storage/' . $media->path))) {
-            @unlink(public_path('storage/' . $media->path));
+        if ($media->path && file_exists(public_path('storage/'.$media->path))) {
+            @unlink(public_path('storage/'.$media->path));
         }
 
         $media->forceDelete();
 
         $message = 'File permanently deleted from disk and database.';
-        if (!empty($refs)) {
-            $message .= ' Also cleanly detached from: ' . implode(', ', $refs) . '.';
+        if (! empty($refs)) {
+            $message .= ' Also cleanly detached from: '.implode(', ', $refs).'.';
         }
 
         if ($request->wantsJson()) {
@@ -989,9 +1018,9 @@ class AppearanceFilesController extends Controller
             abort(403, 'Forbidden');
         }
 
-        $fullPath = storage_path('app/public/' . $path);
-        if (!file_exists($fullPath) || !is_file($fullPath)) {
-            $altPath = public_path('storage/' . $path);
+        $fullPath = storage_path('app/public/'.$path);
+        if (! file_exists($fullPath) || ! is_file($fullPath)) {
+            $altPath = public_path('storage/'.$path);
             if (file_exists($altPath) && is_file($altPath)) {
                 $fullPath = $altPath;
             } else {
@@ -1011,6 +1040,7 @@ class AppearanceFilesController extends Controller
         }
 
         $mime = @mime_content_type($fullPath) ?: 'application/octet-stream';
+
         return response()->file($fullPath, [
             'Content-Type' => $mime,
             'Cache-Control' => 'public, max-age=86400',
@@ -1053,23 +1083,24 @@ class AppearanceFilesController extends Controller
             $files = MediaFile::withTrashed()->whereIn('id', $ids)->get();
             foreach ($files as $file) {
                 $refs = $file->getReferences();
-                if (!empty($refs) && !$force) {
-                    $skipped[] = "File '{$file->name}' is in use by: " . implode(', ', $refs);
+                if (! empty($refs) && ! $force) {
+                    $skipped[] = "File '{$file->name}' is in use by: ".implode(', ', $refs);
+
                     continue;
                 }
                 $file->detachReferences();
                 if ($file->path && Storage::disk('public')->exists($file->path)) {
                     Storage::disk('public')->delete($file->path);
                 }
-                if ($file->path && file_exists(public_path('storage/' . $file->path))) {
-                    @unlink(public_path('storage/' . $file->path));
+                if ($file->path && file_exists(public_path('storage/'.$file->path))) {
+                    @unlink(public_path('storage/'.$file->path));
                 }
                 $file->forceDelete();
                 $affected++;
             }
             $msg = "{$affected} file(s) permanently deleted.";
             if (count($skipped) > 0) {
-                $msg .= ' ' . count($skipped) . ' file(s) skipped because they are in active use.';
+                $msg .= ' '.count($skipped).' file(s) skipped because they are in active use.';
             }
         } elseif ($action === 'move_folder') {
             $folder = $request->input('folder') ?: 'media';

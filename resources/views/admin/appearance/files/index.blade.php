@@ -107,7 +107,7 @@
                     <i class="fas fa-folder-open"></i> Choose Images
                 </button>
                 <div class="dropzone-hint">
-                    Supported: JPG &bull; PNG &bull; WebP &bull; GIF &bull; SVG &bull; AVIF &bull; JFIF &bull; BMP &bull; HEIC (Max 12MB per file)
+                    Supported: JPG &bull; PNG &bull; WebP &bull; GIF &bull; SVG &bull; AVIF &bull; JFIF &bull; BMP &bull; HEIC (Max 10MB per file)
                 </div>
             </div>
 
@@ -1058,14 +1058,15 @@ function handleBulkFilesSelected(fileList) {
     for (var i = 0; i < fileList.length; i++) {
         var f = fileList[i];
         fileSeq++;
+        var isTooLarge = f.size > 10485760; // 10MB limit
         stagedFiles.push({
             id: 'f_' + Date.now() + '_' + fileSeq,
             file: f,
             name: f.name,
             size: f.size,
             type: f.type || 'image/jpeg',
-            status: 'ready',
-            errorMsg: ''
+            status: isTooLarge ? 'error' : 'ready',
+            errorMsg: isTooLarge ? 'File exceeds 10MB limit (' + (f.size / 1048576).toFixed(1) + 'MB).' : ''
         });
     }
     var inputEl = document.getElementById('bulkFileInput');
