@@ -55,7 +55,7 @@
         background: #fff;
         border: 1px solid #e7e7e7;
         border-radius: 8px;
-        overflow: hidden;
+        overflow: visible;
         margin-bottom: 24px;
     }
     .table-card-head {
@@ -75,6 +75,8 @@
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            touch-action: pan-x pan-y;
+            overscroll-behavior-x: contain;
             flex-wrap: nowrap;
             padding-bottom: 6px;
         }

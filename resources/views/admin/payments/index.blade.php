@@ -134,7 +134,7 @@
         background: #fff;
         border: 1px solid #e7e7e7;
         border-radius: 8px;
-        overflow: hidden;
+        overflow: visible;
         box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
     .pay-table {

@@ -15,7 +15,7 @@
     <div class="header-wrap-inner">
       <!-- Left: Mobile Menu Toggle + Store Logo -->
       <div class="header-left">
-        <button type="button" class="sidebar-menu-icon" onclick="toggleSidebarMenu()" aria-label="Toggle Menu">
+        <button type="button" class="sidebar-menu-icon" id="sidebarMenuToggleBtn" onclick="toggleSidebarMenu()" aria-label="Toggle Menu" aria-controls="sidebar-menu-drawer" aria-expanded="false">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
             <path d="M 3 9 A 1.0001 1.0001 0 1 0 3 11 L 47 11 A 1.0001 1.0001 0 1 0 47 9 L 3 9 z M 3 24 A 1.0001 1.0001 0 1 0 3 26 L 47 26 A 1.0001 1.0001 0 1 0 47 24 L 3 24 z M 3 39 A 1.0001 1.0001 0 1 0 3 41 L 47 41 A 1.0001 1.0001 0 1 0 47 39 L 3 39 z" fill="currentColor"></path>
           </svg>
@@ -58,11 +58,11 @@
         <!-- User Account Action -->
         @auth('customer')
           @php $customer = auth('customer')->user(); @endphp
-          <div class="header-action-item header-user-menu" style="position:relative; cursor:pointer;" onclick="this.classList.toggle('open');" title="{{ $customer->name ?? 'Account' }}">
-            <div class="header-action-icon-wrap" style="width:34px; height:34px; display:flex; align-items:center; justify-content:center;">
+          <div class="header-action-item header-user-menu" id="headerUserMenu" style="position:relative;" title="{{ $customer->name ?? 'Account' }}">
+            <button type="button" class="header-action-icon-wrap header-user-btn" id="headerUserTrigger" onclick="toggleUserDropdown(event)" aria-haspopup="true" aria-expanded="false" aria-label="Account Menu" style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; background:none; border:none; padding:0; cursor:pointer;">
               <img src="{{ $customer->avatar_url }}" alt="{{ $customer->name }}" style="width:30px; height:30px; border-radius:50%; object-fit:cover; border:2px solid var(--color-primary); box-shadow:0 2px 6px rgba(0,104,225,0.2);">
-            </div>
-            <div class="header-user-dropdown" style="display:none; position:absolute; right:0; top:calc(100% + 8px); background:#fff; border:1px solid var(--color-border); border-radius:var(--radius-sm); box-shadow:0 10px 25px rgba(0,0,0,0.08); padding:8px 0; min-width:180px; z-index:1000;">
+            </button>
+            <div class="header-user-dropdown" id="headerUserDropdown" style="display:none; position:absolute; right:0; top:calc(100% + 8px); background:#fff; border:1px solid var(--color-border); border-radius:var(--radius-sm); box-shadow:0 10px 25px rgba(0,0,0,0.08); padding:8px 0; min-width:200px; max-width:calc(100vw - 24px); z-index:1100;">
               <div style="padding:8px 16px; border-bottom:1px solid var(--color-border); margin-bottom:4px; display:flex; align-items:center; gap:10px;">
                 <img src="{{ $customer->avatar_url }}" alt="{{ $customer->name }}" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid var(--color-primary);">
                 <div style="overflow:hidden;">

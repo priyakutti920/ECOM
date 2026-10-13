@@ -50,7 +50,10 @@
     border-bottom: 2px solid #e7e7e7;
     margin-bottom: 14px;
     overflow-x: auto;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
     white-space: nowrap;
     scrollbar-width: none;
 }
@@ -150,9 +153,13 @@
 
 /* ── Scrollable Table Wrapper ── */
 .table-responsive {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
+    overscroll-behavior-x: contain;
     border: 1px solid #e7e7e7;
     border-radius: 8px;
     background: #fff;
@@ -160,6 +167,13 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 #f8fafc;
+}
+.table-responsive > table,
+.table-responsive > .table,
+.table-responsive th,
+.table-responsive td {
+    touch-action: pan-x pan-y !important;
+    max-width: none !important;
 }
 .table-responsive::-webkit-scrollbar {
     height: 6px;

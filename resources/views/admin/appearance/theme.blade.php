@@ -456,6 +456,24 @@
     }
     .presets-card {
         padding: 16px 14px;
+        overflow: visible;
+    }
+    .preset-grid {
+        display: flex !important;
+        grid-template-columns: none !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-x pan-y !important;
+        overscroll-behavior-x: contain;
+        padding-bottom: 8px;
+        gap: 12px;
+        scrollbar-width: thin;
+    }
+    .preset-card {
+        flex: 0 0 220px !important;
+        min-width: 220px !important;
+        touch-action: pan-x pan-y !important;
     }
     .panel-card-body {
         padding: 16px 14px;
@@ -481,10 +499,6 @@
 @media (max-width: 480px) {
     .theme-customizer-wrap {
         padding: 4px 0 24px;
-    }
-    .preset-grid {
-        grid-template-columns: 1fr;
-        gap: 10px;
     }
     .style-options-grid {
         grid-template-columns: 1fr;

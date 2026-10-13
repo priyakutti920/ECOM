@@ -838,6 +838,14 @@
   }
   .header-user-menu.open .header-user-dropdown {
     display: block !important;
+    animation: userDropIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes userDropIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .header-user-dropdown a:hover {
+    background-color: #f8fafc;
   }
   .header-action-badge {
     position: absolute;
@@ -1604,6 +1612,8 @@
     z-index: 2000;
     opacity: 0;
     visibility: hidden;
+    cursor: pointer;
+    touch-action: manipulation;
     transition: var(--transition);
   }
   .sidebar-menu-overlay.open { opacity: 1; visibility: visible; }
@@ -1613,6 +1623,7 @@
     left: -320px;
     width: 300px;
     height: 100vh;
+    height: 100dvh;
     background: #ffffff;
     z-index: 2001;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
@@ -1620,6 +1631,9 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
   }
   .sidebar-menu-wrap.open { left: 0; }
   .sidebar-menu-header {
@@ -1629,6 +1643,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
   }
   .sidebar-menu-header h4 { margin: 0; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
   .sidebar-menu-close {
@@ -1643,8 +1658,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: manipulation;
   }
-  .sidebar-menu-nav { padding: 16px 0; }
+  .sidebar-menu-nav {
+    padding: 16px 0 max(80px, env(safe-area-inset-bottom, 24px));
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .sidebar-menu-nav a {
     display: flex;
     align-items: center;
@@ -2168,15 +2189,114 @@
   };
 
   // ── Sidebar Menu Drawer ────────────────────────────
-  window.toggleSidebarMenu = function() {
+  window.openSidebarMenu = function() {
     const menu = document.getElementById('sidebar-menu-drawer');
     const overlay = document.getElementById('sidebar-menu-overlay');
+    const toggleBtn = document.getElementById('sidebarMenuToggleBtn');
     if (menu && overlay) {
-      menu.classList.toggle('open');
-      overlay.classList.toggle('open');
-      document.body.style.overflow = menu.classList.contains('open') ? 'hidden' : '';
+      menu.classList.add('open');
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
     }
   };
+
+  window.closeSidebarMenu = function() {
+    const menu = document.getElementById('sidebar-menu-drawer');
+    const overlay = document.getElementById('sidebar-menu-overlay');
+    const toggleBtn = document.getElementById('sidebarMenuToggleBtn');
+    if (menu && overlay) {
+      menu.classList.remove('open');
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  };
+
+  window.toggleSidebarMenu = function() {
+    const menu = document.getElementById('sidebar-menu-drawer');
+    if (menu && menu.classList.contains('open')) {
+      window.closeSidebarMenu();
+    } else {
+      window.openSidebarMenu();
+    }
+  };
+
+  // ── Profile User Dropdown ───────────────────────────
+  window.toggleUserDropdown = function(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const menu = document.getElementById('headerUserMenu');
+    const trigger = document.getElementById('headerUserTrigger');
+    const dropdown = document.getElementById('headerUserDropdown');
+    if (!menu) return;
+    const willOpen = !menu.classList.contains('open');
+    if (willOpen) {
+      menu.classList.add('open');
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+      if (dropdown) {
+        dropdown.style.right = '0';
+        dropdown.style.left = 'auto';
+        const rect = dropdown.getBoundingClientRect();
+        if (rect.left < 10) {
+          dropdown.style.left = '0';
+          dropdown.style.right = 'auto';
+        }
+      }
+    } else {
+      menu.classList.remove('open');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    }
+  };
+
+  // Close profile dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('headerUserMenu');
+    if (menu && menu.classList.contains('open')) {
+      if (!menu.contains(e.target)) {
+        menu.classList.remove('open');
+        const trigger = document.getElementById('headerUserTrigger');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
+    }
+  });
+
+  // Attach dropdown stopPropagation & drawer link click auto-close on DOM ready
+  document.addEventListener('DOMContentLoaded', function() {
+    const userDropdown = document.getElementById('headerUserDropdown');
+    if (userDropdown) {
+      userDropdown.addEventListener('click', function(e) {
+        if (!e.target.closest('a') && !e.target.closest('button')) {
+          e.stopPropagation();
+        }
+      });
+    }
+
+    const drawerNavLinks = document.querySelectorAll('.sidebar-menu-nav a');
+    drawerNavLinks.forEach(function(link) {
+      link.addEventListener('click', function() {
+        window.closeSidebarMenu();
+      });
+    });
+  });
+
+  // Reset drawer and dropdown state on bfcache / browser back / reload
+  window.addEventListener('pageshow', function() {
+    window.closeSidebarMenu();
+    window.closeCartSidebar();
+    const menu = document.getElementById('headerUserMenu');
+    if (menu) menu.classList.remove('open');
+    document.body.style.overflow = '';
+  });
+  window.addEventListener('popstate', function() {
+    window.closeSidebarMenu();
+    window.closeCartSidebar();
+    const menu = document.getElementById('headerUserMenu');
+    if (menu) menu.classList.remove('open');
+    document.body.style.overflow = '';
+  });
 
   // ── Cart Sidebar Drawer ────────────────────────────
   window.openCartSidebar = function() {
@@ -2721,17 +2841,25 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         window.LiveSearch.closeAll();
+        if (typeof window.closeSidebarMenu === 'function') window.closeSidebarMenu();
+        if (typeof window.closeCartSidebar === 'function') window.closeCartSidebar();
+        const menu = document.getElementById('headerUserMenu');
+        if (menu) {
+          menu.classList.remove('open');
+          const trigger = document.getElementById('headerUserTrigger');
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
       }
     });
   })();
 </script>
 
 <!-- Sidebar Menu (drawer) -->
-<div class="sidebar-menu-overlay" id="sidebar-menu-overlay" onclick="toggleSidebarMenu()"></div>
-<aside class="sidebar-menu-wrap" id="sidebar-menu-drawer">
+<div class="sidebar-menu-overlay" id="sidebar-menu-overlay" onclick="closeSidebarMenu()" aria-hidden="true"></div>
+<aside class="sidebar-menu-wrap" id="sidebar-menu-drawer" aria-label="Navigation Menu">
   <div class="sidebar-menu-header">
     <h4>Menu</h4>
-    <button class="sidebar-menu-close" onclick="toggleSidebarMenu()"><i class="las la-times"></i></button>
+    <button type="button" class="sidebar-menu-close" onclick="closeSidebarMenu()" aria-label="Close Menu"><i class="las la-times"></i></button>
   </div>
   <nav class="sidebar-menu-nav">
     <a href="{{ url('/') }}"><i class="las la-home"></i> Home</a>

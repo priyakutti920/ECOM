@@ -40,6 +40,11 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         $response->assertSee('style-options-grid', false);
         $response->assertSee('@media (max-width: 640px)', false);
         $response->assertSee('@media (max-width: 480px)', false);
+
+        // Meaningful layout & gesture rules
+        $response->assertSee('touch-action: pan-x pan-y', false);
+        $response->assertSee('overscroll-behavior-x: contain', false);
+        $response->assertSee('-webkit-overflow-scrolling: touch', false);
     }
 
     /**
@@ -53,6 +58,9 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         $response->assertSee('table-responsive', false);
         $response->assertSee('mobile-scroll-hint', false);
         $response->assertSee('@media (max-width: 576px)', false);
+        $response->assertSee('touch-action: pan-x pan-y', false);
+        $response->assertSee('overflow-y: visible !important', false);
+        $response->assertSee('max-width: none !important', false);
     }
 
     /**
@@ -68,6 +76,8 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         $response->assertSee('min-width: 900px', false);
         $response->assertSee('mobile-scroll-hint', false);
         $response->assertSee('@media (max-width: 768px)', false);
+        $response->assertSee('touch-action: pan-x pan-y', false);
+        $response->assertSee('overflow-y: visible !important', false);
     }
 
     /**
@@ -83,6 +93,7 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         $response->assertSee('mobile-scroll-hint', false);
         $response->assertSee('@media (max-width: 900px)', false);
         $response->assertSee('@media (max-width: 600px)', false);
+        $response->assertSee('touch-action: pan-x pan-y', false);
 
         // Test ticket detail page
         $customer = User::factory()->create(['is_admin' => false]);
@@ -96,6 +107,7 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         $detailResponse = $this->actingAs($this->admin)->get(route('admin.support.show', $ticket));
         $detailResponse->assertStatus(200);
         $detailResponse->assertSee('@media (max-width: 576px)', false);
+        $detailResponse->assertSee('word-wrap: break-word', false);
     }
 
     /**
@@ -111,6 +123,8 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         $response->assertSee('min-width: 440px', false);
         $response->assertSee('@media (max-width: 600px)', false);
         $response->assertSee('@media (max-width: 480px)', false);
+        $response->assertSee('touch-action: pan-x pan-y', false);
+        $response->assertSee('overflow: visible', false);
     }
 
     /**
@@ -187,5 +201,8 @@ class Phase1ScopeCompletionAuditTest extends TestCase
         // Global Layout
         $ordersRes->assertSee('admin-content', false);
         $ordersRes->assertSee('@media (max-width: 576px)', false);
+        $ordersRes->assertSee('overflow-x: auto', false);
+        $ordersRes->assertSee('pointer-events: none', false);
+        $ordersRes->assertSee('overscroll-behavior-x: contain', false);
     }
 }

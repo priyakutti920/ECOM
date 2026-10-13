@@ -51,7 +51,7 @@
             color: var(--admin-text-main);
             background-color: var(--admin-bg-page);
             padding-top: 54px;
-            overflow-x: hidden;
+            overflow-x: auto;
         }
 
         /* ── Loading overlay ── */
@@ -404,11 +404,13 @@
             z-index: 2000;
             display: none;
             opacity: 0;
+            pointer-events: none;
             transition: opacity 0.25s ease;
         }
         .admin-drawer-backdrop.show {
             display: block;
             opacity: 1;
+            pointer-events: auto;
         }
 
         .admin-mobile-drawer {
@@ -425,9 +427,11 @@
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            pointer-events: none;
         }
         .admin-mobile-drawer.open {
             transform: translateX(0);
+            pointer-events: auto;
         }
 
         .drawer-header {
@@ -960,18 +964,29 @@
 
         /* Universal Table Responsive Wrapper */
         .table-responsive {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-x pan-y !important;
+            overscroll-behavior-x: contain;
             margin-bottom: 16px;
             border: 1px solid var(--admin-card-border);
             border-radius: var(--admin-radius);
             background: #ffffff;
+            position: relative;
         }
-        .table-responsive > table {
+        .table-responsive > table,
+        .table-responsive > .table,
+        .table-responsive th,
+        .table-responsive td {
             margin-bottom: 0;
-            width: 100%;
+            touch-action: pan-x pan-y !important;
+            max-width: none !important;
+        }
+        .inv-card, .table-card, .user-table-card, .panel-card, .panel-nav, .log-card {
+            overflow: visible;
         }
         .table-responsive::-webkit-scrollbar {
             height: 6px;

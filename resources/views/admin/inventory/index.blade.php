@@ -30,7 +30,7 @@
     .inv-search button { padding: 8px 16px; background: #374151; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
 
     /* Tables */
-    .inv-card { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 24px; overflow: hidden; }
+    .inv-card { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 24px; overflow: visible; }
     .inv-card-head { padding: 14px 18px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; font-weight: 700; font-size: 14px; color: #1f2937; display: flex; justify-content: space-between; align-items: center; }
     .inv-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px; }
     .inv-table th { background: #fafafa; padding: 12px 16px; text-align: left; font-weight: 600; color: #4b5563; border-bottom: 1px solid #e5e7eb; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.4px; }
@@ -64,7 +64,7 @@
 
     @media (max-width: 768px) {
         .inv-toolbar { flex-direction: column; align-items: stretch; gap: 12px; max-width: 100%; }
-        .inv-tabs { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+        .inv-tabs { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; overscroll-behavior-x: contain; padding-bottom: 4px; }
         .inv-tabs a { flex-shrink: 0; }
         .inv-search { width: 100%; }
         .inv-search input { flex: 1; width: 100%; }

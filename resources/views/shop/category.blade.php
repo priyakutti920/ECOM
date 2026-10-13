@@ -12,12 +12,10 @@
 
     {{-- ── Breadcrumb ── --}}
     <nav class="cat-breadcrumbs" aria-label="Breadcrumb">
-        <a href="{{ url('/') }}" class="cat-bc-link"><i class="las la-home"></i> Home</a>
         @if($category->parent)
-            <span class="cat-bc-sep"><i class="las la-angle-right"></i></span>
             <a href="{{ url('/category/' . ($category->parent->slug ?: $category->parent->id)) }}" class="cat-bc-link">{{ $category->parent->name }}</a>
+            <span class="cat-bc-sep"><i class="las la-angle-right"></i></span>
         @endif
-        <span class="cat-bc-sep"><i class="las la-angle-right"></i></span>
         <span class="cat-bc-current">{{ $category->name }}</span>
     </nav>
 

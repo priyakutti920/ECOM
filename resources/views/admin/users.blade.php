@@ -156,7 +156,7 @@
     border: 1px solid var(--admin-card-border, #e2e8f0);
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 24px;
 }
 .user-data-table {
@@ -285,7 +285,7 @@
 
 @media (max-width: 768px) {
     .user-filter-bar { flex-direction: column; align-items: stretch; gap: 12px; max-width: 100%; }
-    .user-tabs { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; padding-bottom: 4px; }
+    .user-tabs { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; overscroll-behavior-x: contain; flex-wrap: nowrap; padding-bottom: 4px; }
     .user-tab-btn { flex-shrink: 0; }
     .user-search-form { width: 100%; }
     .user-search-input { width: 100% !important; min-width: 0 !important; flex: 1; }
