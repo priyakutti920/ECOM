@@ -31,16 +31,14 @@
       </div>
 
 
-      <!-- Right: Compare, Wishlist, Cart -->
+      <!-- Right: Relevant, Wishlist, Cart -->
       <div class="header-actions">
-        <!-- Compare Action -->
-        <a href="{{ url('/products') }}" class="header-action-item" title="Compare" aria-label="Compare Products">
+        <!-- Relevant Action -->
+        <a href="{{ url('/products') }}" class="header-action-item" title="Relevant" aria-label="Relevant Products">
           <div class="header-action-icon-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-              <path d="M3.58 5.16H17.42C19.08 5.16 20.42 6.5 20.42 8.16V11.48" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M6.74 2L3.58 5.16L6.74 8.32" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M20.42 18.84H6.58C4.92 18.84 3.58 17.5 3.58 15.84V12.52" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M17.26 22L20.42 18.84L17.26 15.68" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 3C12 7.97 7.97 12 3 12C7.97 12 12 16.03 12 21C12 16.03 16.03 12 21 12C16.03 12 12 7.97 12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M19 3C19 4.66 17.66 6 16 6C17.66 6 19 7.34 19 9C19 7.34 20.34 6 22 6C20.34 6 19 4.66 19 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
         </a>
@@ -177,19 +175,17 @@
       </li>
 
       <li>
-        <a href="{{ url('/products') }}" class="{{ request()->is('products') ? 'active' : '' }}">
+        <a href="{{ url('/products') }}" class="{{ request()->is('products*') ? 'active' : '' }}" title="Relevant" aria-label="Relevant Products">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-            <path d="M3.58 5.16H17.42C19.08 5.16 20.42 6.5 20.42 8.16V11.48" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M6.74 2L3.58 5.16L6.74 8.32" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M20.42 18.84H6.58C4.92 18.84 3.58 17.5 3.58 15.84V12.52" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M17.26 22L20.42 18.84L17.26 15.68" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 3C12 7.97 7.97 12 3 12C7.97 12 12 16.03 12 21C12 16.03 16.03 12 21 12C16.03 12 12 7.97 12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M19 3C19 4.66 17.66 6 16 6C17.66 6 19 7.34 19 9C19 7.34 20.34 6 22 6C20.34 6 19 4.66 19 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>Compare</span>
+          <span>Relevant</span>
         </a>
       </li>
 
       <li>
-        <a href="javascript:void(0)" onclick="toggleSidebarMenu();">
+        <a href="{{ url('/shop') }}" class="{{ request()->is('shop*') || request()->is('category*') ? 'active' : '' }}" title="Categories" aria-label="Categories">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 28" fill="none">
             <path d="M20.33 11.67H22.67C25 11.67 26.17 10.5 26.17 8.17V5.83C26.17 3.5 25 2.33 22.67 2.33H20.33C18 2.33 16.83 3.5 16.83 5.83V8.17C16.83 10.5 18 11.67 20.33 11.67Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M6.33 25.67H8.67C11 25.67 12.17 24.5 12.17 22.17V19.83C12.17 17.5 11 16.33 8.67 16.33H6.33C4 16.33 2.83 17.5 2.83 19.83V22.17C2.83 24.5 4 25.67 6.33 25.67Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
