@@ -2862,7 +2862,6 @@
     <button type="button" class="sidebar-menu-close" onclick="closeSidebarMenu()" aria-label="Close Menu"><i class="las la-times"></i></button>
   </div>
   <nav class="sidebar-menu-nav">
-    <a href="{{ url('/') }}"><i class="las la-home"></i> Home</a>
     <a href="{{ url('/products') }}"><i class="las la-tshirt"></i> All Products</a>
     @php
       $menuCats = \App\Models\Category::active()->limit(8)->get();

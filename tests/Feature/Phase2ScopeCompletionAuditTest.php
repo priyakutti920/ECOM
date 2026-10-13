@@ -146,6 +146,19 @@ class Phase2ScopeCompletionAuditTest extends TestCase
         $this->assertStringContainsString('overscroll-behavior-y: contain', $content);
         $this->assertStringContainsString('touch-action: pan-y', $content);
         $this->assertStringContainsString('touch-action: manipulation', $content);
+
+        // Verify Home link is removed from user side menu drawer while All Products remains
+        preg_match('/<aside class="sidebar-menu-wrap"[^>]*>(.*?)<\/aside>/s', $content, $drawerMatches);
+        $this->assertNotEmpty($drawerMatches, 'sidebar-menu-drawer must exist');
+        $drawerHtml = $drawerMatches[1];
+        $this->assertStringNotContainsString('la-home', $drawerHtml, 'User side menu drawer must not contain Home icon');
+        $this->assertStringNotContainsString('> Home</a>', $drawerHtml, 'User side menu drawer must not contain Home link text');
+        $this->assertStringContainsString('All Products', $drawerHtml, 'User side menu drawer must retain All Products link');
+
+        // Bottom navigation must still have Home
+        preg_match('/<section class="bottom-navigation-wrap[^>]*>(.*?)<\/section>/s', $content, $bottomNavMatches);
+        $this->assertNotEmpty($bottomNavMatches, 'bottom-navigation-wrap must exist');
+        $this->assertStringContainsString('<span>Home</span>', $bottomNavMatches[1], 'Bottom navigation must keep Home');
     }
 
     /**

@@ -27,7 +27,6 @@
  </div>
 
  <nav class="account-nav">
-        <a href="{{ url('/') }}" class="nav-item"><i class="fas fa-home"></i> Home</a>
         <a href="#profile" class="nav-item active"><i class="fas fa-user"></i> My Profile</a>
         <a href="#change-password" class="nav-item"><i class="fas fa-key"></i> Change Password</a>
         <a href="#addresses" class="nav-item"><i class="fas fa-map-marker-alt"></i> Addresses</a>
