@@ -450,6 +450,15 @@
 }
 
 /* ── Mobile Responsive Refinements ── */
+@media (max-width: 991px) {
+    .theme-columns {
+        grid-template-columns: 1fr;
+    }
+    .preview-sticky {
+        position: static;
+        top: auto;
+    }
+}
 @media (max-width: 768px) {
     .theme-header-bar {
         padding: 16px 14px;
@@ -474,6 +483,10 @@
         flex: 0 0 220px !important;
         min-width: 220px !important;
         touch-action: pan-x pan-y !important;
+    }
+    .style-options-grid {
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 8px;
     }
     .panel-card-body {
         padding: 16px 14px;
@@ -520,6 +533,11 @@
     }
     .mockup-search-box {
         max-width: 100%;
+    }
+    #toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: 16px;
     }
 }
 </style>

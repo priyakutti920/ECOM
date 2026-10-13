@@ -4,11 +4,12 @@
 
 @push('styles')
 <style>
-.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.head h2 { margin: 0; font-size: 20px; color: #0F1111; }
-.head .subj { font-size: 14px; color: #444; margin-top: 4px; }
-.head .meta { font-size: 12px; color: #888; margin-top: 4px; }
-.head .right { display: flex; gap: 8px; align-items: center; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; width: 100%; max-width: 100%; box-sizing: border-box; }
+.head > div:first-child { min-width: 0; max-width: 100%; flex: 1 1 auto; word-break: break-word; overflow-wrap: anywhere; }
+.head h2 { margin: 0; font-size: 20px; color: #0F1111; word-break: break-word; overflow-wrap: anywhere; }
+.head .subj { font-size: 14px; color: #444; margin-top: 4px; word-break: break-word; overflow-wrap: anywhere; }
+.head .meta { font-size: 12px; color: #888; margin-top: 4px; word-break: break-word; overflow-wrap: anywhere; }
+.head .right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
 .status-pill { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .status-open                { background: #fff8e1; color: #946a00; }
@@ -20,45 +21,56 @@
 .status-form select { padding: 5px 7px; border: 1px solid #d5d9d9; border-radius: 4px; font-size: 12px; }
 .status-form button { padding: 5px 10px; background: #3a7bd5; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
 
-.thread { background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; padding: 18px 22px; margin-bottom: 16px; }
-.msg { display: flex; gap: 10px; padding: 10px 0; }
+.thread { background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; padding: 18px 22px; margin-bottom: 16px; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+.msg { display: flex; gap: 10px; padding: 10px 0; width: 100%; max-width: 100%; box-sizing: border-box; }
 .msg + .msg { border-top: 1px dashed #f0f0f0; }
 .msg .av { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 12px; }
 .msg.admin .av { background: #3a7bd5; }
 .msg.customer .av { background: #c7511f; }
-.msg .body { flex: 1; min-width: 0; }
-.msg .who { font-size: 12px; font-weight: 700; color: #222; }
-.msg .when { font-size: 11px; color: #888; margin-left: 6px; font-weight: 400; }
-.msg .bubble { background: #f8f9fa; border-radius: 8px; padding: 10px 14px; margin-top: 5px; font-size: 13.5px; line-height: 1.5; color: #222; white-space: pre-wrap; word-wrap: break-word; }
+.msg .body { flex: 1; min-width: 0; max-width: 100%; box-sizing: border-box; word-break: break-word; overflow-wrap: anywhere; }
+.msg .who { font-size: 12px; font-weight: 700; color: #222; word-break: break-word; }
+.msg .when { font-size: 11px; color: #888; margin-left: 6px; font-weight: 400; white-space: nowrap; }
+.msg .bubble { background: #f8f9fa; border-radius: 8px; padding: 10px 14px; margin-top: 5px; font-size: 13.5px; line-height: 1.5; color: #222; white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; box-sizing: border-box; }
 .msg.admin .bubble { background: #e3f2fd; }
 .msg.customer .bubble { background: #fff7e6; }
 
-.reply-box { background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; padding: 18px 22px; }
+.reply-box { background: #fff; border: 1px solid #e7e7e7; border-radius: 8px; padding: 18px 22px; width: 100%; max-width: 100%; box-sizing: border-box; }
 .reply-box label { display: block; font-size: 12px; font-weight: 600; color: #444; margin-bottom: 6px; }
-.reply-box textarea { width: 100%; border: 1px solid #d5d9d9; border-radius: 4px; padding: 10px 12px; font-size: 13.5px; font-family: inherit; min-height: 90px; resize: vertical; }
+.reply-box textarea { width: 100%; max-width: 100%; box-sizing: border-box; border: 1px solid #d5d9d9; border-radius: 4px; padding: 10px 12px; font-size: 13.5px; font-family: inherit; min-height: 90px; resize: vertical; }
 .reply-box textarea:focus { outline: none; border-color: #3a7bd5; box-shadow: 0 0 0 2px rgba(58,123,213,0.15); }
-.reply-box .actions { display: flex; justify-content: flex-end; margin-top: 10px; }
-.btn-submit { background: #3a7bd5; color: #fff; border: none; padding: 8px 22px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.reply-box .actions { display: flex; justify-content: flex-end; margin-top: 10px; width: 100%; box-sizing: border-box; }
+.btn-submit { background: #3a7bd5; color: #fff; border: none; padding: 8px 22px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s; }
 .btn-submit:hover { background: #2f6bc4; }
 
 .closed-banner { background: #e2e3e5; color: #383d41; padding: 10px 16px; border-radius: 6px; font-size: 12.5px; margin-bottom: 12px; }
 
+@media (max-width: 768px) {
+    .head { flex-direction: column; align-items: stretch; gap: 12px; }
+    .head .right { width: 100%; }
+    .status-form { width: 100%; }
+    .status-form select { flex: 1; height: 36px; font-size: 13px; }
+    .status-form button { height: 36px; padding: 0 16px; font-size: 13px; }
+    .reply-box .actions { justify-content: stretch; }
+    .btn-submit { width: 100%; text-align: center; height: 42px; font-size: 14px; }
+}
 @media (max-width: 576px) {
     .head { flex-direction: column; align-items: stretch; gap: 12px; }
     .head .right { width: 100%; }
     .status-form { width: 100%; }
-    .status-form select { flex: 1; height: 34px; font-size: 13px; }
-    .status-form button { height: 34px; padding: 0 14px; font-size: 13px; }
+    .status-form select { flex: 1; height: 36px; font-size: 13px; }
+    .status-form button { height: 36px; padding: 0 16px; font-size: 13px; }
     .thread, .reply-box { padding: 14px 12px; }
     .msg { gap: 8px; }
     .msg .av { width: 28px; height: 28px; font-size: 11px; }
     .msg .bubble { padding: 8px 12px; font-size: 13px; }
+    .reply-box .actions { justify-content: stretch; }
+    .btn-submit { width: 100%; text-align: center; height: 42px; font-size: 14px; }
 }
 </style>
 @endpush
 
 @section('content')
-<div style="max-width: 900px; margin: 0 auto;">
+<div style="max-width: 900px; margin: 0 auto; width: 100%; min-width: 0; box-sizing: border-box;">
 
  <a href="{{ route('admin.support.index') }}" style="display:inline-flex; align-items:center; gap:6px; color:#3a7bd5; font-size:12px; text-decoration:none; margin-bottom:10px;"><i class="fas fa-arrow-left"></i> All tickets</a>
 
@@ -74,7 +86,7 @@
  </div>
  </div>
  <div class="right">
- <form method="POST" action="{{ route('admin.support.status', $ticket) }}" class="status-form">
+ <form method="POST" action="{{ route('admin.support.status', $ticket) }}" class="status-form" onsubmit="var b=this.querySelector('button[type=submit]'); if(b.disabled) return false; b.disabled=true;">
  @csrf
  <select name="status">
  @foreach(\App\Models\SupportTicket::STATUSES as $key => $label)
@@ -88,6 +100,14 @@
 
  @if(session('success'))
  <div style="background:#d4edda; color:#155724; padding:10px 14px; border-radius:6px; margin-bottom:12px; font-size:13px;"><i class="fas fa-check-circle"></i> {{ session('success') }}</div>
+ @endif
+ @if(session('error'))
+ <div style="background:#f8d7da; color:#721c24; padding:10px 14px; border-radius:6px; margin-bottom:12px; font-size:13px;"><i class="fas fa-exclamation-circle"></i> {{ session('error') }}</div>
+ @endif
+ @if($errors->any())
+ <div style="background:#f8d7da; color:#721c24; padding:10px 14px; border-radius:6px; margin-bottom:12px; font-size:13px;">
+     <i class="fas fa-exclamation-triangle"></i> {{ $errors->first() }}
+ </div>
  @endif
 
  @if($ticket->isClosed())
@@ -110,10 +130,10 @@
  </div>
 
  @unless($ticket->isClosed())
- <form class="reply-box" method="POST" action="{{ route('admin.support.reply', $ticket) }}">
+ <form class="reply-box" method="POST" action="{{ route('admin.support.reply', $ticket) }}" onsubmit="var b=this.querySelector('button[type=submit]'); if(b.disabled) return false; b.disabled=true; b.innerText='Sending...';">
  @csrf
  <label for="message">Reply</label>
- <textarea id="message" name="message" required maxlength="5000" placeholder="Type your reply to the customer…"></textarea>
+ <textarea id="message" name="message" required maxlength="5000" placeholder="Type your reply to the customer…">{{ old('message') }}</textarea>
  <div class="actions">
  <button type="submit" class="btn-submit">Send reply</button>
  </div>

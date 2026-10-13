@@ -19,14 +19,19 @@ class ReviewController extends Controller
     {
         $customer = Auth::guard('customer')->user();
         if (! $customer) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'You must be logged in to submit a review.'], 401);
+            }
             return back()->withErrors(['review' => 'You must be logged in to submit a review.']);
         }
 
         $validated = $request->validate([
+            'category' => ['nullable', 'string', 'in:quality,customer_service,cart,Quality Review,Customer Service Review,Cart Review'],
             'rating' => ['required', 'integer', 'between:1,5'],
-            'title' => ['nullable', 'string', 'max:200'],
+            'title' => ['nullable', 'string', 'max:180'],
             'comment' => ['required', 'string', 'min:5', 'max:2000'],
         ], [
+            'category.in' => 'Please select a valid review category (Quality, Customer Service, or Cart).',
             'rating.required' => 'Please select a star rating.',
             'rating.between' => 'Rating must be between 1 and 5 stars.',
             'comment.required' => 'Please enter your review text.',
@@ -39,6 +44,9 @@ class ReviewController extends Controller
             ->first();
 
         if ($existing) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'You have already submitted a review for this product. Thank you!'], 422);
+            }
             return back()->withErrors(['review' => 'You have already submitted a review for this product. Thank you!']);
         }
 
@@ -51,13 +59,17 @@ class ReviewController extends Controller
         // Check if store auto-approves reviews
         $autoApprove = StoreSetting::getValue('auto_approve_reviews', '0') === '1';
 
-        Review::create([
+        // Format title with selected review category
+        $categoryKey = Review::normalizeCategoryKey($validated['category'] ?? Review::CATEGORY_QUALITY);
+        $formattedTitle = Review::formatTitleWithCategory($validated['title'] ?? '', $categoryKey);
+
+        $review = Review::create([
             'product_id' => $product->id,
             'customer_id' => $customer->id,
             'customer_name' => $customer->name,
             'customer_email' => $customer->email,
             'rating' => $validated['rating'],
-            'title' => $validated['title'] ?? null,
+            'title' => $formattedTitle,
             'comment' => $validated['comment'],
             'is_approved' => $autoApprove,
             'is_verified_purchase' => $isVerifiedPurchase,
@@ -66,6 +78,16 @@ class ReviewController extends Controller
         $message = $autoApprove
             ? 'Thank you! Your review has been published.'
             : 'Thank you! Your review has been submitted and will appear once approved by our team.';
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'review_id' => $review->id,
+                'category' => $review->category,
+                'category_label' => $review->category_label,
+            ]);
+        }
 
         return back()->with('success', $message);
     }

@@ -73,6 +73,8 @@
               <a href="{{ route('shop.account') }}" style="display:flex; align-items:center; gap:8px; padding:8px 16px; font-size:13px; color:var(--color-heading); font-weight:500; text-decoration:none;"><i class="las la-user"></i> Profile</a>
               <a href="{{ route('shop.orders.index') }}" style="display:flex; align-items:center; gap:8px; padding:8px 16px; font-size:13px; color:var(--color-heading); font-weight:500; text-decoration:none;"><i class="las la-box"></i> My Orders</a>
               <a href="{{ route('shop.wishlist') }}" style="display:flex; align-items:center; gap:8px; padding:8px 16px; font-size:13px; color:var(--color-heading); font-weight:500; text-decoration:none;"><i class="las la-heart"></i> My Wishlist</a>
+              <a href="{{ route('shop.support.index') }}" style="display:flex; align-items:center; gap:8px; padding:8px 16px; font-size:13px; color:var(--color-heading); font-weight:500; text-decoration:none;"><i class="las la-headset"></i> Support Tickets</a>
+              <a href="{{ route('shop.help') }}" style="display:flex; align-items:center; gap:8px; padding:8px 16px; font-size:13px; color:var(--color-heading); font-weight:500; text-decoration:none;"><i class="las la-question-circle"></i> Get Help</a>
               <a href="{{ route('shop.logout') }}" onclick="event.preventDefault(); document.getElementById('account-logout-form').submit();" style="display:flex; align-items:center; gap:8px; padding:8px 16px; font-size:13px; color:#ef4444; font-weight:500; text-decoration:none;"><i class="las la-sign-out-alt"></i> Logout</a>
               <form id="account-logout-form" action="{{ route('shop.logout') }}" method="POST" style="display:none;">@csrf</form>
             </div>
@@ -88,6 +90,12 @@
           </a>
         @endauth
 
+
+
+
+
+
+        
         <!-- Cart Action with Subtotal Live Display -->
         <div class="header-action-item header-cart" onclick="openCartSidebar();" role="button" tabindex="0" title="Shopping Cart" aria-label="Shopping Cart">
           <div class="header-action-icon-wrap">
@@ -105,6 +113,12 @@
       </div>
     </div>
   </div>
+
+
+
+
+
+
 
   <!-- Full-Width Search Bar -->
   <div class="container" style="padding-bottom: 12px;">
@@ -127,11 +141,27 @@
         </button>
       </form>
 
+
+
+
+
+
+
       <!-- Live Search Dropdown Panel -->
       <div class="live-search-dropdown" id="desktopSearchDropdown" role="listbox" aria-label="Search Results"></div>
     </div>
   </div>
 </header>
+
+
+
+
+
+
+
+
+
+
 
 <!-- 4. Mobile Bottom Navigation Bar -->
 <section class="bottom-navigation-wrap d-lg-none">

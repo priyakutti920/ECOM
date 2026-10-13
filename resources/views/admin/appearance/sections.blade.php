@@ -458,6 +458,63 @@ input:checked + .slider:before { transform: translateX(20px); }
     gap: 8px;
 }
 .btn-save-sections:hover { background: #059669; }
+
+/* ── Mobile Responsive Refinements ── */
+@media (max-width: 768px) {
+    .page-title-box {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .page-title-actions {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .page-title-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+        text-align: center;
+        justify-content: center;
+    }
+    .sec-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .sec-header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+@media (max-width: 640px) {
+    .save-bar-bottom {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+        text-align: center;
+        padding: 12px 16px;
+        bottom: 10px;
+    }
+    .btn-save-sections {
+        width: 100%;
+        justify-content: center;
+    }
+    .stats-banner {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+@media (max-width: 480px) {
+    .page-title-actions .btn {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .mode-selector {
+        flex-direction: column;
+        gap: 6px;
+    }
+}
 </style>
 @endpush
 
@@ -474,13 +531,13 @@ input:checked + .slider:before { transform: translateX(20px); }
             </div>
             <h2><i class="fas fa-layer-group text-primary"></i> Home Product Sections Manager</h2>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div class="page-title-actions" style="display:flex; gap:10px;">
             <a href="{{ url('/') }}" target="_blank" class="btn btn-default" style="font-size:13px; font-weight:600;">
                 <i class="fas fa-external-link-alt"></i> View Storefront
             </a>
             <button type="button" onclick="document.getElementById('sections-form').submit();" class="btn btn-primary" style="font-size:13px; font-weight:600;">
                 <i class="fas fa-save"></i> Save All Sections
-            </a>
+            </button>
         </div>
     </div>
 

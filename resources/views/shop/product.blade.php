@@ -770,6 +770,15 @@
                     <form id="productReviewForm" onsubmit="submitReview(event)">
                         @csrf
                         <div style="margin-bottom:12px;">
+                            <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Review Category</label>
+                            <select name="category" id="review-category-select" class="form-control" style="width:100%; padding:8px 12px; border:1px solid #d5d9d9; border-radius:4px; font-size:13px; background:#fff;">
+                                <option value="quality">Quality Review (Product Quality &amp; Craftsmanship)</option>
+                                <option value="customer_service">Customer Service Review (Service &amp; Support Experience)</option>
+                                <option value="cart">Cart Review (Cart &amp; Ordering Experience)</option>
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
                             <label style="font-size:13px; font-weight:600; display:block; margin-bottom:6px;">Overall Rating</label>
                             <div id="star-picker" style="font-size:24px; color:#d5d9d9; cursor:pointer;">
                                 @for($i = 1; $i <= 5; $i++)
@@ -777,11 +786,6 @@
                                 @endfor
                             </div>
                             <input type="hidden" name="rating" id="review-rating-val" value="5" required>
-                        </div>
-
-                        <div style="margin-bottom:12px;">
-                            <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Review Title</label>
-                            <input type="text" name="title" id="review-title-input" class="form-control" placeholder="What's most important to know?" required style="width:100%; padding:8px 12px; border:1px solid #d5d9d9; border-radius:4px; font-size:13px;">
                         </div>
 
                         <div style="margin-bottom:14px;">
@@ -811,13 +815,19 @@
                                         <span class="verified-badge"><i class="fas fa-check"></i> Verified Purchase</span>
                                     @endif
                                 </div>
-                                <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+                                <div style="margin-top:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                     <span class="review-stars">
                                         @for($st = 1; $st <= 5; $st++)
                                             <i class="{{ $st <= $rev->rating ? 'fas' : 'far' }} fa-star"></i>
                                         @endfor
                                     </span>
-                                    <strong class="review-title">{{ $rev->title }}</strong>
+                                    @if($rev->category === 'customer_service')
+                                        <span style="background:#ccfbf1; color:#0f766e; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:700;"><i class="fas fa-headset"></i> Customer Service</span>
+                                    @elseif($rev->category === 'cart')
+                                        <span style="background:#fef3c7; color:#b45309; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:700;"><i class="fas fa-shopping-cart"></i> Cart</span>
+                                    @else
+                                        <span style="background:#e0e7ff; color:#4338ca; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:700;"><i class="fas fa-gem"></i> Quality</span>
+                                    @endif
                                 </div>
                                 <div style="font-size:12px; color:#565959; margin-top:2px;">
                                     Reviewed on {{ $rev->created_at ? $rev->created_at->format('d M Y') : 'Recent' }}
@@ -1069,8 +1079,8 @@ async function submitReview(e) {
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
+                category: (document.getElementById('review-category-select') || {}).value || 'quality',
                 rating: document.getElementById('review-rating-val').value,
-                title: document.getElementById('review-title-input').value,
                 comment: document.getElementById('review-comment-input').value
             })
         });

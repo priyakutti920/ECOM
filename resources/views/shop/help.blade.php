@@ -44,13 +44,13 @@
 .faq[open] summary::after { transform: rotate(180deg); }
 .faq .ans { font-size: 13.5px; color: #444; line-height: 1.55; margin-top: 8px; }
 
-.ticket-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; align-items: center; }
+.ticket-row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; align-items: center; width: 100%; box-sizing: border-box; }
 .ticket-row:last-child { border-bottom: none; }
-.ticket-row .t-info { flex: 1; min-width: 0; }
-.ticket-row .t-subj { font-weight: 600; color: var(--color-heading); font-size: 13.5px; text-decoration: none; }
+.ticket-row .t-info { flex: 1; min-width: 0; word-break: break-word; overflow-wrap: anywhere; }
+.ticket-row .t-subj { font-weight: 600; color: var(--color-heading); font-size: 13.5px; text-decoration: none; word-break: break-word; overflow-wrap: anywhere; }
 .ticket-row .t-subj:hover { color: var(--color-primary); text-decoration: underline; }
-.ticket-row .t-meta { font-size: 11.5px; color: var(--color-muted); margin-top: 2px; }
-.status-pill { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+.ticket-row .t-meta { font-size: 11.5px; color: var(--color-muted); margin-top: 2px; word-break: break-word; overflow-wrap: anywhere; }
+.status-pill { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
 .status-open { background: #fff8e1; color: #946a00; }
 .status-awaiting_admin { background: #e3f2fd; color: #0a4b6e; }
 .status-awaiting_customer { background: #fce4ec; color: #880e4f; }
@@ -59,16 +59,34 @@
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 12px; font-weight: 600; color: #444; margin-bottom: 4px; }
 .form-group input, .form-group select, .form-group textarea {
- width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit;
+ width: 100%; max-width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit;
 }
 .form-group textarea { min-height: 90px; resize: vertical; }
 .btn-submit { background: var(--color-primary); color:#fff; border:none; padding: 9px 22px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
 .btn-submit:hover { background: var(--color-primary-hover); }
+
+@media (max-width: 576px) {
+    .help-wrap { padding: 16px 12px 50px; }
+    .help-hero { padding: 18px 16px; gap: 14px; }
+    .help-hero h1 { font-size: 20px; }
+    .help-hero .wa-btn, .help-hero .ticket-btn { width: 100%; justify-content: center; }
+    .card { padding: 16px 14px; }
+}
 </style>
 @endpush
 
 @section('content')
 <div class="help-wrap">
+
+ @if(session('success'))
+ <div style="background:#d4edda; border:1px solid #c3e6cb; color:#155724; padding:12px 18px; border-radius:var(--radius-sm); margin-bottom:16px; font-size:13.5px;"><i class="fas fa-check-circle"></i> {{ session('success') }}</div>
+ @endif
+ @if(session('error'))
+ <div style="background:#f8d7da; border:1px solid #f5c6cb; color:#721c24; padding:12px 18px; border-radius:var(--radius-sm); margin-bottom:16px; font-size:13.5px;"><i class="fas fa-exclamation-circle"></i> {{ session('error') }}</div>
+ @endif
+ @if(session('info'))
+ <div style="background:#e0f2fe; border:1px solid #bae6fd; color:#0369a1; padding:12px 18px; border-radius:var(--radius-sm); margin-bottom:16px; font-size:13.5px;"><i class="fas fa-info-circle"></i> {{ session('info') }}</div>
+ @endif
 
  <div class="help-hero">
  <div class="icon"><i class="fas fa-headset"></i></div>
@@ -101,30 +119,51 @@
 
  <div class="card" id="newTicket">
  <h2><i class="fas fa-ticket-alt"></i> Open a support ticket</h2>
- <form method="POST" action="{{ route('shop.support.store') }}">
+
+ @auth('customer')
+ @if($errors->any())
+ <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:10px 14px; border-radius:var(--radius-sm); margin-bottom:14px; font-size:13px;">
+   <i class="fas fa-exclamation-triangle"></i> {{ $errors->first() }}
+ </div>
+ @endif
+
+ <form method="POST" action="{{ route('shop.support.store') }}" onsubmit="var b=this.querySelector('button[type=submit]'); if(b.disabled) return false; b.disabled=true; b.innerText='Submitting...';">
  @csrf
  <div class="form-group">
  <label for="subject">Subject <span style="color:#c7511f;">*</span></label>
- <input id="subject" name="subject" maxlength="200" required placeholder="Briefly describe your issue">
+ <input id="subject" name="subject" maxlength="200" required placeholder="Briefly describe your issue" value="{{ old('subject') }}">
  </div>
  <div class="form-group">
  <label for="category">Category</label>
  <select id="category" name="category">
  @foreach(\App\Models\SupportTicket::CATEGORIES as $key => $label)
- <option value="{{ $key }}">{{ $label }}</option>
+ <option value="{{ $key }}" {{ old('category') === $key ? 'selected' : '' }}>{{ $label }}</option>
  @endforeach
  </select>
  </div>
  <div class="form-group">
  <label for="order_code">Order code (optional)</label>
- <input id="order_code" name="order_code" maxlength="50" placeholder="e.g. NS-20260602-ABCD">
+ <input id="order_code" name="order_code" maxlength="50" placeholder="e.g. NS-20260602-ABCD" value="{{ old('order_code', request('order', request('order_code')) ?: '') }}">
  </div>
  <div class="form-group">
  <label for="message">Describe your issue <span style="color:#c7511f;">*</span></label>
- <textarea id="message" name="message" maxlength="5000" required placeholder="Please give us as much detail as possible…"></textarea>
+ <textarea id="message" name="message" maxlength="5000" required placeholder="Please give us as much detail as possible…">{{ old('message') }}</textarea>
  </div>
  <button type="submit" class="btn-submit">Submit ticket</button>
  </form>
+ @else
+ <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:var(--radius-sm); padding:24px 18px; text-align:center;">
+   <i class="fas fa-user-lock" style="font-size:32px; color:var(--color-primary); margin-bottom:10px; display:inline-block;"></i>
+   <h3 style="font-size:15px; font-weight:700; color:var(--color-heading); margin:0 0 6px;">Sign in to open a support ticket</h3>
+   <p style="font-size:13px; color:var(--color-muted); margin:0 0 16px; max-width:420px; margin-left:auto; margin-right:auto; line-height:1.45;">
+     Please log in to your customer account so our team can link your ticket to your profile and order history.
+   </p>
+   <a href="{{ route('shop.login.email') }}" class="btn-submit" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+     <i class="fas fa-sign-in-alt"></i> Login to continue
+   </a>
+ </div>
+ @endauth
+
  </div>
 
  </div>
@@ -133,6 +172,7 @@
 
  <div class="card">
  <h2><i class="fas fa-clock"></i> Your recent tickets</h2>
+ @auth('customer')
  @if($tickets->isEmpty())
  <div style="font-size:13px; color:#888; padding:6px 0;">You haven’t opened any tickets yet.</div>
  @else
@@ -149,13 +189,12 @@
  <span class="status-pill status-{{ $t->status }}">{{ $t->status_label }}</span>
  </div>
  @endforeach
- <a href="{{ route('shop.support.index') }}" style="display:inline-block; margin-top:10px; font-size:12.5px; color:#007185; text-decoration:none;">View all tickets →</a>
+ <a href="{{ route('shop.support.index') }}" style="display:inline-block; margin-top:10px; font-size:12.5px; color:var(--color-primary); text-decoration:none;">View all tickets →</a>
  @endif
+ @else
+ <div style="font-size:13px; color:#888; padding:6px 0;">Please <a href="{{ route('shop.login.email') }}" style="color:var(--color-primary); font-weight:600;">log in</a> to view your support tickets.</div>
+ @endauth
  </div>
-
- @if(session('success'))
- <div class="card" style="background:#f0f7ff; border-color:#cce0ff; color:#0a4b87; padding:12px 18px;">{{ session('success') }}</div>
- @endif
 
  </div>
  </div>

@@ -495,6 +495,7 @@
  <a href="{{ url('/') }}" class="btn-primary">Continue shopping</a>
  <a href="{{ route('shop.orders.index') }}" class="btn-secondary">All orders</a>
  <a href="{{ route('shop.orders.invoice', ['order' => $order->order_code]) }}" class="btn-secondary"><i class="fas fa-file-pdf"></i> Download Invoice</a>
+ <a href="{{ route('shop.help') }}?order={{ $order->order_code }}#newTicket" class="btn-secondary"><i class="fas fa-headset"></i> Get Help</a>
  @if($canCancel)
  <button type="button" class="btn-danger-outline" onclick="openCancelModal()">Cancel order</button>
  @endif

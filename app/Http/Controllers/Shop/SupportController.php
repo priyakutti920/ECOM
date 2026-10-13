@@ -155,6 +155,11 @@ class SupportController extends Controller
         $ticketModel = SupportTicket::where('id', $ticket)
             ->where('customer_id', Auth::guard('customer')->id())
             ->firstOrFail();
+
+        if ($ticketModel->isClosed()) {
+            return back()->with('info', 'Ticket is already closed.');
+        }
+
         $ticketModel->status    = 'closed';
         $ticketModel->closed_at = now();
         $ticketModel->closed_by = Auth::guard('customer')->id();

@@ -913,6 +913,96 @@
     border-radius: 8px;
     margin-top: 16px;
 }
+
+/* ── Mobile Responsive Refinements ── */
+.media-list-table-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
+    overscroll-behavior-x: contain;
+}
+.media-list-table {
+    min-width: 680px;
+}
+.media-list-table th,
+.media-list-table td {
+    touch-action: pan-x pan-y !important;
+}
+
+@media (max-width: 768px) {
+    .media-page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .media-header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .media-header-actions .btn,
+    .media-header-actions form {
+        flex: 1 1 calc(50% - 4px);
+    }
+    .media-header-actions form {
+        display: flex !important;
+    }
+    .media-header-actions form .btn {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+    .media-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .media-tabs {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-x pan-y !important;
+        overscroll-behavior-x: contain;
+        padding-bottom: 6px;
+        width: 100%;
+        white-space: nowrap;
+        scrollbar-width: thin;
+    }
+    .media-tab {
+        flex-shrink: 0;
+    }
+    .media-filter-form {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .media-search-input {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+}
+@media (max-width: 576px) {
+    .media-header-actions .btn,
+    .media-header-actions form {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .media-stats-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .bulk-folder-select-row {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    .bulk-folder-select-row select {
+        width: 100% !important;
+    }
+}
 </style>
 @endpush
 

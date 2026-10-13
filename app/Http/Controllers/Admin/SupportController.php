@@ -19,7 +19,8 @@ class SupportController extends Controller
         $tickets = SupportTicket::with(['customer', 'lastMessage'])
             ->when($request->q, function ($q) use ($request) {
                 $term = trim($request->q);
-                $q->where(function ($w) use ($term) {
+                $cleanId = ltrim($term, '#');
+                $q->where(function ($w) use ($term, $cleanId) {
                     $w->where('subject', 'like', "%{$term}%")
                       ->orWhere('order_code', 'like', "%{$term}%")
                       ->orWhereHas('customer', function ($c) use ($term) {
@@ -27,6 +28,9 @@ class SupportController extends Controller
                             ->orWhere('email', 'like', "%{$term}%")
                             ->orWhere('mobile', 'like', "%{$term}%");
                       });
+                    if (is_numeric($cleanId)) {
+                        $w->orWhere('id', (int) $cleanId);
+                    }
                 });
             })
             ->when($request->status, function ($q) use ($request) {

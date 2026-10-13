@@ -326,6 +326,17 @@ table.data tr:hover td {
         padding: 0 4px;
     }
 }
+@media (max-width: 480px) {
+    .page-main-wrap {
+        padding: 0 2px;
+    }
+    .kpi {
+        padding: 10px 12px;
+    }
+    .kpi .num {
+        font-size: 20px;
+    }
+}
 </style>
 @endpush
 

@@ -318,6 +318,16 @@
             border-color: #cbd5e1;
         }
 
+        .admin-user-dropdown {
+            position: relative;
+        }
+        .admin-user-dropdown .dropdown-menu {
+            right: 0;
+            left: auto;
+            margin-top: 6px;
+            z-index: 1050;
+        }
+
         .admin-user-btn {
             display: inline-flex;
             align-items: center;
@@ -1197,12 +1207,12 @@
                 </a>
 
                 <div class="dropdown admin-user-dropdown">
-                    <a href="#" class="dropdown-toggle admin-user-btn" data-toggle="dropdown">
+                    <a href="#" class="dropdown-toggle admin-user-btn" data-toggle="dropdown" role="button" id="adminUserDropdownBtn" aria-haspopup="true" aria-expanded="false">
                         <span class="admin-user-avatar"><i class="fas fa-user"></i></span>
                         <span class="admin-user-name">{{ Str::limit(auth()->user()->name ?? 'Admin', 12) }}</span>
                         <span class="caret"></span>
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-right">
+                    <ul class="dropdown-menu dropdown-menu-right" aria-labelledby="adminUserDropdownBtn">
                         <li><a href="{{ url('admin/account') }}"><i class="fas fa-user-circle"></i> Profile &amp; Account</a></li>
                         <li><a href="{{ url('admin/settings') }}"><i class="fas fa-sliders-h"></i> System Settings</a></li>
                         <li class="divider"></li>
@@ -1516,21 +1526,7 @@
         }, 140);
     });
 
-    // Explicit click toggle for desktop dropdowns and profile dropdown
-    $(document).on('click', '.admin-desktop-nav > li.dropdown > [data-toggle="dropdown"], .admin-user-dropdown > [data-toggle="dropdown"]', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var $parent = $(this).parent();
-        var wasOpen = $parent.hasClass('open');
-        $('.dropdown.open').not($parent).removeClass('open').find('[data-toggle="dropdown"]').attr('aria-expanded', 'false');
-        if (wasOpen) {
-            $parent.removeClass('open');
-            $(this).attr('aria-expanded', 'false');
-        } else {
-            $parent.addClass('open');
-            $(this).attr('aria-expanded', 'true');
-        }
-    });
+
 
     // Close open dropdowns on click outside
     $(document).on('click', function (e) {

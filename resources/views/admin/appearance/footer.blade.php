@@ -109,6 +109,69 @@
     color: #38bdf8;
     text-decoration: none;
 }
+
+/* ── Mobile Responsive Refinements ── */
+@media (max-width: 768px) {
+    .footer-preview-grid { grid-template-columns: 1fr 1fr; }
+    .footer-header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .footer-header-actions .btn,
+    .footer-header-actions form,
+    .footer-header-actions button {
+        flex: 1 1 calc(50% - 4px);
+        text-align: center;
+        justify-content: center;
+    }
+    .footer-header-actions form {
+        display: flex !important;
+    }
+    .footer-header-actions form button {
+        width: 100%;
+    }
+}
+@media (max-width: 576px) {
+    .link-row {
+        flex-wrap: wrap;
+        gap: 6px;
+        background: #f8fafc;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+    }
+    .link-row input[name*="_link_titles"] {
+        width: 100% !important;
+    }
+    .link-row input[name*="_link_urls"] {
+        flex: 1 1 calc(100% - 46px) !important;
+    }
+    .link-row .btn-remove-link {
+        height: 34px;
+        width: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+@media (max-width: 480px) {
+    .footer-preview-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .footer-header-actions .btn,
+    .footer-header-actions form,
+    .footer-header-actions button {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .panel-footer-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
 </style>
 @endpush
 
@@ -124,7 +187,7 @@
                 Connect, manage, and customize the 4 columns, contact information, menu links, and copyright text stored in the database.
             </p>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div class="footer-header-actions" style="display:flex; gap:10px;">
             <a href="{{ url('/') }}" target="_blank" class="btn btn-default">
                 <i class="fas fa-external-link-alt"></i> View Storefront
             </a>

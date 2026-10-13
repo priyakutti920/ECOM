@@ -2871,8 +2871,10 @@
     @endforeach
     <a href="{{ route('shop.wishlist') }}"><i class="las la-heart"></i> Wishlist</a>
     <a href="{{ url('/cart') }}"><i class="las la-shopping-bag"></i> Cart</a>
+    <a href="{{ route('shop.help') }}"><i class="las la-question-circle"></i> Help &amp; Support</a>
     @auth('customer')
       <a href="{{ route('shop.orders.index') }}"><i class="las la-box"></i> My Orders</a>
+      <a href="{{ route('shop.support.index') }}"><i class="las la-headset"></i> Support Tickets</a>
       <a href="{{ route('shop.account') }}"><i class="las la-user"></i> My Account</a>
       <a href="{{ route('shop.logout') }}" onclick="event.preventDefault(); document.getElementById('side-logout-form').submit();" style="color: #ef4444;"><i class="las la-sign-out-alt"></i> Logout</a>
       <form id="side-logout-form" action="{{ route('shop.logout') }}" method="POST" style="display:none;">@csrf</form>

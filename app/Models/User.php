@@ -95,6 +95,11 @@ class User extends Authenticatable
         return $this->belongsToMany(Product::class, 'wishlists', 'customer_id', 'product_id')->withTimestamps();
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'customer_id');
+    }
+
     /**
      * Get user avatar URL or fall back to an initials avatar.
      */
